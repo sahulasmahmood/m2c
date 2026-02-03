@@ -131,6 +131,7 @@ export default function Products() {
                   <TableHead>Price</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Approval</TableHead>
                   <TableHead>Variants</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -161,13 +162,28 @@ export default function Products() {
                     </TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs capitalize ${
-                        product.status === 'active' 
+                        product.status === 'ACTIVE' 
                           ? 'bg-green-100 text-green-800' 
-                          : product.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                          : product.status === 'INACTIVE'
+                          ? 'bg-gray-100 text-gray-800'
+                          : product.status === 'OUT_OF_STOCK'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {product.status}
+                        {product.status?.toLowerCase().replace('_', ' ')}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs capitalize ${
+                        product.approvalStatus === 'APPROVED' 
+                          ? 'bg-green-100 text-green-800' 
+                          : product.approvalStatus === 'PENDING'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : product.approvalStatus === 'REJECTED'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {product.approvalStatus?.toLowerCase()}
                       </span>
                     </TableCell>
                     <TableCell className="text-slate-600">

@@ -157,9 +157,10 @@ export default function AdminLogin() {
       setTimeout(() => {
         router.push('/admin/dashboard')
       }, 1000)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Super Admin login error:', error)
-      showErrorToast('Login Failed', error instanceof Error ? error.message : 'Invalid admin credentials. Please try again.')
+      const errorMessage = error?.message || (error instanceof Error ? error.message : 'Invalid admin credentials. Please try again.')
+      showErrorToast('Login Failed', errorMessage)
     } finally {
       setIsLoading(false)
     }

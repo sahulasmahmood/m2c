@@ -68,7 +68,11 @@ export interface ProductFormData {
   dimensions?: string;
   weight?: string;
   inStock: boolean;
-  status: 'active' | 'pending' | 'suspended' | 'out_of_stock';
+  status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectionReason?: string;
 }
 
 export interface ProductVariant {
@@ -136,7 +140,7 @@ class ProductService {
   // Create a new product
   async createProduct(productData: ProductFormData): Promise<{ success: boolean; data?: Product; message?: string }> {
     try {
-      const response = await axios.post('/api/products', productData);
+      const response = await axios.post('/products', productData);
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to create product');
@@ -168,7 +172,7 @@ class ProductService {
     };
   }> {
     try {
-      const response = await axios.get('/api/products', { params });
+      const response = await axios.get('/products', { params });
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to fetch products');
@@ -178,7 +182,7 @@ class ProductService {
   // Get a single product by ID
   async getProduct(id: string): Promise<{ success: boolean; data?: Product; message?: string }> {
     try {
-      const response = await axios.get(`/api/products/${id}`);
+      const response = await axios.get(`/products/${id}`);
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to fetch product');
@@ -188,7 +192,7 @@ class ProductService {
   // Update a product
   async updateProduct(id: string, productData: Partial<ProductFormData>): Promise<{ success: boolean; data?: Product; message?: string }> {
     try {
-      const response = await axios.put(`/api/products/${id}`, productData);
+      const response = await axios.put(`/products/${id}`, productData);
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to update product');
@@ -198,7 +202,7 @@ class ProductService {
   // Delete a product
   async deleteProduct(id: string): Promise<{ success: boolean; message?: string }> {
     try {
-      const response = await axios.delete(`/api/products/${id}`);
+      const response = await axios.delete(`/products/${id}`);
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to delete product');
@@ -208,7 +212,7 @@ class ProductService {
   // Get product statistics
   async getProductStats(): Promise<{ success: boolean; data?: ProductStats; message?: string }> {
     try {
-      const response = await axios.get('/api/products/stats');
+      const response = await axios.get('/products/stats');
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to fetch product statistics');
@@ -218,7 +222,7 @@ class ProductService {
   // Get available inventory items for product creation
   async getAvailableInventoryItems(): Promise<{ success: boolean; data?: InventoryItem[]; message?: string }> {
     try {
-      const response = await axios.get('/api/products/available-inventory');
+      const response = await axios.get('/products/available-inventory');
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to fetch available inventory items');

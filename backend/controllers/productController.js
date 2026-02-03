@@ -177,7 +177,11 @@ const createProduct = async (req, res) => {
           trackInventory: trackInventory !== false,
           minimumOrderQuantity: parseInt(minimumOrderQuantity) || 1,
           maximumOrderQuantity: maximumOrderQuantity ? parseInt(maximumOrderQuantity) : null,
-          dispatchTimeline: dispatchTimeline || {
+          dispatchTimeline: dispatchTimeline ? {
+            processingDays: parseInt(dispatchTimeline.processingDays) || 1,
+            shippingDays: parseInt(dispatchTimeline.shippingDays) || 3,
+            totalDays: parseInt(dispatchTimeline.totalDays) || 4
+          } : {
             processingDays: 1,
             shippingDays: 3,
             totalDays: 4
@@ -186,7 +190,8 @@ const createProduct = async (req, res) => {
           dimensions,
           weight,
           inStock: inStock !== false,
-          status: status || 'PENDING'
+          status: 'ACTIVE', // Default status is ACTIVE
+          approvalStatus: 'PENDING' // Default approval status is PENDING
         }
       });
 
@@ -535,12 +540,18 @@ const updateProduct = async (req, res) => {
           ...(updateData.maximumOrderQuantity !== undefined && { 
             maximumOrderQuantity: updateData.maximumOrderQuantity ? parseInt(updateData.maximumOrderQuantity) : null 
           }),
-          ...(updateData.dispatchTimeline !== undefined && { dispatchTimeline: updateData.dispatchTimeline }),
+          ...(updateData.dispatchTimeline !== undefined && { 
+            dispatchTimeline: updateData.dispatchTimeline ? {
+              processingDays: parseInt(updateData.dispatchTimeline.processingDays) || 1,
+              shippingDays: parseInt(updateData.dispatchTimeline.shippingDays) || 3,
+              totalDays: parseInt(updateData.dispatchTimeline.totalDays) || 4
+            } : updateData.dispatchTimeline
+          }),
           ...(updateData.tags !== undefined && { tags: updateData.tags }),
           ...(updateData.dimensions !== undefined && { dimensions: updateData.dimensions }),
           ...(updateData.weight !== undefined && { weight: updateData.weight }),
           ...(updateData.inStock !== undefined && { inStock: updateData.inStock }),
-          ...(updateData.status && { status: updateData.status })
+          ...(updateData.status && { status: updateData.status.toUpperCase() })
         }
       });
 
@@ -809,6 +820,252 @@ const getAvailableInventoryItems = async (req, res) => {
   }
 };
 
+// Admin: Approve product
+const approveProduct = async (req, res) => {
+  try {
+    const { id } = req.params; // Changed from productId to id
+    const adminId = req.user.id; // Admin ID from auth middleware
+
+    // Find the product
+    const product = await prisma.product.findUnique({
+      where: { id: id },
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            companyName: true,
+            ownerName: true,
+            businessEmail: true
+          }
+        }
+      }
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    if (product.approvalStatus === 'APPROVED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Product is already approved'
+      });
+    }
+
+    // Update product approval status
+    const updatedProduct = await prisma.product.update({
+      where: { id: id },
+      data: {
+        approvalStatus: 'APPROVED',
+        approvedAt: new Date(),
+        approvedBy: adminId,
+        rejectionReason: null // Clear any previous rejection reason
+      },
+      include: {
+        vendor: {
+          select: {
+            companyName: true,
+            ownerName: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Product approved successfully',
+      data: updatedProduct
+    });
+  } catch (error) {
+    console.error('Approve product error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve product'
+    });
+  }
+};
+
+// Admin: Reject product
+const rejectProduct = async (req, res) => {
+  try {
+    const { id } = req.params; // Changed from productId to id
+    const { rejectionReason } = req.body;
+    const adminId = req.user.id; // Admin ID from auth middleware
+
+    if (!rejectionReason || rejectionReason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required'
+      });
+    }
+
+    // Find the product
+    const product = await prisma.product.findUnique({
+      where: { id: id },
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            companyName: true,
+            ownerName: true,
+            businessEmail: true
+          }
+        }
+      }
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    if (product.approvalStatus === 'REJECTED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Product is already rejected'
+      });
+    }
+
+    // Update product approval status
+    const updatedProduct = await prisma.product.update({
+      where: { id: id },
+      data: {
+        approvalStatus: 'REJECTED',
+        rejectionReason: rejectionReason.trim(),
+        approvedAt: null,
+        approvedBy: null
+      },
+      include: {
+        vendor: {
+          select: {
+            companyName: true,
+            ownerName: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Product rejected successfully',
+      data: updatedProduct
+    });
+  } catch (error) {
+    console.error('Reject product error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject product'
+    });
+  }
+};
+
+// Admin: Get all products with approval status filter
+const getAllProductsForAdmin = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      approvalStatus,
+      status,
+      search,
+      vendorId,
+      category
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Build where clause
+    const where = {};
+    
+    if (approvalStatus) {
+      where.approvalStatus = approvalStatus.toUpperCase();
+    }
+    
+    if (status) {
+      where.status = status.toUpperCase();
+    }
+    
+    if (vendorId) {
+      where.vendorId = vendorId;
+    }
+    
+    if (category) {
+      where.category = { contains: category, mode: 'insensitive' };
+    }
+    
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { baseSku: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    // Get products with pagination
+    const [products, totalCount] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take: parseInt(limit),
+        include: {
+          vendor: {
+            select: {
+              id: true,
+              companyName: true,
+              ownerName: true,
+              businessEmail: true,
+              status: true
+            }
+          },
+          images: {
+            where: { isPrimary: true },
+            take: 1
+          },
+          variants: {
+            select: {
+              id: true,
+              size: true,
+              color: true,
+              price: true,
+              stock: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    const totalPages = Math.ceil(totalCount / parseInt(limit));
+
+    res.json({
+      success: true,
+      data: {
+        products,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalCount,
+          limit: parseInt(limit),
+          hasNext: parseInt(page) < totalPages,
+          hasPrev: parseInt(page) > 1
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get all products for admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch products'
+    });
+  }
+};
+
 module.exports = {
   createProduct,
   getVendorProducts,
@@ -816,5 +1073,9 @@ module.exports = {
   updateProduct,
   deleteProduct,
   getProductStats,
-  getAvailableInventoryItems
+  getAvailableInventoryItems,
+  // Admin functions
+  approveProduct,
+  rejectProduct,
+  getAllProductsForAdmin
 };

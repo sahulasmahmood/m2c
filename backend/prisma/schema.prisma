@@ -527,7 +527,13 @@ model Product {
   dimensions            String?
   weight                String?
   inStock               Boolean   @default(true)
-  status                ProductStatus @default(PENDING)
+  
+  // Product Status & Approval
+  status                ProductStatus @default(ACTIVE)
+  approvalStatus        ProductApprovalStatus @default(PENDING)
+  approvedAt            DateTime?
+  approvedBy            String?   @db.ObjectId // Admin ID who approved
+  rejectionReason       String?
   
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -572,8 +578,13 @@ model ProductImage {
 }
 
 enum ProductStatus {
-  PENDING
   ACTIVE
-  SUSPENDED
+  INACTIVE
   OUT_OF_STOCK
+}
+
+enum ProductApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

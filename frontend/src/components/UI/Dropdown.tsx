@@ -16,9 +16,10 @@ interface DropdownProps {
   placeholder?: string;
   onChange: (value: string | string[]) => void;
   multiple?: boolean;
+  disabled?: boolean;
 }
 
-export default function Dropdown({ id, label, value, options, placeholder, onChange, multiple }: DropdownProps) {
+export default function Dropdown({ id, label, value, options, placeholder, onChange, multiple, disabled }: DropdownProps) {
   const normalized = options.map(opt => {
     if (typeof opt === 'string' || typeof opt === 'number') {
       return { value: String(opt), label: String(opt) };
@@ -58,7 +59,11 @@ export default function Dropdown({ id, label, value, options, placeholder, onCha
     }
   }, [open, value, normalized]);
 
-  const toggleOpen = () => setOpen(prev => !prev);
+  const toggleOpen = () => {
+    if (!disabled) {
+      setOpen(prev => !prev);
+    }
+  };
 
   const onSelectSingle = (val: string) => {
     onChange(val);
@@ -110,22 +115,27 @@ export default function Dropdown({ id, label, value, options, placeholder, onCha
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-multiselectable={multiple || undefined}
+        disabled={disabled}
         onClick={toggleOpen}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowDown' || e.key === 'Enter') {
+          if (!disabled && (e.key === 'ArrowDown' || e.key === 'Enter')) {
             e.preventDefault();
             setOpen(true);
           }
         }}
-        className="w-full text-left px-4 py-2 border border-gray-300 rounded-lg bg-white flex items-center justify-between"
+        className={`w-full text-left px-4 py-2 border border-gray-300 rounded-lg flex items-center justify-between ${
+          disabled 
+            ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
+            : 'bg-white cursor-pointer hover:border-gray-400'
+        }`}
       >
         <span className={Array.isArray(value) ? (value.length ? 'text-gray-900' : 'text-gray-500') : (value ? 'text-gray-900' : 'text-gray-500')}>
           {renderButtonLabel()}
         </span>
-        <svg className="ml-3 w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9l6 6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <svg className={`ml-3 w-4 h-4 ${disabled ? 'text-gray-400' : 'text-gray-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9l6 6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </button>
 
-      {open && (
+      {open && !disabled && (
         <ul
           role="listbox"
           aria-activedescendant={focusedIndex >= 0 ? `${id}-option-${focusedIndex}` : undefined}

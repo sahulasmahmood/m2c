@@ -9,23 +9,41 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Dropdown from '@/components/UI/Dropdown'
 import { Eye, Check, X, Search, Filter, AlertCircle } from 'lucide-react'
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils'
+import axiosInstance from '@/lib/axios'
 
 interface VendorProductRequest {
   id: string
-  productName: string
-  vendorName: string
-  vendorId: string
-  category: string
-  subCategory: string
-  basePrice: number
-  status: 'pending' | 'approved' | 'rejected'
-  submittedDate: string
+  name: string
   description: string
-  fabricType: string
-  material: string
-  images: string[]
-  variants: number
+  category: string
+  subCategory?: string
+  basePrice: number
   totalStock: number
+  status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK'
+  approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED'
+  approvedAt?: string
+  rejectionReason?: string
+  createdAt: string
+  vendor: {
+    id: string
+    companyName: string
+    ownerName: string
+    businessEmail: string
+  }
+  images?: Array<{
+    url: string
+    isPrimary: boolean
+  }>
+  variants?: Array<{
+    id: string
+    size: string
+    color: string
+    price: number
+    stock: number
+  }>
+  fabricType?: string
+  material?: string
+  baseSku: string
 }
 
 export default function VendorProductRequests() {
@@ -33,107 +51,60 @@ export default function VendorProductRequests() {
   const [requests, setRequests] = useState<VendorProductRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING')
   const [selectedRequest, setSelectedRequest] = useState<VendorProductRequest | null>(null)
-  const [showApprovalModal, setShowApprovalModal] = useState(false)
   const [showRejectionModal, setShowRejectionModal] = useState(false)
   const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null)
-
-  // Mock data - In real app, fetch from API
-  useEffect(() => {
-    const mockRequests: VendorProductRequest[] = [
-      {
-        id: '1',
-        productName: 'Premium Cotton Bed Sheet Set',
-        vendorName: 'Textile Innovations Ltd',
-        vendorId: 'V001',
-        category: 'Bed Sheets',
-        subCategory: 'Cotton Sheets',
-        basePrice: 89.99,
-        status: 'pending',
-        submittedDate: '2024-01-28',
-        description: 'Luxurious 100% cotton bed sheet set with superior comfort and durability',
-        fabricType: 'Cotton',
-        material: '100% Organic Cotton',
-        images: ['/assets/images/categories/cs1.jpg'],
-        variants: 2,
-        totalStock: 150
-      },
-      {
-        id: '2',
-        productName: 'Silk Pillowcase Collection',
-        vendorName: 'Premium Fabrics Co',
-        vendorId: 'V002',
-        category: 'Pillows',
-        subCategory: 'Bed Pillows',
-        basePrice: 45.99,
-        status: 'pending',
-        submittedDate: '2024-01-27',
-        description: 'Luxurious silk pillowcases for hair and skin care',
-        fabricType: 'Silk',
-        material: '100% Mulberry Silk',
-        images: ['/assets/images/categories/cs2.jpg'],
-        variants: 3,
-        totalStock: 200
-      },
-      {
-        id: '3',
-        productName: 'Microfiber Towel Set',
-        vendorName: 'Textile Innovations Ltd',
-        vendorId: 'V001',
-        category: 'Towels',
-        subCategory: 'Bath Towels',
-        basePrice: 34.99,
-        status: 'approved',
-        submittedDate: '2024-01-20',
-        description: 'Soft and absorbent microfiber towel set',
-        fabricType: 'Microfiber',
-        material: '100% Microfiber',
-        images: ['/assets/images/categories/cs3.jpg'],
-        variants: 1,
-        totalStock: 300
-      },
-      {
-        id: '4',
-        productName: 'Linen Curtain Panels',
-        vendorName: 'Home Decor Specialists',
-        vendorId: 'V003',
-        category: 'Curtains',
-        subCategory: 'Sheer Curtains',
-        basePrice: 59.99,
-        status: 'rejected',
-        submittedDate: '2024-01-15',
-        description: 'Beautiful linen curtain panels for modern homes',
-        fabricType: 'Linen',
-        material: '100% Pure Linen',
-        images: ['/assets/images/categories/cs4.jpg'],
-        variants: 2,
-        totalStock: 100
-      }
-    ]
-
-    setTimeout(() => {
-      setRequests(mockRequests)
-      setLoading(false)
-    }, 1000)
-  }, [])
-
-  const filteredRequests = requests.filter(request => {
-    const matchesSearch = 
-      request.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.vendorName.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || request.status === statusFilter
-    return matchesSearch && matchesStatus
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+    limit: 10
   })
 
-  const handleApprove = async (requestId: string, adminFixedPrice: number) => {
+  // Load product requests from API
+  useEffect(() => {
+    loadRequests()
+  }, [statusFilter, searchTerm, pagination.currentPage])
+
+  const loadRequests = async () => {
+    setLoading(true)
     try {
-      setRequests(prev => prev.map(r => 
-        r.id === requestId ? { ...r, status: 'approved' as const, basePrice: adminFixedPrice } : r
-      ))
-      showSuccessToast('Product Approved', 'The vendor product has been approved and is now live.')
-    } catch (error) {
-      showErrorToast('Approval Failed', 'Unable to approve product.')
+      const params = new URLSearchParams({
+        page: pagination.currentPage.toString(),
+        limit: pagination.limit.toString(),
+        ...(statusFilter !== 'all' && { approvalStatus: statusFilter }),
+        ...(searchTerm && { search: searchTerm })
+      })
+
+      const response = await axiosInstance.get(`/products/admin/all?${params}`)
+      
+      if (response.data.success) {
+        setRequests(response.data.data.products)
+        setPagination(prev => ({
+          ...prev,
+          totalPages: response.data.data.pagination.totalPages,
+          totalCount: response.data.data.pagination.totalCount
+        }))
+      }
+    } catch (error: any) {
+      console.error('Error loading product requests:', error)
+      showErrorToast('Load Failed', error.message || 'Unable to load product requests')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleApprove = async (requestId: string) => {
+    try {
+      const response = await axiosInstance.put(`/products/${requestId}/approve`)
+      
+      if (response.data.success) {
+        showSuccessToast('Product Approved', 'The vendor product has been approved successfully.')
+        loadRequests() // Reload the list
+      }
+    } catch (error: any) {
+      showErrorToast('Approval Failed', error.message || 'Unable to approve product.')
     }
   }
 
@@ -146,14 +117,18 @@ export default function VendorProductRequests() {
     if (!rejectingRequestId) return
 
     try {
-      setRequests(prev => prev.map(r => 
-        r.id === rejectingRequestId ? { ...r, status: 'rejected' as const } : r
-      ))
-      showSuccessToast('Product Rejected', 'The vendor has been notified of the rejection.')
-      setShowRejectionModal(false)
-      setRejectingRequestId(null)
-    } catch (error) {
-      showErrorToast('Rejection Failed', 'Unable to reject product.')
+      const response = await axiosInstance.put(`/products/${rejectingRequestId}/reject`, {
+        rejectionReason: reason.trim()
+      })
+      
+      if (response.data.success) {
+        showSuccessToast('Product Rejected', 'The vendor has been notified of the rejection.')
+        setShowRejectionModal(false)
+        setRejectingRequestId(null)
+        loadRequests() // Reload the list
+      }
+    } catch (error: any) {
+      showErrorToast('Rejection Failed', error.message || 'Unable to reject product.')
     }
   }
 
@@ -161,18 +136,26 @@ export default function VendorProductRequests() {
     router.push(`/admin/dashboard/products/vendor-requests/view/${request.id}`)
   }
 
-  const handleApproveClick = (request: VendorProductRequest) => {
-    setSelectedRequest(request)
-    setShowApprovalModal(true)
-  }
-
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
+      case 'PENDING':
         return 'bg-yellow-100 text-yellow-800'
-      case 'approved':
+      case 'APPROVED':
         return 'bg-green-100 text-green-800'
-      case 'rejected':
+      case 'REJECTED':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getProductStatusColor = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return 'bg-green-100 text-green-800'
+      case 'INACTIVE':
+        return 'bg-gray-100 text-gray-800'
+      case 'OUT_OF_STOCK':
         return 'bg-red-100 text-red-800'
       default:
         return 'bg-gray-100 text-gray-800'
@@ -196,6 +179,9 @@ export default function VendorProductRequests() {
           <h1 className="text-2xl font-bold text-gray-900">Vendor Product Requests</h1>
           <p className="text-gray-600">Review and manage product submissions from vendors</p>
         </div>
+        <div className="text-sm text-gray-500">
+          Total: {pagination.totalCount} products
+        </div>
       </div>
 
       {/* Filters */}
@@ -207,7 +193,7 @@ export default function VendorProductRequests() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
                   type="text"
-                  placeholder="Search by product name or vendor..."
+                  placeholder="Search by product name, vendor, or SKU..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-transparent"
@@ -220,9 +206,9 @@ export default function VendorProductRequests() {
                 value={statusFilter}
                 options={[
                   { value: 'all', label: 'All Status' },
-                  { value: 'pending', label: 'Pending' },
-                  { value: 'approved', label: 'Approved' },
-                  { value: 'rejected', label: 'Rejected' }
+                  { value: 'PENDING', label: 'Pending Approval' },
+                  { value: 'APPROVED', label: 'Approved' },
+                  { value: 'REJECTED', label: 'Rejected' }
                 ]}
                 onChange={(value) => setStatusFilter(value as any)}
               />
@@ -237,7 +223,7 @@ export default function VendorProductRequests() {
           <CardTitle>Product Requests</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {filteredRequests.length === 0 ? (
+          {requests.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -249,42 +235,82 @@ export default function VendorProductRequests() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Product Name</TableHead>
+                  <TableHead>Product</TableHead>
                   <TableHead>Vendor</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Price</TableHead>
+                  <TableHead>Stock</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Approval</TableHead>
                   <TableHead>Submitted</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequests.map((request) => (
+                {requests.map((request) => (
                   <TableRow key={request.id}>
                     <TableCell>
-                      <div>
-                        <div className="font-medium text-gray-900">{request.productName}</div>
-                        <div className="text-sm text-gray-500">{request.material}</div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                          {request.images?.[0]?.url ? (
+                            <img 
+                              src={request.images[0].url} 
+                              alt={request.name}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <span className="text-gray-400 text-xs">No Image</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{request.name}</div>
+                          <div className="text-sm text-gray-500">SKU: {request.baseSku}</div>
+                          {request.material && (
+                            <div className="text-xs text-gray-400">{request.material}</div>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm text-gray-900">{request.vendorName}</div>
+                      <div>
+                        <div className="font-medium text-gray-900">{request.vendor.companyName}</div>
+                        <div className="text-sm text-gray-500">{request.vendor.ownerName}</div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-gray-900">{request.category}</div>
-                      <div className="text-xs text-gray-500">{request.subCategory}</div>
+                      {request.subCategory && (
+                        <div className="text-xs text-gray-500">{request.subCategory}</div>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <span className="font-medium text-gray-900">₹{request.basePrice}</span>
+                      <span className="font-medium text-gray-900">₹{request.basePrice.toFixed(2)}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(request.status)}>
-                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      <span className={request.totalStock === 0 ? "text-red-600" : "text-gray-900"}>
+                        {request.totalStock}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getProductStatusColor(request.status)}>
+                        {request.status.toLowerCase().replace('_', ' ')}
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      <div className="space-y-1">
+                        <Badge className={getStatusColor(request.approvalStatus)}>
+                          {request.approvalStatus.toLowerCase()}
+                        </Badge>
+                        {request.approvalStatus === 'REJECTED' && request.rejectionReason && (
+                          <div className="text-xs text-red-600 max-w-32 truncate" title={request.rejectionReason}>
+                            {request.rejectionReason}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <span className="text-sm text-gray-600">
-                        {new Date(request.submittedDate).toLocaleDateString()}
+                        {new Date(request.createdAt).toLocaleDateString()}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -297,13 +323,13 @@ export default function VendorProductRequests() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {request.status === 'pending' && (
+                        {request.approvalStatus === 'PENDING' && (
                           <>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleApproveClick(request)}
-                              className="text-gray-600 hover:text-gray-900"
+                              onClick={() => handleApprove(request.id)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
                             >
                               <Check className="h-4 w-4" />
                             </Button>
@@ -311,7 +337,7 @@ export default function VendorProductRequests() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleRejectClick(request.id)}
-                              className="text-gray-600 hover:text-gray-900"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -327,49 +353,32 @@ export default function VendorProductRequests() {
         </CardContent>
       </Card>
 
-      {/* Approval Modal */}
-      {showApprovalModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Approve Product Request</h3>
-            <p className="text-gray-600 mb-4">
-              Set the final price for "{selectedRequest.productName}". This will be the price customers see.
-            </p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Admin Fixed Price (₹)
-              </label>
-              <input
-                type="number"
-                defaultValue={selectedRequest.basePrice}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-transparent"
-                placeholder="Enter final price"
-                step="0.01"
-                min="0"
-                id="adminPrice"
-              />
-            </div>
-            <div className="flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowApprovalModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  const priceInput = document.getElementById('adminPrice') as HTMLInputElement
-                  const adminPrice = parseFloat(priceInput.value)
-                  if (adminPrice > 0) {
-                    handleApprove(selectedRequest.id, adminPrice)
-                    setShowApprovalModal(false)
-                  }
-                }}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                Approve Product
-              </Button>
-            </div>
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            Showing {requests.length} of {pagination.totalCount} products
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.currentPage === 1}
+              onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-gray-500">
+              Page {pagination.currentPage} of {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.currentPage === pagination.totalPages}
+              onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+            >
+              Next
+            </Button>
           </div>
         </div>
       )}
@@ -409,6 +418,8 @@ export default function VendorProductRequests() {
                   const reason = reasonInput.value.trim()
                   if (reason) {
                     handleReject(reason)
+                  } else {
+                    showErrorToast('Validation Error', 'Please provide a rejection reason')
                   }
                 }}
                 className="bg-red-600 hover:bg-red-700 text-white"

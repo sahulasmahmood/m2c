@@ -132,10 +132,17 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
     },
   })
   
-  // If unauthorized, clear auth and redirect to login
+  // If unauthorized, clear auth and redirect to login (but not for login attempts)
   if (response.status === 401) {
-    clearAuth()
-    window.location.href = '/admin/login'
+    const isLoginAttempt = url.includes('/auth/login') || 
+                          url.includes('/auth/admin/login') ||
+                          url.includes('/auth/vendor/login') ||
+                          url.includes('/vendors/login');
+    
+    if (!isLoginAttempt) {
+      clearAuth()
+      window.location.href = '/admin/login'
+    }
   }
   
   return response
