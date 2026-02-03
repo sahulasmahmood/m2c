@@ -6,13 +6,22 @@ const {
   updateProduct,
   deleteProduct,
   getProductStats,
-  getAvailableInventoryItems
+  getAvailableInventoryItems,
+  // Admin functions
+  approveProduct,
+  rejectProduct,
+  getAllProductsForAdmin
 } = require('../controllers/productController');
-const { authenticateToken, requireVendorRole } = require('../middleware/auth');
+const { authenticateToken, requireVendorRole, requireAdminRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// All routes require vendor authentication
+// Admin routes (no vendor role required)
+router.get('/admin/all', authenticateToken, requireAdminRole, getAllProductsForAdmin);
+router.put('/:id/approve', authenticateToken, requireAdminRole, approveProduct);
+router.put('/:id/reject', authenticateToken, requireAdminRole, rejectProduct);
+
+// Vendor routes (require vendor authentication)
 router.use(authenticateToken);
 router.use(requireVendorRole);
 

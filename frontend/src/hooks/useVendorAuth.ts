@@ -20,7 +20,8 @@ export const useVendorAuth = () => {
       } catch (error: any) {
         console.error('Auth initialization error:', error);
         VendorService.logout();
-        setError(error.message);
+        const errorMessage = error?.message || (error instanceof Error ? error.message : 'Authentication failed')
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -39,7 +40,8 @@ export const useVendorAuth = () => {
       setVendor(profile.vendor);
       return result;
     } catch (error: any) {
-      setError(error.message);
+      const errorMessage = error?.message || (error instanceof Error ? error.message : 'Login failed')
+      setError(errorMessage);
       throw error;
     } finally {
       setLoading(false);
@@ -58,7 +60,8 @@ export const useVendorAuth = () => {
       setVendor(result.vendor);
       return result;
     } catch (error: any) {
-      setError(error.message);
+      const errorMessage = error?.message || (error instanceof Error ? error.message : 'Update failed')
+      setError(errorMessage);
       throw error;
     }
   };

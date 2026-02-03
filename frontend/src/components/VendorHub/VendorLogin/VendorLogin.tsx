@@ -121,9 +121,10 @@ export default function VendorLogin() {
           router.push('/vendor/status?status=suspended')
         }
       }, 1000)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error)
-      showErrorToast('Login Failed', error instanceof Error ? error.message : 'Invalid credentials. Please try again.')
+      const errorMessage = error?.message || (error instanceof Error ? error.message : 'Invalid credentials. Please try again.')
+      showErrorToast('Login Failed', errorMessage)
     } finally {
       setIsLoading(false)
     }

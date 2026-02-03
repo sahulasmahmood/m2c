@@ -43,20 +43,28 @@ axiosInstance.interceptors.response.use(
       
       switch (status) {
         case 401:
-          // Unauthorized - clear tokens and redirect to login
-          localStorage.removeItem('adminToken');
-          sessionStorage.removeItem('adminToken');
-          localStorage.removeItem('vendorToken');
-          localStorage.removeItem('vendorData');
-          if (typeof window !== 'undefined') {
-            // Redirect based on current path
-            const currentPath = window.location.pathname;
-            if (currentPath.includes('/admin')) {
-              window.location.href = '/admin/login';
-            } else if (currentPath.includes('/vendor')) {
-              window.location.href = '/vendor/login';
-            } else {
-              window.location.href = '/login';
+          // Check if this is a login attempt - don't redirect for login failures
+          const isLoginAttempt = error.config?.url?.includes('/auth/login') || 
+                                error.config?.url?.includes('/auth/admin/login') ||
+                                error.config?.url?.includes('/auth/vendor/login') ||
+                                error.config?.url?.includes('/vendors/login');
+          
+          if (!isLoginAttempt) {
+            // Unauthorized - clear tokens and redirect to login (only for authenticated requests)
+            localStorage.removeItem('adminToken');
+            sessionStorage.removeItem('adminToken');
+            localStorage.removeItem('vendorToken');
+            localStorage.removeItem('vendorData');
+            if (typeof window !== 'undefined') {
+              // Redirect based on current path
+              const currentPath = window.location.pathname;
+              if (currentPath.includes('/admin')) {
+                window.location.href = '/admin/login';
+              } else if (currentPath.includes('/vendor')) {
+                window.location.href = '/vendor/login';
+              } else {
+                window.location.href = '/login';
+              }
             }
           }
           break;
@@ -76,17 +84,17 @@ axiosInstance.interceptors.response.use(
           console.error('API Error:', data?.error || `HTTP ${status}`);
       }
       
-      // Return a more user-friendly error
+      // Return a more user-friendly error without creating a new Error object
       const errorMessage = data?.error || data?.message || `HTTP ${status}`;
-      return Promise.reject(new Error(errorMessage));
+      return Promise.reject({ message: errorMessage, status, data });
     } else if (error.request) {
       // Network error
       console.error('Network error:', error.message);
-      return Promise.reject(new Error('Network error. Please check your connection.'));
+      return Promise.reject({ message: 'Network error. Please check your connection.', status: 0, data: null });
     } else {
       // Other error
       console.error('Request error:', error.message);
-      return Promise.reject(error);
+      return Promise.reject({ message: error.message || 'Request failed', status: 0, data: null });
     }
   }
 );

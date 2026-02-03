@@ -199,6 +199,25 @@ const requireVendorRole = (req, res, next) => {
   next();
 };
 
+// Require admin role specifically
+const requireAdminRole = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required'
+    });
+  }
+
+  if (req.user.role !== 'ADMIN') {
+    return res.status(403).json({
+      success: false,
+      error: 'Admin access required'
+    });
+  }
+
+  next();
+};
+
 // Optional authentication (doesn't fail if no token)
 const optionalAuth = async (req, res, next) => {
   try {
@@ -278,5 +297,6 @@ module.exports = {
   authenticateToken,
   requireRole,
   requireVendorRole,
+  requireAdminRole,
   optionalAuth
 };

@@ -50,11 +50,12 @@ const mockInventoryItems = [
   }
 ]
 const categorySubcategories: Record<string, string[]> = {
-  'Bed Sheets': ['Cotton Sheets', 'Linen Sheets', 'Silk Sheets', 'Microfiber Sheets'],
-  'Towels': ['Bath Towels', 'Hand Towels', 'Beach Towels', 'Kitchen Towels'],
-  'Curtains': ['Blackout Curtains', 'Sheer Curtains', 'Thermal Curtains', 'Decorative Curtains'],
-  'Pillows': ['Bed Pillows', 'Decorative Pillows', 'Travel Pillows', 'Memory Foam Pillows'],
-  'Blankets': ['Wool Blankets', 'Cotton Blankets', 'Fleece Blankets', 'Electric Blankets']
+  'Kitchen Towels': ['Dish Towels', 'Tea Towels', 'Paper Towel Alternatives', 'Microfiber Towels'],
+  'Bath Towels': ['Large Towels', 'Hand Towels', 'Washcloths', 'Beach Towels'],
+  'Hand Towels': ['Guest Towels', 'Decorative Towels', 'Quick-Dry Towels'],
+  'Aprons': ['Kitchen Aprons', 'Bib Aprons', 'Waist Aprons', 'Chef Aprons'],
+  'Table Linens': ['Table Runners', 'Placemats', 'Napkins', 'Tablecloths'],
+  'Decorative Textiles': ['Wall Hangings', 'Cushion Covers', 'Throws', 'Curtains']
 }
 
 const fabricTypes = [
@@ -93,7 +94,7 @@ const getColorName = (hex: string): string => {
 }
 
 interface ProductVariant {
-  id: string
+  id?: string
   size: string
   color: string
   colorHex?: string // New field for color picker hex value
@@ -104,7 +105,7 @@ interface ProductVariant {
 }
 
 interface ProductImage {
-  id: string
+  id?: string
   url: string
   alt: string
   isPrimary: boolean
@@ -187,7 +188,11 @@ interface ProductFormData {
   dimensions?: string
   weight?: string
   inStock: boolean
-  status: 'active' | 'pending' | 'suspended' | 'out_of_stock'
+  status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK'
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'
+  approvedAt?: string
+  approvedBy?: string
+  rejectionReason?: string
 }
 
 interface AddEditProductProps {
@@ -271,7 +276,7 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     dimensions: '',
     weight: '',
     inStock: true,
-    status: 'pending'
+    status: 'ACTIVE'
   })
 
   const [newTag, setNewTag] = useState('')
@@ -397,7 +402,11 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
               dimensions: product.dimensions || '',
               weight: product.weight || '',
               inStock: product.inStock,
-              status: product.status
+              status: product.status,
+              approvalStatus: product.approvalStatus,
+              approvedAt: product.approvedAt,
+              approvedBy: product.approvedBy,
+              rejectionReason: product.rejectionReason
             })
 
             // Set selected inventory item if connected
@@ -429,9 +438,10 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
           ...prev,
           inventoryItemId: inventoryId,
           isFromInventory: true,
-          name: inventoryItem.name,
+          name: '', // Leave product name empty for user to fill
           description: inventoryItem.description || '',
           category: inventoryItem.category,
+          subCategory: inventoryItem.subcategory || '', // Set subcategory from inventory
           baseSku: inventoryItem.sku,
           basePrice: 0, // Will need to be set by user
           totalStock: inventoryItem.currentStock
@@ -484,11 +494,12 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
       ...prev,
       inventoryItemId: inventoryItem.id,
       isFromInventory: true,
-      name: inventoryItem.name,
-      description: inventoryItem.description,
+      name: '', // Leave product name empty for user to fill
+      description: inventoryItem.description || '',
       category: inventoryItem.category,
+      subCategory: inventoryItem.subcategory || '', // Set subcategory from inventory
       baseSku: inventoryItem.sku,
-      basePrice: inventoryItem.sellingPrice,
+      basePrice: 0, // Will need to be set by user since inventory doesn't have selling price
       totalStock: inventoryItem.currentStock
     }))
   }
@@ -499,9 +510,10 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
       ...prev,
       inventoryItemId: '',
       isFromInventory: false,
-      name: '',
+      name: '', // Clear product name
       description: '',
       category: '',
+      subCategory: '', // Clear subcategory as well
       baseSku: '',
       basePrice: 0,
       totalStock: 0
@@ -529,14 +541,18 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     }
   }
 
-  const removeVariant = (variantId: string) => {
+  const removeVariant = (variantId: string | undefined) => {
+    if (!variantId) return; // Guard against undefined id
+    
     setFormData(prev => ({
       ...prev,
       variants: prev.variants.filter(v => v.id !== variantId)
     }))
   }
 
-  const updateVariant = (variantId: string, field: keyof ProductVariant, value: any) => {
+  const updateVariant = (variantId: string | undefined, field: keyof ProductVariant, value: any) => {
+    if (!variantId) return; // Guard against undefined id
+    
     setFormData(prev => ({
       ...prev,
       variants: prev.variants.map(v => {
@@ -688,7 +704,9 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     e.target.value = ''
   }
 
-  const setCoverImage = (imageId: string) => {
+  const setCoverImage = (imageId: string | undefined) => {
+    if (!imageId) return; // Guard against undefined id
+    
     setFormData(prev => ({
       ...prev,
       images: prev.images.map(img => ({
@@ -699,7 +717,9 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     }))
   }
 
-  const setImageType = (imageId: string, imageType: 'cover' | 'gallery') => {
+  const setImageType = (imageId: string | undefined, imageType: 'cover' | 'gallery') => {
+    if (!imageId) return; // Guard against undefined id
+    
     // Check limits before changing type
     if (imageType === 'cover') {
       const existingCoverImages = formData.images.filter(img => img.imageType === 'cover' && img.id !== imageId)
@@ -740,7 +760,9 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     }))
   }
 
-  const removeImage = (imageId: string) => {
+  const removeImage = (imageId: string | undefined) => {
+    if (!imageId) return; // Guard against undefined id
+    
     setFormData(prev => {
       const updatedImages = prev.images.filter(img => img.id !== imageId)
       // If we removed the cover image, make the first gallery image the cover if available
@@ -977,7 +999,24 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
                     )}
                   </div>
 
-                  {/* Product Details (Auto-filled or Manual) */}
+                  {/* Inventory Item Name (when from inventory) */}
+                  {formData.isFromInventory && selectedInventoryItem && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Inventory Item Name
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedInventoryItem.name}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                        placeholder="Inventory item name"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Reference from inventory item</p>
+                    </div>
+                  )}
+
+                  {/* Product Name */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Product Name *
@@ -988,14 +1027,11 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
                       value={formData.name}
                       onChange={handleInputChange}
                       required
-                      disabled={formData.isFromInventory}
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-transparent ${
-                        formData.isFromInventory ? 'bg-gray-100 text-gray-600' : ''
-                      }`}
-                      placeholder="Enter product name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-transparent"
+                      placeholder={formData.isFromInventory ? "Enter a unique product name" : "Enter product name"}
                     />
                     {formData.isFromInventory && (
-                      <p className="text-xs text-gray-500 mt-1">Auto-filled from inventory item</p>
+                      <p className="text-xs text-gray-500 mt-1">Create a unique product name (can be different from inventory item name)</p>
                     )}
                   </div>
 
@@ -1022,9 +1058,14 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
                       <Dropdown
                         label="Category *"
                         value={formData.category}
-                        options={categories}
+                        options={
+                          formData.isFromInventory && selectedInventoryItem?.category && !categories.includes(selectedInventoryItem.category)
+                            ? [...categories, selectedInventoryItem.category]
+                            : categories
+                        }
                         placeholder="Select Category"
                         onChange={(value) => setFormData(prev => ({ ...prev, category: value as string, subCategory: '' }))}
+                        disabled={formData.isFromInventory}
                       />
                       {formData.isFromInventory && (
                         <p className="text-xs text-gray-500 mt-1">From inventory item</p>
@@ -1034,10 +1075,22 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
                       <Dropdown
                         label="Sub-Category *"
                         value={formData.subCategory}
-                        options={formData.category ? categorySubcategories[formData.category] || [] : []}
+                        options={
+                          formData.category 
+                            ? (
+                                formData.isFromInventory && selectedInventoryItem?.subcategory && selectedInventoryItem.category === formData.category
+                                  ? [selectedInventoryItem.subcategory, ...(categorySubcategories[formData.category] || []).filter(sub => sub !== selectedInventoryItem.subcategory)]
+                                  : categorySubcategories[formData.category] || []
+                              )
+                            : []
+                        }
                         placeholder="Select Sub-Category"
                         onChange={(value) => setFormData(prev => ({ ...prev, subCategory: value as string }))}
+                        disabled={formData.isFromInventory}
                       />
+                      {formData.isFromInventory && (
+                        <p className="text-xs text-gray-500 mt-1">From inventory item</p>
+                      )}
                     </div>
                   </div>
 
@@ -2155,14 +2208,38 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
                     label="Product Status"
                     value={formData.status}
                     options={[
-                      { value: 'pending', label: 'Pending' },
-                      { value: 'active', label: 'Active' },
-                      { value: 'suspended', label: 'Suspended' },
-                      { value: 'out_of_stock', label: 'Out of Stock' }
+                      { value: 'ACTIVE', label: 'Active' },
+                      { value: 'INACTIVE', label: 'Inactive' },
+                      { value: 'OUT_OF_STOCK', label: 'Out of Stock' }
                     ]}
-                    onChange={(value) => setFormData(prev => ({ ...prev, status: value as 'active' | 'pending' | 'suspended' | 'out_of_stock' }))}
+                    onChange={(value) => setFormData(prev => ({ ...prev, status: value as 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK' }))}
                   />
                 </div>
+
+                {/* Approval Status Display (Read-only) */}
+                {isEdit && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Approval Status
+                    </label>
+                    <div className={`px-3 py-2 rounded-lg border text-sm ${
+                      formData.approvalStatus === 'APPROVED' 
+                        ? 'bg-green-50 border-green-200 text-green-800' 
+                        : formData.approvalStatus === 'PENDING'
+                        ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                        : formData.approvalStatus === 'REJECTED'
+                        ? 'bg-red-50 border-red-200 text-red-800'
+                        : 'bg-gray-50 border-gray-200 text-gray-800'
+                    }`}>
+                      {formData.approvalStatus?.toLowerCase() || 'pending'}
+                      {formData.approvalStatus === 'REJECTED' && formData.rejectionReason && (
+                        <div className="mt-1 text-xs">
+                          Reason: {formData.rejectionReason}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center">
                   <input
