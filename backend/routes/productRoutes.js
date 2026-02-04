@@ -8,6 +8,7 @@ const {
   getProductStats,
   getAvailableInventoryItems,
   // Admin functions
+  getProductForAdmin,
   approveProduct,
   rejectProduct,
   getAllProductsForAdmin
@@ -18,6 +19,7 @@ const router = express.Router();
 
 // Admin routes (no vendor role required)
 router.get('/admin/all', authenticateToken, requireAdminRole, getAllProductsForAdmin);
+router.get('/admin/:id', authenticateToken, requireAdminRole, getProductForAdmin);
 router.put('/:id/approve', authenticateToken, requireAdminRole, approveProduct);
 router.put('/:id/reject', authenticateToken, requireAdminRole, rejectProduct);
 

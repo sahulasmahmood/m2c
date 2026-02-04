@@ -22,39 +22,7 @@ import {
 } from 'lucide-react'
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils'
 import Image from 'next/image'
-
-interface VendorProductRequest {
-  id: string
-  productName: string
-  vendorName: string
-  vendorId: string
-  category: string
-  subCategory: string
-  basePrice: number
-  status: 'pending' | 'approved' | 'rejected'
-  submittedDate: string
-  description: string
-  fabricType: string
-  material: string
-  images: string[]
-  variants: number
-  totalStock: number
-  specifications?: {
-    dimensions?: string
-    weight?: string
-    color?: string
-    pattern?: string
-    careInstructions?: string
-    warranty?: string
-  }
-  vendorDetails?: {
-    email: string
-    phone: string
-    address: string
-    businessType: string
-    yearsInBusiness: number
-  }
-}
+import { adminProductService, type AdminProduct } from '@/services/adminProductService'
 
 interface VendorProductRequestViewProps {
   requestId: string
@@ -62,124 +30,105 @@ interface VendorProductRequestViewProps {
 
 export default function VendorProductRequestView({ requestId }: VendorProductRequestViewProps) {
   const router = useRouter()
-  const [request, setRequest] = useState<VendorProductRequest | null>(null)
+  const [product, setProduct] = useState<AdminProduct | null>(null)
   const [loading, setLoading] = useState(true)
   const [showApprovalModal, setShowApprovalModal] = useState(false)
   const [showRejectionModal, setShowRejectionModal] = useState(false)
-  const [adminPrice, setAdminPrice] = useState('')
   const [rejectionReason, setRejectionReason] = useState('')
+  const [adminPrice, setAdminPrice] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
 
-  // Mock data - In real app, fetch from API based on requestId
+  // Fetch product data from backend
   useEffect(() => {
-    const mockRequests: VendorProductRequest[] = [
-      {
-        id: '1',
-        productName: 'Premium Cotton Bed Sheet Set',
-        vendorName: 'Textile Innovations Ltd',
-        vendorId: 'V001',
-        category: 'Bed Sheets',
-        subCategory: 'Cotton Sheets',
-        basePrice: 89.99,
-        status: 'pending',
-        submittedDate: '2024-01-28',
-        description: 'Luxurious 100% cotton bed sheet set with superior comfort and durability. Made from premium organic cotton fibers, these sheets offer exceptional softness and breathability. Perfect for year-round comfort with excellent moisture-wicking properties.',
-        fabricType: 'Cotton',
-        material: '100% Organic Cotton',
-        images: [
-          '/assets/images/categories/cs1.jpg',
-          '/assets/images/categories/cs2.jpg',
-          '/assets/images/categories/cs3.jpg'
-        ],
-        variants: 2,
-        totalStock: 150,
-        specifications: {
-          dimensions: 'Queen Size (60" x 80")',
-          weight: '2.5 lbs',
-          color: 'White, Cream, Light Blue',
-          pattern: 'Solid',
-          careInstructions: 'Machine wash cold, tumble dry low',
-          warranty: '1 Year Limited Warranty'
-        },
-        vendorDetails: {
-          email: 'contact@textileinnovations.com',
-          phone: '+91 98765 43210',
-          address: '123 Textile Street, Mumbai, Maharashtra 400001',
-          businessType: 'Manufacturer',
-          yearsInBusiness: 15
+    const fetchProduct = async () => {
+      try {
+        setLoading(true)
+        const response = await adminProductService.getProduct(requestId)
+        if (response.success && response.data) {
+          setProduct(response.data)
+          // Set initial admin price to the product's base price
+          setAdminPrice(response.data.basePrice.toString())
+        } else {
+          showErrorToast('Error', 'Product not found')
         }
-      },
-      {
-        id: '2',
-        productName: 'Silk Pillowcase Collection',
-        vendorName: 'Premium Fabrics Co',
-        vendorId: 'V002',
-        category: 'Pillows',
-        subCategory: 'Bed Pillows',
-        basePrice: 45.99,
-        status: 'pending',
-        submittedDate: '2024-01-27',
-        description: 'Luxurious silk pillowcases for hair and skin care. Made from 100% mulberry silk with natural temperature regulation properties.',
-        fabricType: 'Silk',
-        material: '100% Mulberry Silk',
-        images: ['/assets/images/categories/cs2.jpg'],
-        variants: 3,
-        totalStock: 200,
-        specifications: {
-          dimensions: 'Standard Size (20" x 30")',
-          weight: '0.3 lbs',
-          color: 'Champagne, Silver, Rose Gold',
-          pattern: 'Solid',
-          careInstructions: 'Hand wash or gentle machine wash',
-          warranty: '6 Months Limited Warranty'
-        },
-        vendorDetails: {
-          email: 'info@premiumfabrics.com',
-          phone: '+91 87654 32109',
-          address: '456 Silk Avenue, Bangalore, Karnataka 560001',
-          businessType: 'Distributor',
-          yearsInBusiness: 8
-        }
+      } catch (error: any) {
+        console.error('Error fetching product:', error)
+        showErrorToast('Error', error.message || 'Failed to fetch product details')
+      } finally {
+        setLoading(false)
       }
-    ]
+    }
 
-    const foundRequest = mockRequests.find(r => r.id === requestId)
-    setTimeout(() => {
-      setRequest(foundRequest || null)
-      setLoading(false)
-      if (foundRequest) {
-        setAdminPrice(foundRequest.basePrice.toString())
-      }
-    }, 1000)
+    if (requestId) {
+      fetchProduct()
+    }
   }, [requestId])
 
   const handleApprove = async () => {
-    if (!request || !adminPrice) return
+    if (!product || !adminPrice || parseFloat(adminPrice) <= 0) {
+      showErrorToast('Invalid Price', 'Please enter a valid admin price')
+      return
+    }
 
     try {
-      // In real app, make API call to approve request
-      showSuccessToast('Product Approved', 'The vendor product has been approved and is now live.')
-      setShowApprovalModal(false)
-      router.push('/admin/dashboard/products/vendor-requests')
-    } catch (error) {
-      showErrorToast('Approval Failed', 'Unable to approve product.')
+      setActionLoading(true)
+      const response = await adminProductService.approveProduct(product.id, parseFloat(adminPrice))
+      
+      if (response.success) {
+        showSuccessToast('Product Approved', 'The vendor product has been approved and is now live.')
+        setShowApprovalModal(false)
+        // Update local state
+        setProduct(prev => prev ? { 
+          ...prev, 
+          approvalStatus: 'APPROVED', 
+          approvedAt: new Date().toISOString(),
+          basePrice: parseFloat(adminPrice) // Update with admin fixed price
+        } : null)
+        // Optionally redirect back to requests list
+        setTimeout(() => {
+          router.push('/admin/dashboard/products/vendor-requests')
+        }, 1500)
+      }
+    } catch (error: any) {
+      console.error('Error approving product:', error)
+      showErrorToast('Approval Failed', error.message || 'Unable to approve product.')
+    } finally {
+      setActionLoading(false)
     }
   }
 
   const handleReject = async () => {
-    if (!request || !rejectionReason.trim()) return
+    if (!product || !rejectionReason.trim()) return
 
     try {
-      // In real app, make API call to reject request
-      showSuccessToast('Product Rejected', 'The vendor has been notified of the rejection.')
-      setShowRejectionModal(false)
-      router.push('/admin/dashboard/products/vendor-requests')
-    } catch (error) {
-      showErrorToast('Rejection Failed', 'Unable to reject product.')
+      setActionLoading(true)
+      const response = await adminProductService.rejectProduct(product.id, rejectionReason.trim())
+      
+      if (response.success) {
+        showSuccessToast('Product Rejected', 'The vendor has been notified of the rejection.')
+        setShowRejectionModal(false)
+        // Update local state
+        setProduct(prev => prev ? { 
+          ...prev, 
+          approvalStatus: 'REJECTED', 
+          rejectionReason: rejectionReason.trim(),
+          approvedAt: undefined 
+        } : null)
+        // Optionally redirect back to requests list
+        setTimeout(() => {
+          router.push('/admin/dashboard/products/vendor-requests')
+        }, 1500)
+      }
+    } catch (error: any) {
+      console.error('Error rejecting product:', error)
+      showErrorToast('Rejection Failed', error.message || 'Unable to reject product.')
+    } finally {
+      setActionLoading(false)
     }
   }
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800'
       case 'approved':
@@ -195,18 +144,18 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-700"></div>
-        <span className="ml-3 text-gray-600">Loading request details...</span>
+        <span className="ml-3 text-gray-600">Loading product details...</span>
       </div>
     )
   }
 
-  if (!request) {
+  if (!product) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 font-medium">Request not found</p>
-          <p className="text-sm text-gray-400">The requested vendor product submission could not be found.</p>
+          <p className="text-gray-500 font-medium">Product not found</p>
+          <p className="text-sm text-gray-400">The requested vendor product could not be found.</p>
           <Button 
             onClick={() => router.push('/admin/dashboard/products/vendor-requests')}
             className="mt-4"
@@ -236,7 +185,7 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
           </Link>
           <span className="text-gray-400">/</span>
           <span className="text-gray-900 font-medium" aria-current="page">
-            {request?.productName || 'View Request'}
+            {product?.name || 'View Request'}
           </span>
         </div>
       </nav>
@@ -253,26 +202,28 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
             Back to Requests
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{request.productName}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
             <p className="text-gray-600">Vendor Product Request Details</p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Badge className={getStatusColor(request.status)}>
-            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+          <Badge className={getStatusColor(product.approvalStatus)}>
+            {product.approvalStatus.charAt(0).toUpperCase() + product.approvalStatus.slice(1)}
           </Badge>
-          {request.status === 'pending' && (
+          {product.approvalStatus === 'PENDING' && (
             <>
               <Button
                 onClick={() => setShowApprovalModal(true)}
+                disabled={actionLoading}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Check className="h-4 w-4 mr-2" />
-                Approve
+                {actionLoading ? 'Processing...' : 'Approve'}
               </Button>
               <Button
                 variant="outline"
                 onClick={() => setShowRejectionModal(true)}
+                disabled={actionLoading}
                 className="border-red-300 text-red-600 hover:bg-red-50"
               >
                 <X className="h-4 w-4 mr-2" />
@@ -296,16 +247,23 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {request.images.map((image, index) => (
-                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
-                    <Image
-                      src={image}
-                      alt={`${request.productName} - Image ${index + 1}`}
-                      fill
-                      className="object-cover"
-                    />
+                {product.images && product.images.length > 0 ? (
+                  product.images.map((image, index) => (
+                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
+                      <Image
+                        src={image.url}
+                        alt={image.alt || `${product.name} - Image ${index + 1}`}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    <ImageIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p>No images available</p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -319,12 +277,12 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700 leading-relaxed">{request.description}</p>
+              <p className="text-gray-700 leading-relaxed">{product.description}</p>
             </CardContent>
           </Card>
 
           {/* Product Specifications */}
-          {request.specifications && (
+          {product.fabricSpecifications && Object.keys(product.fabricSpecifications).length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -334,18 +292,73 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(request.specifications).map(([key, value]) => (
+                  {Object.entries(product.fabricSpecifications).map(([key, value]) => (
                     <div key={key} className="flex flex-col">
                       <span className="text-sm font-medium text-gray-500 capitalize">
                         {key.replace(/([A-Z])/g, ' $1').trim()}
                       </span>
-                      <span className="text-gray-900">{value}</span>
+                      <span className="text-gray-900">{String(value)}</span>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Additional Product Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Layers className="h-5 w-5 mr-2" />
+                Additional Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {product.dimensions && (
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-500">Dimensions</span>
+                    <span className="text-gray-900">{product.dimensions}</span>
+                  </div>
+                )}
+                {product.weight && (
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-500">Weight</span>
+                    <span className="text-gray-900">{product.weight}</span>
+                  </div>
+                )}
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-500">Minimum Order Quantity</span>
+                  <span className="text-gray-900">{product.minimumOrderQuantity}</span>
+                </div>
+                {product.maximumOrderQuantity && (
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-500">Maximum Order Quantity</span>
+                    <span className="text-gray-900">{product.maximumOrderQuantity}</span>
+                  </div>
+                )}
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-500">Dispatch Timeline</span>
+                  <span className="text-gray-900">
+                    {product.dispatchTimeline.totalDays} days 
+                    ({product.dispatchTimeline.processingDays} processing + {product.dispatchTimeline.shippingDays} shipping)
+                  </span>
+                </div>
+                {product.tags && product.tags.length > 0 && (
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-500">Tags</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {product.tags.map((tag, index) => (
+                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
@@ -361,7 +374,7 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
                 <div>
                   <p className="text-sm font-medium text-gray-900">Submitted Date</p>
                   <p className="text-sm text-gray-600">
-                    {new Date(request.submittedDate).toLocaleDateString('en-US', {
+                    {new Date(product.createdAt).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'
@@ -372,60 +385,89 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
               <div className="flex items-center space-x-3">
                 <DollarSign className="h-4 w-4 text-gray-500" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Proposed Price</p>
-                  <p className="text-sm text-gray-600">₹{request.basePrice}</p>
+                  <p className="text-sm font-medium text-gray-900">Price</p>
+                  <p className="text-sm text-gray-600">₹{product.basePrice}</p>
+                  {product.originalPrice && product.originalPrice !== product.basePrice && (
+                    <p className="text-xs text-gray-500">Vendor Price: ₹{product.originalPrice}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Tag className="h-4 w-4 text-gray-500" />
                 <div>
                   <p className="text-sm font-medium text-gray-900">Category</p>
-                  <p className="text-sm text-gray-600">{request.category}</p>
-                  <p className="text-xs text-gray-500">{request.subCategory}</p>
+                  <p className="text-sm text-gray-600">{product.category}</p>
+                  {product.subCategory && (
+                    <p className="text-xs text-gray-500">{product.subCategory}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Warehouse className="h-4 w-4 text-gray-500" />
                 <div>
                   <p className="text-sm font-medium text-gray-900">Stock & Variants</p>
-                  <p className="text-sm text-gray-600">{request.totalStock} units</p>
-                  <p className="text-xs text-gray-500">{request.variants} variants</p>
+                  <p className="text-sm text-gray-600">{product.totalStock} units</p>
+                  <p className="text-xs text-gray-500">
+                    {product.hasVariants ? `${product.variants?.length || 0} variants` : 'No variants'}
+                  </p>
                 </div>
               </div>
+              {product.approvalStatus === 'REJECTED' && product.rejectionReason && (
+                <div className="flex items-start space-x-3 p-3 bg-red-50 rounded-lg">
+                  <X className="h-4 w-4 text-red-500 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-900">Rejection Reason</p>
+                    <p className="text-sm text-red-700">{product.rejectionReason}</p>
+                  </div>
+                </div>
+              )}
+              {product.approvalStatus === 'APPROVED' && product.approvedAt && (
+                <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-green-900">Approved</p>
+                    <p className="text-sm text-green-700">
+                      {new Date(product.approvedAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Vendor Details */}
-          {request.vendorDetails && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="h-5 w-5 mr-2" />
-                  Vendor Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{request.vendorName}</p>
-                  <p className="text-xs text-gray-500">ID: {request.vendorId}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Contact</p>
-                  <p className="text-sm text-gray-600">{request.vendorDetails.email}</p>
-                  <p className="text-sm text-gray-600">{request.vendorDetails.phone}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Business Type</p>
-                  <p className="text-sm text-gray-600">{request.vendorDetails.businessType}</p>
-                  <p className="text-xs text-gray-500">{request.vendorDetails.yearsInBusiness} years in business</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Address</p>
-                  <p className="text-sm text-gray-600">{request.vendorDetails.address}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                Vendor Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{product.vendor.companyName}</p>
+                <p className="text-xs text-gray-500">ID: {product.vendor.id}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Owner</p>
+                <p className="text-sm text-gray-600">{product.vendor.ownerName}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Contact</p>
+                <p className="text-sm text-gray-600">{product.vendor.businessEmail}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Status</p>
+                <Badge className={product.vendor.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                  {product.vendor.status}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Material Info */}
           <Card>
@@ -433,16 +475,59 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
               <CardTitle>Material Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {product.fabricType && (
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Fabric Type</p>
+                  <p className="text-sm text-gray-600">{product.fabricType}</p>
+                </div>
+              )}
+              {product.material && (
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Material</p>
+                  <p className="text-sm text-gray-600">{product.material}</p>
+                </div>
+              )}
               <div>
-                <p className="text-sm font-medium text-gray-900">Fabric Type</p>
-                <p className="text-sm text-gray-600">{request.fabricType}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Material</p>
-                <p className="text-sm text-gray-600">{request.material}</p>
+                <p className="text-sm font-medium text-gray-900">Base SKU</p>
+                <p className="text-sm text-gray-600 font-mono">{product.baseSku}</p>
               </div>
             </CardContent>
           </Card>
+
+          {/* Variants */}
+          {product.hasVariants && product.variants && product.variants.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Product Variants</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {product.variants.map((variant, index) => (
+                    <div key={variant.id || index} className="p-3 border rounded-lg">
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-500">Size:</span>
+                          <span className="ml-2 text-gray-900">{variant.size}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500">Color:</span>
+                          <span className="ml-2 text-gray-900">{variant.color}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500">Price:</span>
+                          <span className="ml-2 text-gray-900">₹{variant.price}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500">Stock:</span>
+                          <span className="ml-2 text-gray-900">{variant.stock}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -454,6 +539,11 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
             <p className="text-gray-600 mb-4">
               Set the final price for this product. This will be the price customers see.
             </p>
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-700">Product: {product.name}</p>
+              <p className="text-sm text-gray-600">Vendor Price: ₹{product.basePrice}</p>
+              <p className="text-sm text-gray-600">Vendor: {product.vendor.companyName}</p>
+            </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Admin Fixed Price (₹)
@@ -466,21 +556,26 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
                 placeholder="Enter final price"
                 step="0.01"
                 min="0"
+                disabled={actionLoading}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Leave as is to keep vendor's price, or set a new price
+              </p>
             </div>
             <div className="flex justify-end space-x-3">
               <Button
                 variant="outline"
                 onClick={() => setShowApprovalModal(false)}
+                disabled={actionLoading}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleApprove}
-                disabled={!adminPrice || parseFloat(adminPrice) <= 0}
+                disabled={!adminPrice || parseFloat(adminPrice) <= 0 || actionLoading}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
-                Approve Product
+                {actionLoading ? 'Approving...' : 'Approve Product'}
               </Button>
             </div>
           </div>
@@ -511,15 +606,16 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
               <Button
                 variant="outline"
                 onClick={() => setShowRejectionModal(false)}
+                disabled={actionLoading}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleReject}
-                disabled={!rejectionReason.trim()}
+                disabled={!rejectionReason.trim() || actionLoading}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
-                Reject Product
+                {actionLoading ? 'Rejecting...' : 'Reject Product'}
               </Button>
             </div>
           </div>

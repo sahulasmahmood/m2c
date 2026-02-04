@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Dropdown from '@/components/UI/Dropdown'
 import { Eye, Check, X, Search, Filter, AlertCircle } from 'lucide-react'
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils'
-import axiosInstance from '@/lib/axios'
+import { adminProductService } from '@/services/adminProductService'
 
 interface VendorProductRequest {
   id: string
@@ -70,21 +70,21 @@ export default function VendorProductRequests() {
   const loadRequests = async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({
-        page: pagination.currentPage.toString(),
-        limit: pagination.limit.toString(),
-        ...(statusFilter !== 'all' && { approvalStatus: statusFilter }),
+      const params = {
+        page: pagination.currentPage,
+        limit: pagination.limit,
+        ...(statusFilter !== 'all' && { approvalStatus: statusFilter as any }),
         ...(searchTerm && { search: searchTerm })
-      })
+      }
 
-      const response = await axiosInstance.get(`/products/admin/all?${params}`)
+      const response = await adminProductService.getAllProducts(params)
       
-      if (response.data.success) {
-        setRequests(response.data.data.products)
+      if (response.success) {
+        setRequests(response.data.products)
         setPagination(prev => ({
           ...prev,
-          totalPages: response.data.data.pagination.totalPages,
-          totalCount: response.data.data.pagination.totalCount
+          totalPages: response.data.pagination.totalPages,
+          totalCount: response.data.pagination.totalCount
         }))
       }
     } catch (error: any) {
@@ -96,10 +96,16 @@ export default function VendorProductRequests() {
   }
 
   const handleApprove = async (requestId: string) => {
+    const adminPrice = prompt('Enter the admin fixed price for this product:')
+    if (!adminPrice || adminPrice.trim() === '' || parseFloat(adminPrice) <= 0) {
+      showErrorToast('Invalid Price', 'Please enter a valid admin price')
+      return
+    }
+
     try {
-      const response = await axiosInstance.put(`/products/${requestId}/approve`)
+      const response = await adminProductService.approveProduct(requestId, parseFloat(adminPrice))
       
-      if (response.data.success) {
+      if (response.success) {
         showSuccessToast('Product Approved', 'The vendor product has been approved successfully.')
         loadRequests() // Reload the list
       }
@@ -117,11 +123,9 @@ export default function VendorProductRequests() {
     if (!rejectingRequestId) return
 
     try {
-      const response = await axiosInstance.put(`/products/${rejectingRequestId}/reject`, {
-        rejectionReason: reason.trim()
-      })
+      const response = await adminProductService.rejectProduct(rejectingRequestId, reason.trim())
       
-      if (response.data.success) {
+      if (response.success) {
         showSuccessToast('Product Rejected', 'The vendor has been notified of the rejection.')
         setShowRejectionModal(false)
         setRejectingRequestId(null)

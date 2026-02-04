@@ -143,6 +143,11 @@ interface ProductFormData {
   originalPrice?: number
   discount?: number
   
+  // Single Unit Pricing Configuration (NEW)
+  singleUnitSize?: string
+  singleUnitColor?: string
+  singleUnitColorHex?: string
+  
   // Product Rating & Reviews (for display/reference)
   rating?: number
   reviews?: number
@@ -224,6 +229,11 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     originalPrice: undefined,
     discount: undefined,
     
+    // Single Unit Pricing Configuration (NEW)
+    singleUnitSize: '',
+    singleUnitColor: '',
+    singleUnitColorHex: '#000000',
+    
     // Product Rating & Reviews
     rating: undefined,
     reviews: undefined,
@@ -266,9 +276,9 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     
     // Dispatch & Shipping
     dispatchTimeline: {
-      processingDays: 1,
-      shippingDays: 3,
-      totalDays: 4
+      processingDays: 0,
+      shippingDays: 0,
+      totalDays: 0
     },
     
     // Additional Info
@@ -359,6 +369,11 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
               originalPrice: product.originalPrice,
               discount: product.discount,
               
+              // Single Unit Pricing Configuration
+              singleUnitSize: product.singleUnitSize || '',
+              singleUnitColor: product.singleUnitColor || '',
+              singleUnitColorHex: product.singleUnitColorHex || '#000000',
+              
               // Product Rating & Reviews
               rating: product.rating,
               reviews: product.reviews,
@@ -393,9 +408,9 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
               maximumOrderQuantity: product.maximumOrderQuantity,
               
               dispatchTimeline: product.dispatchTimeline || {
-                processingDays: 1,
-                shippingDays: 3,
-                totalDays: 4
+                processingDays: 0,
+                shippingDays: 0,
+                totalDays: 0
               },
               
               tags: product.tags || [],
@@ -643,6 +658,15 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     const files = e.target.files
     if (!files) return
 
+    // Check file size limits FIRST - before any other processing
+    const oversizedFiles = Array.from(files).filter(file => file.size > 10 * 1024 * 1024) // 10MB limit
+    if (oversizedFiles.length > 0) {
+      const fileNames = oversizedFiles.map(f => f.name).join(', ')
+      showWarningToast('File Too Large', `The following file(s) exceed 10MB limit: ${fileNames}`)
+      e.target.value = '' // Reset input immediately
+      return
+    }
+
     // Check limits before processing
     if (imageType === 'cover') {
       const existingCoverImages = formData.images.filter(img => img.imageType === 'cover')
@@ -675,13 +699,8 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
       }
     }
 
-    // Process files
+    // Process files (all validations passed)
     Array.from(files).forEach((file) => {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        showWarningToast('File Too Large', `${file.name} is larger than 10MB`)
-        return
-      }
-
       const reader = new FileReader()
       reader.onload = (event) => {
         const newImage: ProductImage = {
@@ -1659,6 +1678,55 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
                         <span className="w-2 h-2 bg-gray-800 rounded-full mr-2"></span>
                         Single Unit Pricing
                       </h4>
+                      
+                      {/* Size and Color Configuration */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Size
+                          </label>
+                          <Dropdown
+                            value={formData.singleUnitSize || ''}
+                            options={standardSizes}
+                            placeholder="Select Size"
+                            onChange={(value) => setFormData(prev => ({ ...prev, singleUnitSize: value as string }))}
+                          />
+                          <p className="text-xs text-gray-600 mt-1">Default size for single unit</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Color
+                          </label>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={formData.singleUnitColorHex || '#000000'}
+                                onChange={(e) => {
+                                  const hex = e.target.value
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    singleUnitColorHex: hex,
+                                    singleUnitColor: getColorName(hex)
+                                  }))
+                                }}
+                                className="w-10 h-10 border border-gray-300 rounded-md cursor-pointer"
+                                title="Pick a color"
+                              />
+                              <input
+                                type="text"
+                                value={formData.singleUnitColor || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, singleUnitColor: e.target.value }))}
+                                placeholder="Color name"
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                              />
+                            </div>
+                            <p className="text-xs text-gray-600">Default color for single unit</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pricing Configuration */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1714,6 +1782,47 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
                           <p className="text-xs text-gray-600 mt-1">Auto-calculated if original price set</p>
                         </div>
                       </div>
+
+                      {/* Single Unit Summary */}
+                      {(formData.singleUnitSize || formData.singleUnitColor || formData.basePrice > 0) && (
+                        <div className="p-4 bg-white border border-gray-300 rounded-lg mb-4">
+                          <h5 className="font-medium text-gray-900 mb-3">Single Unit Configuration</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            {formData.singleUnitSize && (
+                              <div>
+                                <span className="text-gray-600">Size:</span>
+                                <span className="font-medium ml-2">{formData.singleUnitSize}</span>
+                              </div>
+                            )}
+                            {formData.singleUnitColor && (
+                              <div className="flex items-center">
+                                <span className="text-gray-600">Color:</span>
+                                <div className="flex items-center ml-2">
+                                  <div 
+                                    className="w-4 h-4 rounded border border-gray-300 mr-1"
+                                    style={{ backgroundColor: formData.singleUnitColorHex }}
+                                  ></div>
+                                  <span className="font-medium">{formData.singleUnitColor}</span>
+                                </div>
+                              </div>
+                            )}
+                            {formData.basePrice > 0 && (
+                              <div>
+                                <span className="text-gray-600">Price:</span>
+                                <span className="font-medium ml-2">₹{formData.basePrice.toFixed(2)}</span>
+                              </div>
+                            )}
+                            {formData.originalPrice && formData.originalPrice > formData.basePrice && (
+                              <div>
+                                <span className="text-gray-600">Discount:</span>
+                                <span className="font-medium text-green-600 ml-2">
+                                  {Math.round(((formData.originalPrice - formData.basePrice) / formData.originalPrice) * 100)}% off
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Price Summary */}
                       {formData.basePrice > 0 && (

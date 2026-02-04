@@ -71,6 +71,42 @@ router.put('/admin/onboarding', authenticateToken, completeOnboarding);
 // System routes for microservice communication
 router.get('/admin/settings', getAdminSettings); // Admin settings for all services
 
+// Debug route for session information (development only)
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/debug/sessions/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const sessions = await require('../../config/database').prisma.session.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' }
+      });
+      
+      const activeSessions = sessions.filter(s => s.expiresAt > new Date());
+      const expiredSessions = sessions.filter(s => s.expiresAt <= new Date());
+      
+      res.json({
+        success: true,
+        data: {
+          userId,
+          totalSessions: sessions.length,
+          activeSessions: activeSessions.length,
+          expiredSessions: expiredSessions.length,
+          sessions: sessions.map(s => ({
+            id: s.id,
+            token: s.token.substring(0, 20) + '...',
+            expiresAt: s.expiresAt,
+            createdAt: s.createdAt,
+            isExpired: s.expiresAt <= new Date(),
+            hoursUntilExpiry: Math.round((s.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60))
+          }))
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+}
+
 // Public routes - no authentication required
 router.get('/currency', async (req, res) => {
   try {
