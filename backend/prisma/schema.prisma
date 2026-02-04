@@ -486,6 +486,11 @@ model Product {
   originalPrice         Float?
   discount              Float?
   
+  // Single Unit Pricing Configuration
+  singleUnitSize        String?
+  singleUnitColor       String?
+  singleUnitColorHex    String?
+  
   // Product Rating & Reviews
   rating                Float?
   reviews               Int?      @default(0)
@@ -534,6 +539,7 @@ model Product {
   approvedAt            DateTime?
   approvedBy            String?   @db.ObjectId // Admin ID who approved
   rejectionReason       String?
+  adminFixedPrice       Float?    // Admin can override the vendor's base price
   
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt

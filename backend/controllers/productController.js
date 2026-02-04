@@ -21,6 +21,11 @@ const createProduct = async (req, res) => {
       originalPrice,
       discount,
       
+      // Single Unit Pricing Configuration
+      singleUnitSize,
+      singleUnitColor,
+      singleUnitColorHex,
+      
       // Fabric & Specifications
       fabricType,
       material,
@@ -164,6 +169,11 @@ const createProduct = async (req, res) => {
           basePrice: parseFloat(basePrice) || 0,
           originalPrice: originalPrice ? parseFloat(originalPrice) : null,
           discount: discount ? parseFloat(discount) : null,
+          
+          // Single Unit Pricing Configuration
+          singleUnitSize: singleUnitSize || null,
+          singleUnitColor: singleUnitColor || null,
+          singleUnitColorHex: singleUnitColorHex || null,
           fabricType,
           material,
           fabricSpecifications: fabricSpecifications || {},
@@ -344,6 +354,10 @@ const getVendorProducts = async (req, res) => {
       skip: (parseInt(page) - 1) * parseInt(limit),
       take: parseInt(limit)
     });
+    Editing
+    
+    
+    
 
     // Calculate pagination info
     const totalPages = Math.ceil(totalItems / parseInt(limit));
@@ -515,6 +529,11 @@ const updateProduct = async (req, res) => {
           ...(updateData.discount !== undefined && { 
             discount: updateData.discount ? parseFloat(updateData.discount) : null 
           }),
+          
+          // Single Unit Pricing Configuration
+          ...(updateData.singleUnitSize !== undefined && { singleUnitSize: updateData.singleUnitSize }),
+          ...(updateData.singleUnitColor !== undefined && { singleUnitColor: updateData.singleUnitColor }),
+          ...(updateData.singleUnitColorHex !== undefined && { singleUnitColorHex: updateData.singleUnitColorHex }),
           ...(updateData.fabricType !== undefined && { fabricType: updateData.fabricType }),
           ...(updateData.material !== undefined && { material: updateData.material }),
           ...(updateData.fabricSpecifications !== undefined && { 
@@ -824,6 +843,7 @@ const getAvailableInventoryItems = async (req, res) => {
 const approveProduct = async (req, res) => {
   try {
     const { id } = req.params; // Changed from productId to id
+    const { adminPrice } = req.body; // Get admin price from request body
     const adminId = req.user.id; // Admin ID from auth middleware
 
     // Find the product
@@ -855,15 +875,29 @@ const approveProduct = async (req, res) => {
       });
     }
 
+    // Prepare update data
+    const updateData = {
+      approvalStatus: 'APPROVED',
+      approvedAt: new Date(),
+      approvedBy: adminId,
+      rejectionReason: null // Clear any previous rejection reason
+    };
+
+    // If admin price is provided, update the base price
+    if (adminPrice !== undefined && adminPrice !== null) {
+      if (adminPrice <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Admin price must be greater than 0'
+        });
+      }
+      updateData.basePrice = parseFloat(adminPrice);
+    }
+
     // Update product approval status
     const updatedProduct = await prisma.product.update({
       where: { id: id },
-      data: {
-        approvalStatus: 'APPROVED',
-        approvedAt: new Date(),
-        approvedBy: adminId,
-        rejectionReason: null // Clear any previous rejection reason
-      },
+      data: updateData,
       include: {
         vendor: {
           select: {
@@ -964,6 +998,62 @@ const rejectProduct = async (req, res) => {
   }
 };
 
+// Admin: Get single product by ID (no vendor restriction)
+const getProductForAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        variants: {
+          orderBy: { createdAt: 'asc' }
+        },
+        images: {
+          orderBy: { sortOrder: 'asc' }
+        },
+        vendor: {
+          select: {
+            id: true,
+            companyName: true,
+            ownerName: true,
+            businessEmail: true,
+            status: true
+          }
+        },
+        inventory: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            currentStock: true,
+            category: true
+          }
+        }
+      }
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: product
+    });
+
+  } catch (error) {
+    console.error('Error fetching product for admin:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
 // Admin: Get all products with approval status filter
 const getAllProductsForAdmin = async (req, res) => {
   try {
@@ -1075,6 +1165,7 @@ module.exports = {
   getProductStats,
   getAvailableInventoryItems,
   // Admin functions
+  getProductForAdmin,
   approveProduct,
   rejectProduct,
   getAllProductsForAdmin

@@ -92,6 +92,17 @@ const server = app.listen(PORT, async () => {
     
     // Clean expired sessions on startup
     await sessionManager.cleanExpiredSessions();
+    
+    // Set up periodic session cleanup (every 6 hours)
+    setInterval(async () => {
+      try {
+        console.log('🧹 Running periodic session cleanup...');
+        await sessionManager.cleanExpiredSessions();
+      } catch (error) {
+        console.error('❌ Periodic session cleanup error:', error);
+      }
+    }, 6 * 60 * 60 * 1000); // 6 hours
+    
   } catch (error) {
     console.error('❌ Startup error:', error);
   }

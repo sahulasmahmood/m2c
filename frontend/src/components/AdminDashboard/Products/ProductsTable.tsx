@@ -15,9 +15,9 @@ import {
 } from "@/components/UI/Table"
 import { Eye, Edit, Trash2, CheckCircle, XCircle, Filter } from "lucide-react"
 import { formatDate, formatPrice } from "@/lib/utils"
-import axiosInstance from '@/lib/axios'
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils'
 import Dropdown from '@/components/UI/Dropdown'
+import { adminProductService } from '@/services/adminProductService'
 
 interface Product {
   id: string
@@ -90,22 +90,22 @@ export default function ProductsTable() {
   const loadProducts = async () => {
     setIsLoading(true)
     try {
-      const params = new URLSearchParams({
-        page: pagination.currentPage.toString(),
-        limit: pagination.limit.toString(),
-        ...(filters.approvalStatus && { approvalStatus: filters.approvalStatus }),
-        ...(filters.status && { status: filters.status }),
+      const params = {
+        page: pagination.currentPage,
+        limit: pagination.limit,
+        ...(filters.approvalStatus && { approvalStatus: filters.approvalStatus as any }),
+        ...(filters.status && { status: filters.status as any }),
         ...(filters.search && { search: filters.search })
-      })
+      }
 
-      const response = await axiosInstance.get(`/products/admin/all?${params}`)
+      const response = await adminProductService.getAllProducts(params)
       
-      if (response.data.success) {
-        setProducts(response.data.data.products)
+      if (response.success) {
+        setProducts(response.data.products)
         setPagination(prev => ({
           ...prev,
-          totalPages: response.data.data.pagination.totalPages,
-          totalCount: response.data.data.pagination.totalCount
+          totalPages: response.data.pagination.totalPages,
+          totalCount: response.data.pagination.totalCount
         }))
       }
     } catch (error: any) {
@@ -117,10 +117,16 @@ export default function ProductsTable() {
   }
 
   const handleApproveProduct = async (productId: string) => {
+    const adminPrice = prompt('Enter the admin fixed price for this product:')
+    if (!adminPrice || adminPrice.trim() === '' || parseFloat(adminPrice) <= 0) {
+      showErrorToast('Invalid Price', 'Please enter a valid admin price')
+      return
+    }
+
     try {
-      const response = await axiosInstance.put(`/products/${productId}/approve`)
+      const response = await adminProductService.approveProduct(productId, parseFloat(adminPrice))
       
-      if (response.data.success) {
+      if (response.success) {
         showSuccessToast('Product Approved', 'Product has been approved successfully')
         loadProducts() // Reload products
       }
@@ -137,11 +143,9 @@ export default function ProductsTable() {
     }
 
     try {
-      const response = await axiosInstance.put(`/products/${productId}/reject`, {
-        rejectionReason: reason.trim()
-      })
+      const response = await adminProductService.rejectProduct(productId, reason.trim())
       
-      if (response.data.success) {
+      if (response.success) {
         showSuccessToast('Product Rejected', 'Product has been rejected successfully')
         loadProducts() // Reload products
       }
@@ -181,7 +185,7 @@ export default function ProductsTable() {
                   { value: 'APPROVED', label: 'Approved' },
                   { value: 'REJECTED', label: 'Rejected' }
                 ]}
-                onChange={(value) => setFilters(prev => ({ ...prev, approvalStatus: value }))}
+                onChange={(value) => setFilters(prev => ({ ...prev, approvalStatus: value as string }))}
               />
               <Dropdown
                 label=""
@@ -193,7 +197,7 @@ export default function ProductsTable() {
                   { value: 'INACTIVE', label: 'Inactive' },
                   { value: 'OUT_OF_STOCK', label: 'Out of Stock' }
                 ]}
-                onChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
+                onChange={(value) => setFilters(prev => ({ ...prev, status: value as string }))}
               />
             </div>
             <Link href="/admin/dashboard/products/add">
@@ -268,9 +272,11 @@ export default function ProductsTable() {
                 <TableCell>{formatDate(new Date(product.createdAt))}</TableCell>
                 <TableCell>
                   <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="sm" className="hover:bg-gray-50">
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <Link href={`/admin/dashboard/products/vendor-requests/view/${product.id}`}>
+                      <Button variant="ghost" size="sm" className="hover:bg-gray-50">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </Link>
                     
                     {product.approvalStatus === 'PENDING' && (
                       <>

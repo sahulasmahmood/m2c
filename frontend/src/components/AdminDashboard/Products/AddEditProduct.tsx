@@ -154,6 +154,11 @@ interface ProductFormData {
   originalPrice?: number
   discount?: number // Discount percentage (e.g., 25 for 25% off)
   
+  // Single Unit Pricing Configuration (NEW)
+  singleUnitSize?: string
+  singleUnitColor?: string
+  singleUnitColorHex?: string
+  
   // Product Rating & Reviews (for display/reference)
   rating?: number
   reviews?: number
@@ -232,6 +237,11 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     originalPrice: undefined,
     discount: undefined,
     
+    // Single Unit Pricing Configuration (NEW)
+    singleUnitSize: '',
+    singleUnitColor: '',
+    singleUnitColorHex: '#000000',
+    
     // Product Rating & Reviews
     rating: undefined,
     reviews: undefined,
@@ -274,9 +284,9 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     
     // Dispatch & Shipping
     dispatchTimeline: {
-      processingDays: 1,
-      shippingDays: 3,
-      totalDays: 4
+      processingDays: 0,
+      shippingDays: 0,
+      totalDays: 0
     },
     
     // Additional Info
@@ -410,9 +420,9 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
             maximumOrderQuantity: 100,
             
             dispatchTimeline: {
-              processingDays: 2,
-              shippingDays: 5,
-              totalDays: 7
+              processingDays: 0,
+              shippingDays: 0,
+              totalDays: 0
             },
             
             tags: ['premium', 'cotton', 'bedding'],
@@ -642,6 +652,15 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
     const files = e.target.files
     if (!files) return
 
+    // Check file size limits FIRST - before any other processing
+    const oversizedFiles = Array.from(files).filter(file => file.size > 10 * 1024 * 1024) // 10MB limit
+    if (oversizedFiles.length > 0) {
+      const fileNames = oversizedFiles.map(f => f.name).join(', ')
+      showWarningToast('File Too Large', `The following file(s) exceed 10MB limit: ${fileNames}`)
+      e.target.value = '' // Reset input immediately
+      return
+    }
+
     // Check limits before processing
     if (imageType === 'cover') {
       const existingCoverImages = formData.images.filter(img => img.imageType === 'cover')
@@ -674,13 +693,8 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
       }
     }
 
-    // Process files
+    // Process files (all validations passed)
     Array.from(files).forEach((file) => {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        showWarningToast('File Too Large', `${file.name} is larger than 10MB`)
-        return
-      }
-
       const reader = new FileReader()
       reader.onload = (event) => {
         const newImage: ProductImage = {
