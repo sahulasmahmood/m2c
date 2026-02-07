@@ -25,6 +25,7 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:3000',
       'https://m2-c.vercel.app',
+      'https://m2-c-p6ikdsx.vercel.app',
       /https:\/\/m2-c-.*\.vercel\.app$/ // Allow all Vercel preview deployments
     ];
     
