@@ -36,7 +36,16 @@ export interface PublicProduct {
   dimensions?: string;
   weight?: string;
   createdAt: string;
-  vendorId: string; // Added to match ServiceProduct type guard
+  updatedAt: string;
+  vendorId: string;
+  isFromInventory: boolean;
+  baseSku: string;
+  bulkPricingEnabled: boolean;
+  singleUnitPricingEnabled: boolean;
+  lowStockThreshold: number;
+  trackInventory: boolean;
+  minimumOrderQuantity: number;
+  maximumOrderQuantity?: number;
 }
 
 export interface ProductsResponse {
