@@ -7,13 +7,19 @@ const {
   deleteInventoryItem,
   updateStock,
   getInventoryStats,
-  getVendorCategories
+  getVendorCategories,
+  getAllInventory,
+  getAllInventoryStats
 } = require('../controllers/inventoryController');
-const { authenticateToken, requireVendorRole } = require('../middleware/auth');
+const { authenticateToken, requireVendorRole, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// All routes require vendor authentication
+// Admin routes (must come before vendor routes)
+router.get('/admin/all', authenticateToken, requireRole('admin'), getAllInventory);
+router.get('/admin/stats', authenticateToken, requireRole('admin'), getAllInventoryStats);
+
+// All vendor routes require vendor authentication
 router.use(authenticateToken);
 router.use(requireVendorRole);
 

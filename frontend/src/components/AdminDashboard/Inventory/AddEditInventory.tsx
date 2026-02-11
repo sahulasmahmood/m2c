@@ -7,12 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/Card'
 import { ArrowLeft, Save, Package, AlertTriangle, Plus } from 'lucide-react'
 import Link from 'next/link'
 import Dropdown from '@/components/UI/Dropdown'
+import axiosInstance from '@/lib/axios'
 
 interface InventoryFormData {
   // Basic Product Info (Primary Data)
   name: string
   sku: string
   category: string
+  subcategory: string
   description: string
   manufacturingDate?: string // New field for manufacturing date
   
@@ -45,19 +47,31 @@ interface AddEditInventoryProps {
   isEdit?: boolean
 }
 
-const categories = [
-  'Kitchen Linen', 'Bath Linen', 'Bed Linen', 'Table Linen', 'Towels', 'Aprons', 'Curtains', 'Blankets', 'Pillows'
-]
+interface Category {
+  id: string
+  name: string
+  slug: string
+  subcategories?: Array<{
+    id: string
+    name: string
+    slug: string
+  }>
+}
 
-// Mock vendors data
-const mockVendors = [
-  { id: '1', name: 'Cotton Mills Ltd', email: 'contact@cottonmills.com', status: 'active' },
-  { id: '2', name: 'Textile Pro Industries', email: 'info@textilepro.com', status: 'active' },
-  { id: '3', name: 'Home Decor Inc', email: 'sales@homedecor.com', status: 'active' },
-  { id: '4', name: 'Sleep Comfort Co', email: 'orders@sleepcomfort.com', status: 'active' },
-  { id: '5', name: 'Warm Textiles', email: 'support@warmtextiles.com', status: 'active' },
-  { id: '6', name: 'Luxury Linens Co', email: 'hello@luxurylinens.com', status: 'active' }
-]
+// Remove hardcoded categories - will fetch from backend
+// const categories = [
+//   'Kitchen Linen', 'Bath Linen', 'Bed Linen', 'Table Linen', 'Towels', 'Aprons', 'Curtains', 'Blankets', 'Pillows'
+// ]
+
+// Mock vendors data - will be replaced with API call
+// const mockVendors = [
+//   { id: '1', name: 'Cotton Mills Ltd', email: 'contact@cottonmills.com', status: 'active' },
+//   { id: '2', name: 'Textile Pro Industries', email: 'info@textilepro.com', status: 'active' },
+//   { id: '3', name: 'Home Decor Inc', email: 'sales@homedecor.com', status: 'active' },
+//   { id: '4', name: 'Sleep Comfort Co', email: 'orders@sleepcomfort.com', status: 'active' },
+//   { id: '5', name: 'Warm Textiles', email: 'support@warmtextiles.com', status: 'active' },
+//   { id: '6', name: 'Luxury Linens Co', email: 'hello@luxurylinens.com', status: 'active' }
+// ]
 
 const locations = [
   'Main Warehouse - Section A', 
@@ -71,11 +85,18 @@ export default function AddEditInventory({ inventoryId, isEdit = false }: AddEdi
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(isEdit)
+  const [vendors, setVendors] = useState<Array<{ id: string; companyName: string; email: string; status: string }>>([])
+  const [isLoadingVendors, setIsLoadingVendors] = useState(true)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+  const [subcategories, setSubcategories] = useState<Array<{ id: string; name: string; slug: string }>>([])
+  const [selectedCategoryName, setSelectedCategoryName] = useState('')
 
   const [formData, setFormData] = useState<InventoryFormData>({
     name: '',
     sku: '',
     category: '',
+    subcategory: '',
     description: '',
     manufacturingDate: '',
     
@@ -114,6 +135,7 @@ export default function AddEditInventory({ inventoryId, isEdit = false }: AddEdi
             name: 'Cotton Kitchen Towel',
             sku: 'KL-CKT-001',
             category: 'Kitchen Linen',
+            subcategory: '',
             description: 'High-quality cotton kitchen towel with excellent absorbency',
             manufacturingDate: '2024-01-10',
             
@@ -147,13 +169,76 @@ export default function AddEditInventory({ inventoryId, isEdit = false }: AddEdi
     }
   }, [isEdit, inventoryId])
 
-  // Auto-generate SKU from name and category
-  const generateSKU = (name: string, category: string) => {
-    const namePrefix = name.split(' ').map(word => word.charAt(0)).join('').toUpperCase()
-    const categoryPrefix = category.split(' ').map(word => word.charAt(0)).join('').toUpperCase()
-    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-    return `${categoryPrefix}-${namePrefix}-${randomNum}`
-  }
+  // Fetch vendors from API
+  useEffect(() => {
+    const fetchVendors = async () => {
+      try {
+        setIsLoadingVendors(true)
+        
+        const response = await axiosInstance.get('/vendors/all', {
+          params: { limit: 1000 }
+        })
+        
+        console.log('Fetched vendors response:', response.data)
+        
+        // Filter for approved vendors only
+        const approvedVendors = (response.data.vendors || []).filter((v: any) => v.status === 'APPROVED')
+        console.log('Approved vendors:', approvedVendors)
+        
+        setVendors(approvedVendors)
+      } catch (error: any) {
+        console.error('Error fetching vendors:', error)
+        console.error('Error details:', error.response?.data || error.message)
+        setVendors([])
+      } finally {
+        setIsLoadingVendors(false)
+      }
+    }
+
+    fetchVendors()
+  }, [])
+
+  // Fetch categories from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setIsLoadingCategories(true)
+        
+        const response = await axiosInstance.get('/categories/tree', {
+          params: { 
+            status: 'ACTIVE',
+            includeInactive: false 
+          }
+        })
+        
+        console.log('Fetched categories response:', response.data)
+        setCategories(response.data.data || [])
+      } catch (error: any) {
+        console.error('Error fetching categories:', error)
+        console.error('Error details:', error.response?.data || error.message)
+        setCategories([])
+      } finally {
+        setIsLoadingCategories(false)
+      }
+    }
+
+    fetchCategories()
+  }, [])
+
+  // Auto-generate SKU from name and category - REMOVED (Manual entry only)
+  // const generateSKU = (name: string, categoryName: string, subcategoryName?: string) => {
+  //   if (!name || !categoryName) return ''
+  //   
+  //   const namePrefix = name.split(' ').slice(0, 2).map(word => word.charAt(0)).join('').toUpperCase()
+  //   const categoryPrefix = categoryName.split(' ').map(word => word.charAt(0)).join('').toUpperCase()
+  //   const subcategoryPrefix = subcategoryName ? subcategoryName.split(' ').map(word => word.charAt(0)).join('').toUpperCase() : ''
+  //   const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+  //   
+  //   if (subcategoryPrefix) {
+  //     return `${categoryPrefix}-${subcategoryPrefix}-${namePrefix}-${randomNum}`
+  //   }
+  //   return `${categoryPrefix}-${namePrefix}-${randomNum}`
+  // }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -161,8 +246,7 @@ export default function AddEditInventory({ inventoryId, isEdit = false }: AddEdi
     setFormData(prev => ({
       ...prev,
       [name]: type === 'number' ? parseFloat(value) || 0 : 
-               type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
-      ...(name === 'name' && formData.category && { sku: generateSKU(value, formData.category) })
+               type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }))
   }
 
@@ -193,21 +277,31 @@ export default function AddEditInventory({ inventoryId, isEdit = false }: AddEdi
   }
 
   const handleDropdownChange = (name: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-      ...(name === 'category' && formData.name && { sku: generateSKU(formData.name, value) })
-    }))
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value }
+      
+      // Handle category change
+      if (name === 'category') {
+        const selectedCategory = categories.find(c => c.id === value)
+        if (selectedCategory) {
+          setSelectedCategoryName(selectedCategory.name)
+          setSubcategories(selectedCategory.subcategories || [])
+          updated.subcategory = '' // Reset subcategory when category changes
+        }
+      }
+      
+      return updated
+    })
   }
 
   // Vendor Selection Functions
   const handleVendorSelect = (vendorId: string) => {
-    const vendor = mockVendors.find(v => v.id === vendorId)
+    const vendor = vendors.find(v => v.id === vendorId)
     if (vendor) {
       setFormData(prev => ({
         ...prev,
         vendorId: vendor.id,
-        vendorName: vendor.name
+        vendorName: vendor.companyName
       }))
     }
   }
@@ -236,14 +330,29 @@ export default function AddEditInventory({ inventoryId, isEdit = false }: AddEdi
       return
     }
     
+    if (!formData.sku.trim()) {
+      console.error('SKU is required')
+      return
+    }
+    
     setIsLoading(true)
 
     try {
+      // Get category and subcategory names for submission
+      const categoryName = categories.find(c => c.id === formData.category)?.name || formData.category
+      const subcategoryName = subcategories.find(s => s.id === formData.subcategory)?.name || formData.subcategory
+      
+      const submitData = {
+        ...formData,
+        category: categoryName,
+        subcategory: subcategoryName
+      }
+      
       if (isEdit) {
-        console.log('Updating inventory item:', inventoryId, formData)
+        console.log('Updating inventory item:', inventoryId, submitData)
         // API call: PUT /api/admin/inventory/${inventoryId}
       } else {
-        console.log('Creating inventory item:', formData)
+        console.log('Creating inventory item:', submitData)
         // API call: POST /api/admin/inventory
       }
       
@@ -312,15 +421,24 @@ export default function AddEditInventory({ inventoryId, isEdit = false }: AddEdi
                     id="vendor"
                     label="Vendor *"
                     value={formData.vendorId || ''}
-                    options={mockVendors.map(vendor => ({
+                    options={vendors.map(vendor => ({
                       value: vendor.id,
-                      label: `${vendor.name} (${vendor.email})`
+                      label: `${vendor.companyName} (${vendor.email})`
                     }))}
-                    placeholder="Select Vendor"
+                    placeholder={isLoadingVendors ? "Loading vendors..." : vendors.length === 0 ? "No vendors available" : "Select Vendor"}
                     onChange={(value) => handleVendorSelect(value as string)}
+                    disabled={isLoadingVendors || vendors.length === 0}
                   />
                   {formData.vendorName && (
                     <p className="text-xs text-slate-500 mt-1">Selected: {formData.vendorName}</p>
+                  )}
+                  {!isLoadingVendors && vendors.length === 0 && (
+                    <p className="text-xs text-red-600 mt-1">
+                      No approved vendors found. Please approve vendors in the Vendors section first.
+                    </p>
+                  )}
+                  {isLoadingVendors && (
+                    <p className="text-xs text-slate-500 mt-1">Loading vendors from database...</p>
                   )}
                 </div>
 
@@ -345,25 +463,47 @@ export default function AddEditInventory({ inventoryId, isEdit = false }: AddEdi
                       id="category"
                       label="Category *"
                       value={formData.category}
-                      options={categories}
-                      placeholder="Select Category"
+                      options={categories.map(cat => ({
+                        value: cat.id,
+                        label: cat.name
+                      }))}
+                      placeholder={isLoadingCategories ? "Loading categories..." : "Select Category"}
                       onChange={(value) => handleDropdownChange('category', value as string)}
+                      disabled={isLoadingCategories}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      SKU * <span className="text-xs text-slate-500">(Auto-generated)</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="sku"
-                      value={formData.sku}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#222222] focus:border-[#222222]"
-                      placeholder="Auto-generated or custom SKU"
+                    <Dropdown
+                      id="subcategory"
+                      label="Subcategory"
+                      value={formData.subcategory}
+                      options={subcategories.map(sub => ({
+                        value: sub.id,
+                        label: sub.name
+                      }))}
+                      placeholder={!formData.category ? "Select category first" : subcategories.length === 0 ? "No subcategories" : "Select Subcategory"}
+                      onChange={(value) => handleDropdownChange('subcategory', value as string)}
+                      disabled={!formData.category || subcategories.length === 0}
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    SKU *
+                  </label>
+                  <input
+                    type="text"
+                    name="sku"
+                    value={formData.sku}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#222222] focus:border-[#222222]"
+                    placeholder="Enter unique SKU code"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Enter a unique SKU code for this inventory item
+                  </p>
                 </div>
 
 

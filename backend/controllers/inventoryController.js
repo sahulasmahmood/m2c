@@ -560,3 +560,148 @@ module.exports = {
   getInventoryStats,
   getVendorCategories
 };
+
+
+// Admin: Get all inventory items across all vendors
+const getAllInventory = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search, category, status, vendorId } = req.query;
+
+    // Build filter conditions
+    const where = {
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } }
+        ]
+      }),
+      ...(category && { category }),
+      ...(status && { status }),
+      ...(vendorId && { vendorId })
+    };
+
+    // Get total count for pagination
+    const totalItems = await prisma.inventory.count({ where });
+
+    // Get inventory items with pagination and vendor info
+    const inventoryItems = await prisma.inventory.findMany({
+      where,
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            companyName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (parseInt(page) - 1) * parseInt(limit),
+      take: parseInt(limit)
+    });
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalItems / parseInt(limit));
+    const hasNextPage = parseInt(page) < totalPages;
+    const hasPrevPage = parseInt(page) > 1;
+
+    res.json({
+      success: true,
+      data: {
+        items: inventoryItems,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalItems,
+          hasNextPage,
+          hasPrevPage,
+          limit: parseInt(limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching all inventory:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Admin: Get inventory statistics across all vendors
+const getAllInventoryStats = async (req, res) => {
+  try {
+    // Get total items
+    const totalItems = await prisma.inventory.count();
+
+    // Get active items
+    const activeItems = await prisma.inventory.count({
+      where: { status: 'ACTIVE' }
+    });
+
+    // Get low stock items (where current stock <= min stock)
+    const lowStockItems = await prisma.inventory.findMany({
+      where: {
+        status: 'ACTIVE'
+      },
+      select: {
+        id: true,
+        currentStock: true,
+        minStock: true
+      }
+    });
+
+    const lowStockCount = lowStockItems.filter(item => item.currentStock <= item.minStock).length;
+
+    // Get out of stock items
+    const outOfStockItems = await prisma.inventory.count({
+      where: {
+        status: 'ACTIVE',
+        currentStock: 0
+      }
+    });
+
+    // Get total stock value (sum of all current stock)
+    const totalStockValue = await prisma.inventory.aggregate({
+      where: { status: 'ACTIVE' },
+      _sum: {
+        currentStock: true
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        totalItems,
+        activeItems,
+        lowStockItems: lowStockCount,
+        outOfStockItems,
+        totalStockUnits: totalStockValue._sum.currentStock || 0
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching all inventory stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+module.exports = {
+  createInventoryItem,
+  getVendorInventory,
+  getInventoryItem,
+  updateInventoryItem,
+  deleteInventoryItem,
+  updateStock,
+  getInventoryStats,
+  getVendorCategories,
+  getAllInventory,
+  getAllInventoryStats
+};
