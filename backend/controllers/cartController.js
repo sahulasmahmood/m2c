@@ -148,14 +148,25 @@ const getCart = async (req, res) => {
           select: {
             id: true,
             name: true,
+            description: true,
             basePrice: true,
             adminFixedPrice: true,
+            originalPrice: true,
+            discount: true,
             inStock: true,
             totalStock: true,
+            category: true,
+            material: true,
+            rating: true,
+            reviews: true,
             images: {
-              where: { isPrimary: true },
-              take: 1,
-              select: { url: true }
+              select: { 
+                url: true,
+                isPrimary: true
+              },
+              orderBy: {
+                isPrimary: 'desc'
+              }
             }
           }
         });
@@ -165,10 +176,17 @@ const getCart = async (req, res) => {
           product: product ? {
             id: product.id,
             name: product.name,
-            image: product.images[0]?.url || '',
+            description: product.description,
+            images: product.images.map(img => ({ url: img.url, isPrimary: img.isPrimary })),
             basePrice: product.adminFixedPrice || product.basePrice,
+            originalPrice: product.originalPrice,
+            discount: product.discount,
             inStock: product.inStock,
-            availableStock: product.totalStock
+            availableStock: product.totalStock,
+            category: product.category,
+            material: product.material,
+            rating: product.rating,
+            reviews: product.reviews
           } : null
         };
       })

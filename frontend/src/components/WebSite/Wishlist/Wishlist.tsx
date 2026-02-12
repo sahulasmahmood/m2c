@@ -17,6 +17,16 @@ const Wishlist = () => {
   useEffect(() => {
     const authStatus = userAuthService.isAuthenticated();
     setIsAuthenticated(authStatus);
+    
+    if (!authStatus) {
+      // Not authenticated - redirect to login
+      showErrorToast('Login Required', 'Please login to view your wishlist');
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1500);
+      return;
+    }
+    
     loadWishlist();
   }, []);
 
@@ -24,18 +34,10 @@ const Wishlist = () => {
     try {
       setIsLoading(true);
       
-      if (userAuthService.isAuthenticated()) {
-        // Load from backend for authenticated users
-        const response = await wishlistService.getWishlist();
-        if (response.success && response.data) {
-          setWishlistItems(response.data.items);
-        }
-      } else {
-        // Load from local storage for guest users
-        const localWishlist = wishlistService.getLocalWishlist();
-        // For guest users, we only have product IDs, not full product data
-        // You might want to fetch product details here
-        setWishlistItems([]);
+      // Load from backend for authenticated users
+      const response = await wishlistService.getWishlist();
+      if (response.success && response.data) {
+        setWishlistItems(response.data.items);
       }
     } catch (error: any) {
       console.error('Error loading wishlist:', error);
@@ -47,12 +49,7 @@ const Wishlist = () => {
 
   const removeFromWishlist = async (productId: string) => {
     try {
-      if (isAuthenticated) {
-        await wishlistService.removeFromWishlist(productId);
-      } else {
-        wishlistService.removeFromLocalWishlist(productId);
-      }
-      
+      await wishlistService.removeFromWishlist(productId);
       setWishlistItems(items => items.filter(item => item.productId !== productId));
       showSuccessToast('Removed', 'Item removed from wishlist');
     } catch (error: any) {
@@ -63,12 +60,7 @@ const Wishlist = () => {
 
   const addToCart = async (productId: string, productName: string) => {
     try {
-      if (isAuthenticated) {
-        await cartService.addToCart(productId, 1);
-      } else {
-        cartService.addToLocalCart(productId, 1);
-      }
-      
+      await cartService.addToCart(productId, 1);
       showSuccessToast('Added to Cart!', `${productName} has been added to your cart.`);
     } catch (error: any) {
       console.error('Error adding to cart:', error);

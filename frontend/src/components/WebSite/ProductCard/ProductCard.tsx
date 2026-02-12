@@ -27,11 +27,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
   // Check if product is in wishlist on mount
   useEffect(() => {
     if (isAuthenticated) {
-      // For authenticated users, check via API (optional - can be implemented later)
+      // For authenticated users, check via API (can be implemented later)
       setIsInWishlist(false);
     } else {
-      // For guest users, check local storage
-      setIsInWishlist(wishlistService.isInLocalWishlist(product.id));
+      // Not authenticated - wishlist status is false
+      setIsInWishlist(false);
     }
   }, [product.id, isAuthenticated]);
 
@@ -39,6 +39,16 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation to product page
     e.stopPropagation();
+
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      showErrorToast('Login Required', 'Please login to add items to cart');
+      // Redirect to login page after a short delay
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1500);
+      return;
+    }
 
     if (!product.inStock) {
       showErrorToast('Out of Stock', 'This product is currently out of stock');
@@ -48,15 +58,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
     setIsAddingToCart(true);
 
     try {
-      if (isAuthenticated) {
-        // For authenticated users, add to cart via API
-        await cartService.addToCart(product.id, quantity);
-        showSuccessToast('Added to Cart', `${quantity} x ${product.name} added to your cart`);
-      } else {
-        // For guest users, add to local storage
-        cartService.addToLocalCart(product.id, quantity);
-        showSuccessToast('Added to Cart', `${quantity} x ${product.name} added to your cart`);
-      }
+      // Add to cart via API
+      await cartService.addToCart(product.id, quantity);
+      showSuccessToast('Added to Cart', `${quantity} x ${product.name} added to your cart`);
       // Reset quantity after adding
       setQuantity(1);
     } catch (error: any) {
@@ -88,31 +92,28 @@ const ProductCard = ({ product }: ProductCardProps) => {
     e.preventDefault(); // Prevent navigation to product page
     e.stopPropagation();
 
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      showErrorToast('Login Required', 'Please login to add items to wishlist');
+      // Redirect to login page after a short delay
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1500);
+      return;
+    }
+
     setIsTogglingWishlist(true);
 
     try {
-      if (isAuthenticated) {
-        // For authenticated users, toggle via API
-        if (isInWishlist) {
-          await wishlistService.removeFromWishlist(product.id);
-          setIsInWishlist(false);
-          showSuccessToast('Removed', `${product.name} removed from wishlist`);
-        } else {
-          await wishlistService.addToWishlist(product.id);
-          setIsInWishlist(true);
-          showSuccessToast('Added', `${product.name} added to wishlist`);
-        }
+      // Toggle via API
+      if (isInWishlist) {
+        await wishlistService.removeFromWishlist(product.id);
+        setIsInWishlist(false);
+        showSuccessToast('Removed', `${product.name} removed from wishlist`);
       } else {
-        // For guest users, toggle in local storage
-        if (isInWishlist) {
-          wishlistService.removeFromLocalWishlist(product.id);
-          setIsInWishlist(false);
-          showSuccessToast('Removed', `${product.name} removed from wishlist`);
-        } else {
-          wishlistService.addToLocalWishlist(product.id);
-          setIsInWishlist(true);
-          showSuccessToast('Added', `${product.name} added to wishlist`);
-        }
+        await wishlistService.addToWishlist(product.id);
+        setIsInWishlist(true);
+        showSuccessToast('Added', `${product.name} added to wishlist`);
       }
     } catch (error: any) {
       console.error('Error toggling wishlist:', error);

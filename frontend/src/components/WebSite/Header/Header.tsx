@@ -166,12 +166,9 @@ const Header = () => {
             console.error('Error loading wishlist count:', error);
           }
         } else {
-          // Load from local storage for guest users
-          const localCart = cartService.getLocalCart();
-          setCartCount(localCart.length);
-
-          const localWishlist = wishlistService.getLocalWishlist();
-          setWishlistCount(localWishlist.length);
+          // Not authenticated - set counts to 0
+          setCartCount(0);
+          setWishlistCount(0);
         }
       } catch (error) {
         console.error('Error loading counts:', error);

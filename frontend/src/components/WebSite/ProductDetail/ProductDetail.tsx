@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Breadcrumb from '../Navigation/Breadcrumb';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import { productService, Product } from '@/services/productService';
+import { cartService } from '@/services/cartService';
+import { userAuthService } from '@/services/userAuthService';
 import { Star, Heart, Truck, Shield, RotateCcw, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils';
@@ -101,12 +103,26 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
     setIsImageHovered(false);
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product) return;
     
+    // Check if user is authenticated
+    const isAuthenticated = userAuthService.isAuthenticated();
+    
+    if (!isAuthenticated) {
+      showErrorToast('Login Required', 'Please login to add items to cart');
+      // Redirect to login page after a short delay
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1500);
+      return;
+    }
+    
     try {
+      // Add to cart via API
+      await cartService.addToCart(product.id, quantity);
+      
       const variantInfo = selectedVariant ? ` (${selectedVariant.size} - ${selectedVariant.color})` : '';
-      console.log(`Added ${quantity} x ${product.name}${variantInfo} to cart`);
       
       showSuccessToast(
         'Added to Cart!', 
@@ -115,8 +131,9 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
       
       // Reset quantity after adding
       setQuantity(1);
-    } catch (error) {
-      showErrorToast('Failed to Add', 'Unable to add item to cart. Please try again.');
+    } catch (error: any) {
+      console.error('Error adding to cart:', error);
+      showErrorToast('Failed to Add', error.message || 'Unable to add item to cart. Please try again.');
     }
   };
 
