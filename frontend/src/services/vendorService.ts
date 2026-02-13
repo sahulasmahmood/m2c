@@ -344,9 +344,25 @@ class VendorService {
       }
       
       return data;
-    } catch (error) {
-      console.error('Vendor login error:', error);
-      throw error;
+    } catch (error: any) {
+      // The axios interceptor returns a custom error object: { message, status, data }
+      // Also handle standard axios error structure for backward compatibility
+      let errorMessage = 'Invalid credentials';
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.data?.error) {
+        errorMessage = error.data.error;
+      } else if (error?.data?.message) {
+        errorMessage = error.data.message;
+      }
+      
+      console.error('Vendor login error:', { error, errorMessage });
+      throw new Error(errorMessage);
     }
   }
   
@@ -443,6 +459,67 @@ class VendorService {
       return response.data;
     } catch (error) {
       console.error('Get vendor by ID error:', error);
+      throw error;
+    }
+  }
+
+  // Admin: Update vendor by ID
+  static async updateVendorById(vendorId: string, vendorData: any) {
+    const token = this.getAdminToken();
+    console.log('updateVendorById - Admin token:', token ? 'Found' : 'Not found');
+    
+    if (!token) {
+      throw new Error('No admin authentication token found');
+    }
+
+    try {
+      console.log('updateVendorById - Sending request to:', `/vendors/${vendorId}`);
+      console.log('updateVendorById - Data:', vendorData);
+      
+      // Prepare FormData for file uploads
+      const formData = new FormData();
+      
+      // Add all form fields
+      Object.keys(vendorData).forEach(key => {
+        const value = vendorData[key];
+        
+        // Skip certificationFiles as we'll handle them separately
+        if (key === 'certificationFiles') {
+          return;
+        }
+        
+        // Handle different data types
+        if (typeof value === 'object' && value !== null && !(value instanceof File)) {
+          formData.append(key, JSON.stringify(value));
+        } else if (value !== null && value !== undefined) {
+          formData.append(key, value);
+        }
+      });
+      
+      // Add certification files
+      if (vendorData.certificationFiles) {
+        let fileIndex = 0;
+        Object.entries(vendorData.certificationFiles).forEach(([certId, fileData]: [string, any]) => {
+          if (fileData && fileData.file) {
+            formData.append('certificationFiles', fileData.file);
+            formData.append(`certificationId_${fileIndex}`, certId);
+            fileIndex++;
+          }
+        });
+      }
+      
+      const response = await axiosInstance.put(`/vendors/${vendorId}`, formData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      console.log('updateVendorById - Response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update vendor by ID error:', error);
+      console.error('Error response:', error.response?.data);
       throw error;
     }
   }
