@@ -1,6 +1,6 @@
 'use client';
 
-import { Mail, Phone, MapPin, Clock, Send } from 'lucide-react';
+import { Mail, Phone, MapPin, Clock, Send, Store, X, Building2, FileText, Globe } from 'lucide-react';
 import { useState } from 'react';
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils';
 
@@ -10,6 +10,16 @@ const Contact = () => {
     email: '',
     subject: '',
     message: ''
+  });
+
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [vendorFormData, setVendorFormData] = useState({
+    name: '',
+    companyName: '',
+    gstNumber: '',
+    email: '',
+    phone: '',
+    website: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -30,6 +40,34 @@ const Contact = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleVendorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setVendorFormData({
+      ...vendorFormData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleVendorSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      // Handle vendor form submission here
+      console.log('Vendor form submitted:', vendorFormData);
+      // Reset form
+      setVendorFormData({
+        name: '',
+        companyName: '',
+        gstNumber: '',
+        email: '',
+        phone: '',
+        website: ''
+      });
+      setShowVendorModal(false);
+      showSuccessToast('Application Submitted!', 'Thank you for your interest! We will review your application and get back to you soon.');
+    } catch (error) {
+      showErrorToast('Submission Failed', 'Unable to submit application. Please try again.');
+    }
   };
 
   return (
@@ -198,6 +236,220 @@ const Contact = () => {
           </div>
         </div>
       </section>
+
+      {/* Vendor Invitation Section */}
+      <section className="py-16 bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-6">
+              <Store className="w-8 h-8 text-gray-900" />
+            </div>
+            <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">
+              Become a Vendor Partner
+            </h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
+              Join our marketplace and showcase your products to thousands of customers. 
+              We're looking for quality vendors who share our commitment to excellence.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-10">
+              <div className="bg-white/10 backdrop-blur-sm p-6 rounded-lg">
+                <div className="text-3xl font-bold text-white mb-2">10K+</div>
+                <div className="text-gray-300">Active Customers</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm p-6 rounded-lg">
+                <div className="text-3xl font-bold text-white mb-2">500+</div>
+                <div className="text-gray-300">Vendor Partners</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm p-6 rounded-lg">
+                <div className="text-3xl font-bold text-white mb-2">24/7</div>
+                <div className="text-gray-300">Support Available</div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowVendorModal(true)}
+              className="bg-white text-gray-900 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-all transform hover:scale-105 shadow-xl inline-flex items-center gap-2"
+            >
+              <Store className="w-5 h-5" />
+              Join Us as a Vendor
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Vendor Application Modal */}
+      {showVendorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center">
+                  <Store className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Vendor Application</h2>
+                  <p className="text-sm text-gray-600">Fill in your details to join our marketplace</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowVendorModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <form onSubmit={handleVendorSubmit} className="space-y-5">
+                {/* Row 1: Full Name | Company Name */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label htmlFor="vendor-name" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="vendor-name"
+                      name="name"
+                      required
+                      value={vendorFormData.name}
+                      onChange={handleVendorChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="company-name" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Company Name <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        id="company-name"
+                        name="companyName"
+                        required
+                        value={vendorFormData.companyName}
+                        onChange={handleVendorChange}
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
+                        placeholder="Your company name"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: GST Number | Email Address */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label htmlFor="gst-number" className="block text-sm font-semibold text-gray-700 mb-2">
+                      GST Number <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        id="gst-number"
+                        name="gstNumber"
+                        required
+                        value={vendorFormData.gstNumber}
+                        onChange={handleVendorChange}
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
+                        placeholder="e.g., 29ABCDE1234F1Z5"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="vendor-email" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="email"
+                        id="vendor-email"
+                        name="email"
+                        required
+                        value={vendorFormData.email}
+                        onChange={handleVendorChange}
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
+                        placeholder="your.email@company.com"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Phone Number | Website URL */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label htmlFor="vendor-phone" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="tel"
+                        id="vendor-phone"
+                        name="phone"
+                        required
+                        value={vendorFormData.phone}
+                        onChange={handleVendorChange}
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
+                        placeholder="+1 (555) 123-4567"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="vendor-website" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Website URL <span className="text-gray-500 text-xs">(Optional)</span>
+                    </label>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="url"
+                        id="vendor-website"
+                        name="website"
+                        value={vendorFormData.website}
+                        onChange={handleVendorChange}
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
+                        placeholder="https://www.yourcompany.com"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> After submitting your application, our team will review your details and contact you within 2-3 business days.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowVendorModal(false)}
+                    className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-5 h-5" />
+                    Submit Application
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

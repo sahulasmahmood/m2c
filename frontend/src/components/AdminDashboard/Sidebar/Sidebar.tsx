@@ -23,6 +23,7 @@ import {
   Headphones,
   ClipboardCheck,
   UserCheck,
+  Layers,
 } from "lucide-react";
 
 interface SubMenuItem {
@@ -47,6 +48,13 @@ const navigation: NavigationItem[] = [
     title: "Orders",
     icon: ShoppingCart,
     href: "/admin/dashboard/orders",
+  },
+  {
+    title: "General",
+    icon: Layers,
+    subItems: [
+      { title: "Enquiry Form", href: "/admin/dashboard/general/enquiry-form" },
+    ],
   },
   {
     title: "Vendors",

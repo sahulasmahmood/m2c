@@ -1,10 +1,10 @@
-import Earnings from '@/components/VendorDashboard/Earnings/Earnings';
+import EarningsOverview from '@/components/VendorDashboard/Earnings/EarningsOverview';
 
 export default function EarningsPage() {
-  return <Earnings />;
+  return <EarningsOverview />;
 }
 
 export const metadata = {
-  title: 'Earnings - Vendor Dashboard',
-  description: 'View your earnings overview',
+  title: 'Earnings Overview - Vendor Dashboard',
+  description: 'View your earnings, sales, and upcoming payouts',
 };
