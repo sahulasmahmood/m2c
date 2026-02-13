@@ -1,10 +1,10 @@
-import Payouts from '@/components/VendorDashboard/Earnings/Payouts/Payouts';
+import PayoutsEnhanced from '@/components/VendorDashboard/Earnings/Payouts/PayoutsEnhanced';
 
 export default function PayoutsPage() {
-  return <Payouts />;
+  return <PayoutsEnhanced />;
 }
 
 export const metadata = {
   title: 'Payouts - Vendor Dashboard',
-  description: 'View your payout history',
+  description: 'View your payout history and bank details',
 };

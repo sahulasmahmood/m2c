@@ -104,20 +104,19 @@ export default function Settings() {
     },
   });
 
-  // Stripe settings state (only for super_admin)
-  const [stripeSettings, setStripeSettings] = useState({
+  // PayU settings state (only for super_admin)
+  const [payuSettings, setPayuSettings] = useState({
     enabled: false,
-    publishableKey: "pk_test_1234567890",
-    secretKey: "••••••••••••••••••••",
-    webhookSecret: "••••••••••••••••••••",
+    merchantKey: "gtKFFx",
+    merchantSalt: "••••••••••••••••••••",
     testMode: true,
     autoCapture: true,
     paymentMethods: {
       card: true,
-      applePay: false,
-      googlePay: false,
-      link: false,
-      cashApp: false,
+      netbanking: true,
+      upi: true,
+      wallet: true,
+      emi: false,
     },
   });
 
@@ -165,14 +164,14 @@ export default function Settings() {
     }
   };
 
-  const handleStripeSettingsUpdate = async (e: React.FormEvent) => {
+  const handlePayUSettingsUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 500));
-      showSuccessToast("Stripe Settings Updated", "Stripe payment gateway settings have been updated successfully.");
+      showSuccessToast("PayU Settings Updated", "PayU payment gateway settings have been updated successfully.");
     } catch (error) {
-      showErrorToast("Update Failed", "Failed to update Stripe settings. Please try again.");
+      showErrorToast("Update Failed", "Failed to update PayU settings. Please try again.");
     }
   };
 
@@ -813,8 +812,8 @@ export default function Settings() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-blue-600" />
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-gray-900" />
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold text-gray-900">Razorpay Payment Gateway</h3>
@@ -826,8 +825,8 @@ export default function Settings() {
                   <span
                     className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
                       razorpaySettings.enabled
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
+                        ? "bg-gray-900 text-white"
+                        : "bg-gray-200 text-gray-700"
                     }`}
                   >
                     {razorpaySettings.enabled ? "● Active" : "● Inactive"}
@@ -848,7 +847,7 @@ export default function Settings() {
                       checked={razorpaySettings.enabled}
                       onChange={(e) => setRazorpaySettings({ ...razorpaySettings, enabled: e.target.checked })}
                       disabled={currentUser.role !== "super_admin"}
-                      className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-600 disabled:opacity-50"
+                      className="h-5 w-5 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -1098,47 +1097,47 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Stripe Payment Gateway */}
+          {/* PayU Payment Gateway */}
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <CreditCard className="w-5 h-5 text-purple-600" />
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-gray-900" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900">Stripe Payment Gateway</h3>
-                    <p className="text-sm text-gray-600 mt-1">Configure Stripe for international payments</p>
+                    <h3 className="text-2xl font-bold text-gray-900">PayU Payment Gateway</h3>
+                    <p className="text-sm text-gray-600 mt-1">Configure PayU for Indian market payments</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">Status:</span>
                   <span
                     className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
-                      stripeSettings.enabled
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
+                      payuSettings.enabled
+                        ? "bg-gray-900 text-white"
+                        : "bg-gray-200 text-gray-700"
                     }`}
                   >
-                    {stripeSettings.enabled ? "● Active" : "● Inactive"}
+                    {payuSettings.enabled ? "● Active" : "● Inactive"}
                   </span>
                 </div>
               </div>
 
-              <form onSubmit={handleStripeSettingsUpdate}>
+              <form onSubmit={handlePayUSettingsUpdate}>
                 {/* Enable/Disable Toggle */}
                 <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-900">Enable Stripe Payments</p>
-                      <p className="text-sm text-gray-600">Allow customers to pay using Stripe gateway</p>
+                      <p className="font-medium text-gray-900">Enable PayU Payments</p>
+                      <p className="text-sm text-gray-600">Allow customers to pay using PayU gateway</p>
                     </div>
                     <input
                       type="checkbox"
-                      checked={stripeSettings.enabled}
-                      onChange={(e) => setStripeSettings({ ...stripeSettings, enabled: e.target.checked })}
+                      checked={payuSettings.enabled}
+                      onChange={(e) => setPayuSettings({ ...payuSettings, enabled: e.target.checked })}
                       disabled={currentUser.role !== "super_admin"}
-                      className="h-5 w-5 text-purple-600 border-gray-300 rounded focus:ring-purple-600 disabled:opacity-50"
+                      className="h-5 w-5 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -1153,45 +1152,30 @@ export default function Settings() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Publishable Key <span className="text-red-500">*</span>
+                        Merchant Key <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
-                        value={stripeSettings.publishableKey}
-                        onChange={(e) => setStripeSettings({ ...stripeSettings, publishableKey: e.target.value })}
+                        value={payuSettings.merchantKey}
+                        onChange={(e) => setPayuSettings({ ...payuSettings, merchantKey: e.target.value })}
                         disabled={currentUser.role !== "super_admin"}
-                        placeholder="pk_test_1234567890"
+                        placeholder="gtKFFx"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:bg-gray-100 font-mono text-sm"
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Secret Key <span className="text-red-500">*</span>
+                        Merchant Salt <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="password"
-                        value={stripeSettings.secretKey}
-                        onChange={(e) => setStripeSettings({ ...stripeSettings, secretKey: e.target.value })}
+                        value={payuSettings.merchantSalt}
+                        onChange={(e) => setPayuSettings({ ...payuSettings, merchantSalt: e.target.value })}
                         disabled={currentUser.role !== "super_admin"}
-                        placeholder="Enter secret key"
+                        placeholder="Enter merchant salt"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:bg-gray-100 font-mono text-sm"
                       />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Webhook Secret</label>
-                      <input
-                        type="password"
-                        value={stripeSettings.webhookSecret}
-                        onChange={(e) => setStripeSettings({ ...stripeSettings, webhookSecret: e.target.value })}
-                        disabled={currentUser.role !== "super_admin"}
-                        placeholder="Enter webhook secret"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:bg-gray-100 font-mono text-sm"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Configure webhook endpoint: https://your-domain.com/api/webhooks/stripe
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -1208,8 +1192,8 @@ export default function Settings() {
                       </div>
                       <input
                         type="checkbox"
-                        checked={stripeSettings.testMode}
-                        onChange={(e) => setStripeSettings({ ...stripeSettings, testMode: e.target.checked })}
+                        checked={payuSettings.testMode}
+                        onChange={(e) => setPayuSettings({ ...payuSettings, testMode: e.target.checked })}
                         disabled={currentUser.role !== "super_admin"}
                         className="h-5 w-5 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
                       />
@@ -1222,8 +1206,8 @@ export default function Settings() {
                       </div>
                       <input
                         type="checkbox"
-                        checked={stripeSettings.autoCapture}
-                        onChange={(e) => setStripeSettings({ ...stripeSettings, autoCapture: e.target.checked })}
+                        checked={payuSettings.autoCapture}
+                        onChange={(e) => setPayuSettings({ ...payuSettings, autoCapture: e.target.checked })}
                         disabled={currentUser.role !== "super_admin"}
                         className="h-5 w-5 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
                       />
@@ -1241,20 +1225,42 @@ export default function Settings() {
                         <CreditCard className="h-5 w-5 text-gray-600" />
                         <div>
                           <p className="font-medium text-gray-900 text-sm">Credit/Debit Cards</p>
-                          <p className="text-xs text-gray-600">Visa, Mastercard, Amex, Discover</p>
+                          <p className="text-xs text-gray-600">Visa, Mastercard, Amex, Rupay</p>
                         </div>
                       </div>
                       <input
                         type="checkbox"
-                        checked={stripeSettings.paymentMethods.card}
+                        checked={payuSettings.paymentMethods.card}
                         onChange={(e) =>
-                          setStripeSettings({
-                            ...stripeSettings,
-                            paymentMethods: { ...stripeSettings.paymentMethods, card: e.target.checked },
+                          setPayuSettings({
+                            ...payuSettings,
+                            paymentMethods: { ...payuSettings.paymentMethods, card: e.target.checked },
                           })
                         }
                         disabled={currentUser.role !== "super_admin"}
-                        className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-600 disabled:opacity-50"
+                        className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                      <div className="flex items-center gap-3">
+                        <Building2 className="h-5 w-5 text-gray-600" />
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">Net Banking</p>
+                          <p className="text-xs text-gray-600">All major banks</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={payuSettings.paymentMethods.netbanking}
+                        onChange={(e) =>
+                          setPayuSettings({
+                            ...payuSettings,
+                            paymentMethods: { ...payuSettings.paymentMethods, netbanking: e.target.checked },
+                          })
+                        }
+                        disabled={currentUser.role !== "super_admin"}
+                        className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
                       />
                     </div>
 
@@ -1262,65 +1268,21 @@ export default function Settings() {
                       <div className="flex items-center gap-3">
                         <Phone className="h-5 w-5 text-gray-600" />
                         <div>
-                          <p className="font-medium text-gray-900 text-sm">Apple Pay</p>
-                          <p className="text-xs text-gray-600">Apple devices</p>
+                          <p className="font-medium text-gray-900 text-sm">UPI</p>
+                          <p className="text-xs text-gray-600">Google Pay, PhonePe, Paytm</p>
                         </div>
                       </div>
                       <input
                         type="checkbox"
-                        checked={stripeSettings.paymentMethods.applePay}
+                        checked={payuSettings.paymentMethods.upi}
                         onChange={(e) =>
-                          setStripeSettings({
-                            ...stripeSettings,
-                            paymentMethods: { ...stripeSettings.paymentMethods, applePay: e.target.checked },
+                          setPayuSettings({
+                            ...payuSettings,
+                            paymentMethods: { ...payuSettings.paymentMethods, upi: e.target.checked },
                           })
                         }
                         disabled={currentUser.role !== "super_admin"}
-                        className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-600 disabled:opacity-50"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <Phone className="h-5 w-5 text-gray-600" />
-                        <div>
-                          <p className="font-medium text-gray-900 text-sm">Google Pay</p>
-                          <p className="text-xs text-gray-600">Android devices</p>
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={stripeSettings.paymentMethods.googlePay}
-                        onChange={(e) =>
-                          setStripeSettings({
-                            ...stripeSettings,
-                            paymentMethods: { ...stripeSettings.paymentMethods, googlePay: e.target.checked },
-                          })
-                        }
-                        disabled={currentUser.role !== "super_admin"}
-                        className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-600 disabled:opacity-50"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <Globe className="h-5 w-5 text-gray-600" />
-                        <div>
-                          <p className="font-medium text-gray-900 text-sm">Link</p>
-                          <p className="text-xs text-gray-600">One-click checkout</p>
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={stripeSettings.paymentMethods.link}
-                        onChange={(e) =>
-                          setStripeSettings({
-                            ...stripeSettings,
-                            paymentMethods: { ...stripeSettings.paymentMethods, link: e.target.checked },
-                          })
-                        }
-                        disabled={currentUser.role !== "super_admin"}
-                        className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-600 disabled:opacity-50"
+                        className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
                       />
                     </div>
 
@@ -1328,21 +1290,43 @@ export default function Settings() {
                       <div className="flex items-center gap-3">
                         <DollarSign className="h-5 w-5 text-gray-600" />
                         <div>
-                          <p className="font-medium text-gray-900 text-sm">Cash App Pay</p>
-                          <p className="text-xs text-gray-600">Cash App users</p>
+                          <p className="font-medium text-gray-900 text-sm">Wallets</p>
+                          <p className="text-xs text-gray-600">Paytm, PhonePe, Amazon Pay</p>
                         </div>
                       </div>
                       <input
                         type="checkbox"
-                        checked={stripeSettings.paymentMethods.cashApp}
+                        checked={payuSettings.paymentMethods.wallet}
                         onChange={(e) =>
-                          setStripeSettings({
-                            ...stripeSettings,
-                            paymentMethods: { ...stripeSettings.paymentMethods, cashApp: e.target.checked },
+                          setPayuSettings({
+                            ...payuSettings,
+                            paymentMethods: { ...payuSettings.paymentMethods, wallet: e.target.checked },
                           })
                         }
                         disabled={currentUser.role !== "super_admin"}
-                        className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-600 disabled:opacity-50"
+                        className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-5 w-5 text-gray-600" />
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">EMI</p>
+                          <p className="text-xs text-gray-600">Easy monthly installments</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={payuSettings.paymentMethods.emi}
+                        onChange={(e) =>
+                          setPayuSettings({
+                            ...payuSettings,
+                            paymentMethods: { ...payuSettings.paymentMethods, emi: e.target.checked },
+                          })
+                        }
+                        disabled={currentUser.role !== "super_admin"}
+                        className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
                       />
                     </div>
                   </div>
@@ -1355,21 +1339,21 @@ export default function Settings() {
                       className="flex items-center gap-2 bg-gray-900 hover:bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
                     >
                       <Save className="h-4 w-4" />
-                      Save Stripe Settings
+                      Save PayU Settings
                     </button>
                     <a
-                      href="https://dashboard.stripe.com"
+                      href="https://dashboard.payu.in"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-purple-600 hover:text-purple-800 underline"
+                      className="text-sm text-blue-600 hover:text-blue-800 underline"
                     >
-                      Open Stripe Dashboard →
+                      Open PayU Dashboard →
                     </a>
                   </div>
                 )}
               </form>
 
-              {stripeSettings.testMode && (
+              {payuSettings.testMode && (
                 <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-sm text-amber-800">
                     <strong>⚠ Test Mode Active:</strong> All transactions will use test credentials. Switch to live mode for production.

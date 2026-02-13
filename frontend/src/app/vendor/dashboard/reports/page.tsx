@@ -1,7 +1,7 @@
-import Reports from '@/components/VendorDashboard/Reports/Reports';
+import VendorReports from '@/components/VendorDashboard/Reports/VendorReports';
 
 export default function ReportsPage() {
-  return <Reports />;
+  return <VendorReports />;
 }
 
 export const metadata = {
