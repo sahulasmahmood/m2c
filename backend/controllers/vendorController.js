@@ -254,6 +254,7 @@ const registerVendor = async (req, res) => {
         businessZipCode: zipCode,
         businessCountry: country || 'India',
         website,
+        gstNumber: gstNumber || null,
         
         // Trade Information
         annualTurnover: employeeCount, // Using employee count as proxy for now
@@ -643,6 +644,7 @@ const updateVendorById = async (req, res) => {
     const vendorUpdateData = {
       // Company Details
       companyName: updateData.companyName,
+      gstNumber: updateData.gstNumber || null,
       businessEmail: updateData.email,
       businessPhone: updateData.phone,
       website: updateData.website,

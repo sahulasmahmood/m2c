@@ -104,6 +104,8 @@ export interface VendorProfile {
   id: string;
   email: string;
   companyName: string;
+  companyLogo?: string;
+  gstNumber?: string;
   status: string;
   ownerName: string;
   ownerEmail: string;
@@ -113,6 +115,7 @@ export interface VendorProfile {
   businessAddress: string;
   businessCity: string;
   businessState: string;
+  businessZipCode: string;
   businessCountry: string;
   website?: string;
   establishedYear?: number;
@@ -176,6 +179,7 @@ export interface VendorFilters {
 export interface VendorBasicInfo {
   companyName: string;
   companyDescription?: string;
+  gstNumber?: string;
   businessPhone: string;
   businessEmail: string;
   website?: string;

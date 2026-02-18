@@ -15,6 +15,7 @@ export default function VendorSettings() {
   const [vendorInfo, setVendorInfo] = useState<VendorInfo>({
     companyName: '',
     companyDescription: '',
+    gstNumber: '',
     businessPhone: '',
     businessEmail: '',
     website: '',
@@ -53,13 +54,14 @@ export default function VendorSettings() {
       setVendorInfo({
         companyName: vendor.companyName || '',
         companyDescription: '', // Not available in VendorProfile
+        gstNumber: vendor.gstNumber || '',
         businessPhone: vendor.businessPhone || '',
         businessEmail: vendor.businessEmail || '',
         website: vendor.website || '',
         businessAddress: vendor.businessAddress || '',
         businessCity: vendor.businessCity || '',
         businessState: vendor.businessState || '',
-        businessZipCode: '', // Not available in VendorProfile
+        businessZipCode: vendor.businessZipCode || '',
         businessCountry: vendor.businessCountry || '',
         ownerName: vendor.ownerName || '',
         ownerEmail: vendor.ownerEmail || '',
@@ -68,11 +70,9 @@ export default function VendorSettings() {
         ownerCity: '', // Not available in VendorProfile
         ownerState: '', // Not available in VendorProfile
         ownerZipCode: '', // Not available in VendorProfile
-        ownerCountry: '' // Not available in VendorProfile
+        ownerCountry: '', // Not available in VendorProfile
+        companyLogo: vendor.companyLogo || ''
       });
-      
-      // Note: companyLogo is not available in VendorProfile type
-      // You may need to add it to the backend response
     } catch (error) {
       console.error('Failed to load vendor profile:', error);
       showErrorToast('Error', 'Failed to load vendor profile');
@@ -113,6 +113,7 @@ export default function VendorSettings() {
       const basicInfo: VendorBasicInfo = {
         companyName: vendorInfo.companyName,
         companyDescription: vendorInfo.companyDescription,
+        gstNumber: vendorInfo.gstNumber,
         businessPhone: vendorInfo.businessPhone,
         businessEmail: vendorInfo.businessEmail,
         website: vendorInfo.website,
@@ -214,12 +215,13 @@ export default function VendorSettings() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                <textarea
-                  value={vendorInfo.companyDescription}
-                  onChange={(e) => handleInputChange('companyDescription', e.target.value)}
+                <label className="block text-sm font-medium text-slate-700 mb-1">GST Number</label>
+                <input
+                  type="text"
+                  value={vendorInfo.gstNumber}
+                  onChange={(e) => handleInputChange('gstNumber', e.target.value)}
                   disabled={!isEditing}
-                  rows={3}
+                  placeholder="Enter GST number"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 disabled:bg-gray-50"
                 />
               </div>
@@ -335,13 +337,19 @@ export default function VendorSettings() {
               <CardTitle className="text-[#222222]">Company Logo</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {logoPreview && (
+              {(logoPreview || vendorInfo.companyLogo) && (
                 <div className="flex justify-center">
                   <img
-                    src={logoPreview}
+                    src={logoPreview || vendorInfo.companyLogo}
                     alt="Company Logo"
                     className="w-32 h-32 object-contain border border-gray-200 rounded-lg"
                   />
+                </div>
+              )}
+              
+              {!logoPreview && !vendorInfo.companyLogo && (
+                <div className="flex justify-center items-center w-32 h-32 mx-auto border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                  <Upload className="w-8 h-8 text-gray-400" />
                 </div>
               )}
               

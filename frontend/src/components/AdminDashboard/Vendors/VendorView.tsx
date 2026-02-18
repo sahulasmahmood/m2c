@@ -385,6 +385,16 @@ function OverviewTab({ vendor }: { vendor: VendorProfile }) {
                   </div>
                 </div>
 
+                {vendor.gstNumber && (
+                  <div className="flex items-center space-x-3">
+                    <FileText className="h-4 w-4 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">GST Number</p>
+                      <p className="font-medium">{vendor.gstNumber}</p>
+                    </div>
+                  </div>
+                )}
+
                 {vendor.website && (
                   <div className="flex items-center space-x-3">
                     <Globe className="h-4 w-4 text-gray-400" />
@@ -461,6 +471,24 @@ function OverviewTab({ vendor }: { vendor: VendorProfile }) {
 
       {/* Sidebar */}
       <div className="space-y-6">
+        {/* Company Logo */}
+        {vendor.companyLogo && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Company Logo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-center">
+                <img
+                  src={vendor.companyLogo}
+                  alt={`${vendor.companyName} Logo`}
+                  className="w-32 h-32 object-contain border border-gray-200 rounded-lg"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quick Stats */}
         <Card>
           <CardHeader>
@@ -562,7 +590,7 @@ function DetailsTab({ vendor }: { vendor: VendorProfile }) {
         <CardContent>
           <div className="space-y-3">
             <p>{vendor.businessAddress}</p>
-            <p>{vendor.businessCity}, {vendor.businessState}</p>
+            <p>{vendor.businessCity}, {vendor.businessState} {vendor.businessZipCode}</p>
             <p>{vendor.businessCountry}</p>
           </div>
         </CardContent>
