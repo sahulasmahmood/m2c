@@ -13,6 +13,7 @@ const updateVendorBasicInfo = async (req, res) => {
     const {
       companyName,
       companyDescription,
+      gstNumber,
       businessPhone,
       businessEmail,
       website,
@@ -45,6 +46,7 @@ const updateVendorBasicInfo = async (req, res) => {
       data: {
         companyName,
         companyDescription,
+        gstNumber,
         businessPhone,
         businessEmail,
         website,
