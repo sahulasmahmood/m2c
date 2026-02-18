@@ -305,17 +305,17 @@ export default function AddEditVendor({ vendorId, mode }: AddEditVendorProps) {
         // Company Details
         businessType: 'corporation', // Default since companyType is not in the interface
         companyName: vendor.companyName || '',
-        gstNumber: '', // Not stored in vendor table
+        gstNumber: vendor.gstNumber || '',
         email: vendor.businessEmail || vendor.email || '',
         phone: vendor.businessPhone || '',
         website: vendor.website || '',
         address: vendor.businessAddress || '',
         city: vendor.businessCity || '',
         state: vendor.businessState || '',
-        zipCode: '', // businessZipCode not in interface
+        zipCode: vendor.businessZipCode || '',
         country: vendor.businessCountry || 'India',
         sameAsWarehouse: false,
-        logo: null, // companyLogo not in interface
+        logo: vendor.companyLogo || null,
         logoFile: null,
         gstDocument: null,
         gstFile: null,
@@ -809,6 +809,10 @@ function AdminReviewSubmitStep({
               <div>
                 <span className="text-gray-600">Company Name:</span>
                 <span className="ml-2 font-medium">{formData.companyName || 'Not provided'}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">GST Number:</span>
+                <span className="ml-2 font-medium">{formData.gstNumber || 'Not provided'}</span>
               </div>
               <div>
                 <span className="text-gray-600">Email:</span>

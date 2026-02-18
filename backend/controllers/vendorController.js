@@ -254,6 +254,7 @@ const registerVendor = async (req, res) => {
         businessZipCode: zipCode,
         businessCountry: country || 'India',
         website,
+        gstNumber: gstNumber || null,
         
         // Trade Information
         annualTurnover: employeeCount, // Using employee count as proxy for now
@@ -292,6 +293,13 @@ const registerVendor = async (req, res) => {
         deliveryTime: '7-15 days', // Default
         minimumOrderQuantity: '100 pieces', // Default
         paymentTerms: ['30 days', 'LC'], // Default
+        
+        // Contact & Trade Information
+        mainContact: parsedMainContact || null,
+        alternateContacts: parsedAlternateContacts || [],
+        tradeLicenseNumber: tradeLicenseNumber || null,
+        businessRegistrationNumber: businessRegistrationNumber || null,
+        taxIdentificationNumber: taxIdentificationNumber || null,
         
         // System fields
         applicationStep: 8, // Completed all steps
@@ -643,12 +651,14 @@ const updateVendorById = async (req, res) => {
     const vendorUpdateData = {
       // Company Details
       companyName: updateData.companyName,
+      gstNumber: updateData.gstNumber || null,
       businessEmail: updateData.email,
       businessPhone: updateData.phone,
       website: updateData.website,
       businessAddress: updateData.address,
       businessCity: updateData.city,
       businessState: updateData.state,
+      businessZipCode: updateData.zipCode || null,
       businessCountry: updateData.country || 'India',
       
       // Owner Profile
@@ -679,6 +689,13 @@ const updateVendorById = async (req, res) => {
       // Trade Info
       exportExperience: updateData.hasImportExport === 'yes',
       exportCountries: parsedExportCountries || [],
+      
+      // Contact & Trade Information
+      mainContact: updateData.mainContact ? (typeof updateData.mainContact === 'string' ? JSON.parse(updateData.mainContact) : updateData.mainContact) : null,
+      alternateContacts: updateData.alternateContacts ? (typeof updateData.alternateContacts === 'string' ? JSON.parse(updateData.alternateContacts) : updateData.alternateContacts) : [],
+      tradeLicenseNumber: updateData.tradeLicenseNumber || null,
+      businessRegistrationNumber: updateData.businessRegistrationNumber || null,
+      taxIdentificationNumber: updateData.taxIdentificationNumber || null,
       
       // Status (admin can update these)
       status: updateData.status?.toUpperCase() || existingVendor.status
