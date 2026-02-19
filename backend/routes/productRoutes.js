@@ -15,6 +15,7 @@ const {
   approveProduct,
   rejectProduct,
   getAllProductsForAdmin,
+  updateVariantStocks,
   // Public functions
   getPublicProducts,
   getPublicProduct
@@ -35,6 +36,7 @@ router.put('/admin/:id', authenticateToken, requireAdminRole, updateProductByAdm
 router.delete('/admin/:id', authenticateToken, requireAdminRole, deleteProductByAdmin);
 router.put('/:id/approve', authenticateToken, requireAdminRole, approveProduct);
 router.put('/:id/reject', authenticateToken, requireAdminRole, rejectProduct);
+router.put('/:id/variants/stock', authenticateToken, requireAdminRole, updateVariantStocks);
 
 // Vendor routes (require vendor authentication)
 router.use(authenticateToken);
@@ -52,5 +54,8 @@ router.get('/', getVendorProducts);
 router.get('/:id', getProduct);
 router.put('/:id', updateProduct);
 router.delete('/:id', deleteProduct);
+
+// Update variant stocks (vendors can update their own products)
+router.put('/:id/variants/stock', updateVariantStocks);
 
 module.exports = router;

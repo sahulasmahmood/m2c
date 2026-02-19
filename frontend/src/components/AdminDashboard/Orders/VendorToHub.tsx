@@ -19,7 +19,7 @@ interface Order {
   product: string;
   sku: string;
   orderDate: string;
-  status: "Pending" | "Assigned" | "Packed" | "Shipped";
+  status: "Pending" | "Assigned" | "Packed" | "Shipped" | "Delivered";
   vendor: string;
   hub: string;
   amount: number;
@@ -77,7 +77,7 @@ export default function VendorToHub() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  const statusOptions = ["All", "Pending", "Assigned", "Packed", "Shipped"];
+  const statusOptions = ["All", "Pending", "Assigned", "Packed", "Shipped", "Delivered"];
 
   const filteredOrders = mockOrders.filter((order) => {
     const matchesSearch =
@@ -99,6 +99,8 @@ export default function VendorToHub() {
         return "bg-purple-100 text-purple-800";
       case "Shipped":
         return "bg-indigo-100 text-indigo-800";
+      case "Delivered":
+        return "bg-green-100 text-green-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -111,7 +113,7 @@ export default function VendorToHub() {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <p className="text-sm text-gray-600">Total Orders</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{mockOrders.length}</p>
@@ -138,6 +140,12 @@ export default function VendorToHub() {
           <p className="text-sm text-gray-600">Shipped</p>
           <p className="text-2xl font-bold text-indigo-600 mt-1">
             {mockOrders.filter((o) => o.status === "Shipped").length}
+          </p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <p className="text-sm text-gray-600">Delivered</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">
+            {mockOrders.filter((o) => o.status === "Delivered").length}
           </p>
         </div>
       </div>
