@@ -16,6 +16,39 @@ interface Hub {
   location: string;
 }
 
+interface Order {
+  id: string;
+  orderId: string;
+  product: {
+    name: string;
+    sku: string;
+    quantity: number;
+    price: number;
+    image: string;
+  };
+  orderDate: string;
+  status: "Pending" | "Assigned" | "Packed" | "Shipped" | "Delivered";
+  vendor: {
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    gst: string;
+  };
+  assignedHub: string;
+  payment: {
+    method: string;
+    transactionId: string;
+    amount: number;
+    status: string;
+  };
+  shipping?: {
+    carrier: string;
+    trackingId: string;
+    shippedDate: string;
+  };
+}
+
 const mockHubs: Hub[] = [
   { id: "1", name: "Mumbai Hub", location: "Mumbai, Maharashtra" },
   { id: "2", name: "Delhi Hub", location: "New Delhi, Delhi" },
@@ -24,25 +57,11 @@ const mockHubs: Hub[] = [
   { id: "5", name: "Kolkata Hub", location: "Kolkata, West Bengal" },
 ];
 
-export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
-  const router = useRouter();
-  const [showHubModal, setShowHubModal] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [selectedHub, setSelectedHub] = useState("");
-  const [orderStatus, setOrderStatus] = useState("Shipped");
-  
-  // Review form state
-  const [rating, setRating] = useState(0);
-  const [hoveredRating, setHoveredRating] = useState(0);
-  const [review, setReview] = useState("");
-  const [notice, setNotice] = useState("");
-
-  // Mock order data
-  const order = {
+// Mock orders data matching VendorToHub.tsx
+const mockOrders: Order[] = [
+  {
+    id: "1",
     orderId: "ORD-2024-001",
-    orderDate: "2024-02-10",
-    status: orderStatus,
-    assignedHub: "Mumbai Hub",
     product: {
       name: "Cotton Bedsheet Set",
       sku: "CBS-001",
@@ -50,12 +69,8 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
       price: 1250,
       image: "/assets/images/categories/cs1.jpg",
     },
-    payment: {
-      method: "Razorpay",
-      transactionId: "TXN-2024-001",
-      amount: 2500,
-      status: "Completed",
-    },
+    orderDate: "2024-02-10",
+    status: "Pending",
     vendor: {
       name: "Textile Traders",
       email: "vendor@textiletraders.com",
@@ -63,12 +78,133 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
       address: "456, Textile Market, Surat, Gujarat - 395003",
       gst: "27AABCT1234F1Z5",
     },
+    assignedHub: "Not Assigned",
+    payment: {
+      method: "Razorpay",
+      transactionId: "TXN-2024-001",
+      amount: 2500,
+      status: "Completed",
+    },
+  },
+  {
+    id: "2",
+    orderId: "ORD-2024-002",
+    product: {
+      name: "Silk Saree",
+      sku: "SS-045",
+      quantity: 1,
+      price: 5000,
+      image: "/assets/images/categories/cs2.jpg",
+    },
+    orderDate: "2024-02-11",
+    status: "Assigned",
+    vendor: {
+      name: "Silk Emporium",
+      email: "contact@silkemporium.com",
+      phone: "+91 98765 43211",
+      address: "789, Silk Market, Kanchipuram, Tamil Nadu - 631502",
+      gst: "33AABCS5678G1Z6",
+    },
+    assignedHub: "Mumbai Hub",
+    payment: {
+      method: "Razorpay",
+      transactionId: "TXN-2024-002",
+      amount: 5000,
+      status: "Completed",
+    },
+  },
+  {
+    id: "3",
+    orderId: "ORD-2024-003",
+    product: {
+      name: "Woolen Blanket",
+      sku: "WB-023",
+      quantity: 3,
+      price: 1166.67,
+      image: "/assets/images/categories/cs3.jpg",
+    },
+    orderDate: "2024-02-12",
+    status: "Packed",
+    vendor: {
+      name: "Wool Crafts",
+      email: "info@woolcrafts.com",
+      phone: "+91 98765 43212",
+      address: "321, Wool Market, Ludhiana, Punjab - 141001",
+      gst: "03AABCW9012H1Z7",
+    },
+    assignedHub: "Delhi Hub",
+    payment: {
+      method: "Razorpay",
+      transactionId: "TXN-2024-003",
+      amount: 3500,
+      status: "Completed",
+    },
+  },
+  {
+    id: "4",
+    orderId: "ORD-2024-004",
+    product: {
+      name: "Cotton Towel Set",
+      sku: "CTS-012",
+      quantity: 5,
+      price: 300,
+      image: "/assets/images/categories/cs4.jpg",
+    },
+    orderDate: "2024-02-13",
+    status: "Shipped",
+    vendor: {
+      name: "Home Textiles",
+      email: "sales@hometextiles.com",
+      phone: "+91 98765 43213",
+      address: "654, Textile Hub, Coimbatore, Tamil Nadu - 641001",
+      gst: "33AABCH3456I1Z8",
+    },
+    assignedHub: "Bangalore Hub",
+    payment: {
+      method: "Razorpay",
+      transactionId: "TXN-2024-004",
+      amount: 1500,
+      status: "Completed",
+    },
     shipping: {
       carrier: "Blue Dart",
       trackingId: "BD123456789IN",
-      shippedDate: "2024-02-12",
+      shippedDate: "2024-02-14",
     },
+  },
+];
+
+export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
+  const router = useRouter();
+  const [showHubModal, setShowHubModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedHub, setSelectedHub] = useState("");
+  
+  // Find the order from mock data
+  const initialOrder = mockOrders.find(o => o.id === orderId) || mockOrders[0];
+  
+  const [orderStatus, setOrderStatus] = useState(initialOrder.status);
+  const [assignedHub, setAssignedHub] = useState(initialOrder.assignedHub);
+  
+  // Review form state
+  const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const [review, setReview] = useState("");
+  const [notice, setNotice] = useState("");
+
+  // Current order data with state updates
+  const order: Order = {
+    ...initialOrder,
+    status: orderStatus,
+    assignedHub: assignedHub,
+    shipping: orderStatus === "Shipped" || orderStatus === "Delivered" ? 
+      initialOrder.shipping || {
+        carrier: "Blue Dart",
+        trackingId: "BD" + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        shippedDate: new Date().toISOString().split('T')[0],
+      } : undefined,
   };
+
 
   const handleProceed = () => {
     setShowHubModal(true);
@@ -84,6 +220,7 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
     showSuccessToast(`Order assigned to ${hubName}`);
     setShowHubModal(false);
     setOrderStatus("Assigned");
+    setAssignedHub(hubName || "");
   };
 
   const handleMarkAsReceived = () => {
@@ -100,10 +237,11 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
       return;
     }
 
-    showSuccessToast("Review submitted successfully. Vendor order marked as delivered.");
+    showSuccessToast("Review submitted successfully. Order marked as delivered.");
     setShowReviewModal(false);
+    setOrderStatus("Delivered");
     
-    // Redirect to Hub to Customer orders
+    // Redirect to Hub to Customer orders after a short delay
     setTimeout(() => {
       router.push("/admin/dashboard/orders/hub-to-customer");
     }, 1500);
@@ -131,7 +269,7 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
               onClick={handleProceed}
               className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
             >
-              Proceed
+              Assign Hub
             </button>
           )}
           {order.status === "Shipped" && (
@@ -164,11 +302,23 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
               order.status === "Pending" ? "text-yellow-600" :
               order.status === "Assigned" ? "text-blue-600" :
               order.status === "Packed" ? "text-purple-600" :
-              "text-indigo-600"
+              order.status === "Shipped" ? "text-indigo-600" :
+              order.status === "Delivered" ? "text-green-600" :
+              "text-gray-600"
             }`}>
               {order.status}
             </p>
           </div>
+          <div>
+            <p className="text-sm text-gray-600">Assigned Hub</p>
+            <p className={`text-base font-medium mt-1 ${
+              order.assignedHub === "Not Assigned" ? "text-red-600" : "text-gray-900"
+            }`}>
+              {order.assignedHub}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
           <div>
             <p className="text-sm text-gray-600">Total Amount</p>
             <p className="text-base font-medium text-gray-900 mt-1">

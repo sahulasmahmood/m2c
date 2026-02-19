@@ -2078,3 +2078,183 @@ module.exports = {
   getPublicProducts,
   getPublicProduct
 };
+
+// Update variant stocks (Admin and Vendor)
+const updateVariantStocks = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { variants, reason, notes } = req.body;
+
+    if (!variants || !Array.isArray(variants) || variants.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Variants array is required'
+      });
+    }
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Reason for stock change is required'
+      });
+    }
+
+    // Get product with variants
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        variants: true,
+        inventory: true
+      }
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    // Check authorization
+    const isAdmin = req.user.role?.toUpperCase() === 'ADMIN';
+    const vendorId = req.user.vendorId || req.user.id;
+    
+    if (!isAdmin && product.vendorId !== vendorId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to update this product'
+      });
+    }
+
+    if (!product.hasVariants) {
+      return res.status(400).json({
+        success: false,
+        message: 'This product does not have variants'
+      });
+    }
+
+    // Get user information for history
+    let changedByName = '';
+    if (isAdmin) {
+      const admin = await prisma.admin.findUnique({
+        where: { id: req.user.id },
+        select: { name: true }
+      });
+      changedByName = admin?.name || 'Admin';
+    } else {
+      const vendor = await prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: { ownerName: true }
+      });
+      changedByName = vendor?.ownerName || 'Vendor';
+    }
+
+    // Update variants and create history in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedVariants = [];
+      const historyRecords = [];
+
+      for (const variantUpdate of variants) {
+        const { variantId, stock } = variantUpdate;
+
+        if (!variantId || stock === undefined) {
+          throw new Error('Each variant must have variantId and stock');
+        }
+
+        // Find existing variant
+        const existingVariant = product.variants.find(v => v.id === variantId);
+        if (!existingVariant) {
+          throw new Error(`Variant ${variantId} not found`);
+        }
+
+        const previousStock = existingVariant.stock;
+        const newStock = parseInt(stock);
+        const changeAmount = newStock - previousStock;
+
+        // Update variant stock
+        const updatedVariant = await tx.productVariant.update({
+          where: { id: variantId },
+          data: { stock: newStock }
+        });
+
+        updatedVariants.push(updatedVariant);
+
+        // Create history record if stock changed
+        if (changeAmount !== 0 && product.inventoryItemId) {
+          historyRecords.push({
+            inventoryId: product.inventoryItemId,
+            previousStock,
+            newStock,
+            changeAmount,
+            reason: `${reason.trim()} (Variant: ${existingVariant.size} - ${existingVariant.color})`,
+            changedBy: req.user.id,
+            changedByType: isAdmin ? 'admin' : 'vendor',
+            changedByName
+          });
+        }
+      }
+
+      // Calculate new total stock
+      const totalStock = updatedVariants.reduce((sum, v) => sum + v.stock, 0);
+
+      // Update product total stock
+      const updatedProduct = await tx.product.update({
+        where: { id },
+        data: { totalStock }
+      });
+
+      // Update inventory stock if linked
+      if (product.inventoryItemId) {
+        await tx.inventory.update({
+          where: { id: product.inventoryItemId },
+          data: {
+            currentStock: totalStock,
+            lastRestocked: new Date()
+          }
+        });
+      }
+
+      // Create history records
+      if (historyRecords.length > 0) {
+        await tx.stockChangeHistory.createMany({
+          data: historyRecords
+        });
+      }
+
+      return { updatedProduct, updatedVariants };
+    });
+
+    res.json({
+      success: true,
+      message: 'Variant stocks updated successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Error updating variant stocks:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error'
+    });
+  }
+};
+
+module.exports = {
+  createProduct,
+  getVendorProducts,
+  getProduct,
+  updateProduct,
+  deleteProduct,
+  getProductStats,
+  getAvailableInventoryItems,
+  getProductForAdmin,
+  createProductByAdmin,
+  updateProductByAdmin,
+  deleteProductByAdmin,
+  approveProduct,
+  rejectProduct,
+  getAllProductsForAdmin,
+  getPublicProducts,
+  getPublicProduct,
+  updateVariantStocks
+};

@@ -18,7 +18,6 @@ import Link from 'next/link'
 import Dropdown from '@/components/UI/Dropdown'
 import axiosInstance from '@/lib/axios'
 import inventoryService from '@/services/inventoryService'
-import StockUpdateModal from '@/components/Shared/StockUpdateModal'
 import StockHistoryModal from '@/components/Shared/StockHistoryModal'
 
 interface InventoryItem {
@@ -68,13 +67,6 @@ export default function Inventory() {
     outOfStockItems: 0,
     totalStockUnits: 0
   })
-
-  // Stock update modal state
-  const [stockUpdateModal, setStockUpdateModal] = useState<{
-    isOpen: boolean
-    item: InventoryItem | null
-  }>({ isOpen: false, item: null })
-  const [isUpdatingStock, setIsUpdatingStock] = useState(false)
 
   // Stock history modal state
   const [stockHistoryModal, setStockHistoryModal] = useState<{
@@ -141,49 +133,12 @@ export default function Inventory() {
   })
 
   const handleUpdateStock = (item: InventoryItem) => {
-    setStockUpdateModal({ isOpen: true, item })
+    // Navigate to separate stock update page
+    window.location.href = `/admin/dashboard/inventory/update-stock/${item.id}`
   }
 
   const handleViewHistory = (item: InventoryItem) => {
     setStockHistoryModal({ isOpen: true, item })
-  }
-
-  const handleStockUpdate = async (newStock: number, reason: string, notes?: string) => {
-    if (!stockUpdateModal.item) return
-
-    setIsUpdatingStock(true)
-    try {
-      await inventoryService.adminUpdateStock(stockUpdateModal.item.id, {
-        currentStock: newStock,
-        reason,
-        notes
-      })
-
-      // Reload data
-      const params: any = {
-        page: currentPage,
-        limit: 10
-      }
-      if (searchTerm) params.search = searchTerm
-      if (categoryFilter !== 'all') params.category = categoryFilter
-
-      const [inventoryResponse, statsResponse] = await Promise.all([
-        axiosInstance.get('/inventory/admin/all', { params }),
-        axiosInstance.get('/inventory/admin/stats')
-      ])
-
-      if (inventoryResponse.data.success) {
-        setInventoryItems(inventoryResponse.data.data.items)
-      }
-      if (statsResponse.data.success) {
-        setStats(statsResponse.data.data)
-      }
-    } catch (error) {
-      console.error('Error updating stock:', error)
-      throw error
-    } finally {
-      setIsUpdatingStock(false)
-    }
   }
 
   const handleDelete = async (item: InventoryItem) => {
@@ -469,19 +424,6 @@ export default function Inventory() {
           )}
         </CardContent>
       </Card>
-
-      {/* Stock Update Modal */}
-      {stockUpdateModal.item && (
-        <StockUpdateModal
-          isOpen={stockUpdateModal.isOpen}
-          onClose={() => setStockUpdateModal({ isOpen: false, item: null })}
-          onConfirm={handleStockUpdate}
-          currentStock={stockUpdateModal.item.currentStock}
-          itemName={stockUpdateModal.item.name}
-          itemSku={stockUpdateModal.item.sku}
-          isLoading={isUpdatingStock}
-        />
-      )}
 
       {/* Stock History Modal */}
       {stockHistoryModal.item && (

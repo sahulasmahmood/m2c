@@ -16,7 +16,6 @@ import { Package, AlertTriangle, TrendingDown, TrendingUp, Plus, Search, Edit, T
 import Link from 'next/link'
 import Dropdown from '@/components/UI/Dropdown'
 import inventoryService, { InventoryItem as APIInventoryItem, InventoryStats } from '@/services/inventoryService'
-import StockUpdateModal from '@/components/Shared/StockUpdateModal'
 import StockHistoryModal from '@/components/Shared/StockHistoryModal'
 
 const getStatusBadge = (status: string, currentStock: number, minStock: number) => {
@@ -39,13 +38,6 @@ export default function Inventory() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  
-  // Stock update modal state
-  const [stockUpdateModal, setStockUpdateModal] = useState<{
-    isOpen: boolean
-    item: APIInventoryItem | null
-  }>({ isOpen: false, item: null })
-  const [isUpdatingStock, setIsUpdatingStock] = useState(false)
   
   // Stock history modal state
   const [stockHistoryModal, setStockHistoryModal] = useState<{
@@ -133,35 +125,12 @@ export default function Inventory() {
   }, [searchTerm, statusFilter, categoryFilter, currentPage])
 
   const handleRestock = (item: APIInventoryItem) => {
-    setStockUpdateModal({ isOpen: true, item })
+    // Navigate to separate stock update page
+    window.location.href = `/vendor/dashboard/inventory/update-stock/${item.id}`
   }
 
   const handleViewHistory = (item: APIInventoryItem) => {
     setStockHistoryModal({ isOpen: true, item })
-  }
-
-  const handleStockUpdate = async (newStock: number, reason: string, notes?: string) => {
-    if (!stockUpdateModal.item) return
-
-    setIsUpdatingStock(true)
-    try {
-      await inventoryService.updateStock(stockUpdateModal.item.id, {
-        currentStock: newStock,
-        reason,
-        notes
-      })
-
-      // Reload data
-      await Promise.all([
-        loadInventoryItems(),
-        inventoryService.getStats().then(setInventoryStats)
-      ])
-    } catch (error) {
-      console.error('Error updating stock:', error)
-      throw error
-    } finally {
-      setIsUpdatingStock(false)
-    }
   }
 
   const handleEdit = (itemId: string) => {
@@ -425,19 +394,6 @@ export default function Inventory() {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Stock Update Modal */}
-      {stockUpdateModal.item && (
-        <StockUpdateModal
-          isOpen={stockUpdateModal.isOpen}
-          onClose={() => setStockUpdateModal({ isOpen: false, item: null })}
-          onConfirm={handleStockUpdate}
-          currentStock={stockUpdateModal.item.currentStock}
-          itemName={stockUpdateModal.item.name}
-          itemSku={stockUpdateModal.item.sku}
-          isLoading={isUpdatingStock}
-        />
-      )}
 
       {/* Stock History Modal */}
       {stockHistoryModal.item && (
