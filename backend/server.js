@@ -61,7 +61,12 @@ app.use((req, res, next) => {
   next();
 });
 // app.use(morgan('combined')); // Commented out to reduce console logs
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Configure express-session for Google OAuth
@@ -127,13 +132,15 @@ const gstSettingsRoutes = require('./routes/gstSettingsRoutes');
 const hubRoutes = require('./routes/hubRoutes');
 const enquiryRoutes = require('./routes/enquiryRoutes');
 const couponRoutes = require('./routes/couponRoutes');
-
+const supportRoutes = require('./routes/supportRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/vendor-settings', vendorSettingsRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/support', supportRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
@@ -147,6 +154,7 @@ app.use('/api/gst-settings', gstSettingsRoutes);
 app.use('/api/hubs', hubRoutes);
 app.use('/api/enquiries', enquiryRoutes);
 app.use('/api/coupons', couponRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // 404 handler
 app.use((req, res) => {
