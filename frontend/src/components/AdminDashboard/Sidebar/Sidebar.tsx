@@ -138,6 +138,11 @@ const navigation: NavigationItem[] = [
     href: "/admin/dashboard/reports",
   },
   {
+    title: "QC Reports",
+    icon: ClipboardCheck,
+    href: "/admin/dashboard/qc-reports",
+  },
+  {
     title: "Settings",
     icon: Settings,
     href: "/admin/dashboard/settings",

@@ -202,6 +202,51 @@ class QCCheckerService {
             throw new Error(error.message || 'Failed to reject vendor');
         }
     }
+    // ============================
+    // QC Checker: Products Operations
+    // ============================
+
+    // Get assigned products
+    async getAssignedProducts(): Promise<{ success: boolean; data: any[] }> {
+        try {
+            const response = await axios.get('/qc-checkers/products', {
+                headers: {
+                    'Authorization': `Bearer ${this.getCheckerToken()}`
+                }
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to fetch assigned products');
+        }
+    }
+
+    // Approve Product
+    async approveProduct(productId: string, formData?: any): Promise<{ success: boolean; message: string; data: any }> {
+        try {
+            const response = await axios.post(`/qc-checkers/products/${productId}/approve`, { formData }, {
+                headers: {
+                    'Authorization': `Bearer ${this.getCheckerToken()}`
+                }
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to approve product');
+        }
+    }
+
+    // Reject Product
+    async rejectProduct(productId: string, rejectionReason: string, formData?: any): Promise<{ success: boolean; message: string; data: any }> {
+        try {
+            const response = await axios.post(`/qc-checkers/products/${productId}/reject`, { reason: rejectionReason, formData }, {
+                headers: {
+                    'Authorization': `Bearer ${this.getCheckerToken()}`
+                }
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to reject product');
+        }
+    }
 
     // ============================
     // QC Checker: Inspection Operations
@@ -232,6 +277,20 @@ class QCCheckerService {
             return response.data;
         } catch (error: any) {
             throw new Error(error.message || 'Failed to start inspection');
+        }
+    }
+
+    // Complete an Inspection
+    async completeInspection(inspectionId: string, formData: any): Promise<{ success: boolean; message: string; inspection: any }> {
+        try {
+            const response = await axios.post(`/inspections/${inspectionId}/complete`, formData, {
+                headers: {
+                    'Authorization': `Bearer ${this.getCheckerToken()}`
+                }
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to complete inspection');
         }
     }
 

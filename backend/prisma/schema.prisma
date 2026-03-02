@@ -19,7 +19,8 @@ model Admin {
   password      String?   // Optional for Google OAuth users
   name          String
   image         String?
-  role          String    @default("admin") // admin, manager, employee
+  roleId        String?   @db.ObjectId
+  role          Role?     @relation(fields: [roleId], references: [id])
   isActive      Boolean   @default(true)
   isVerified    Boolean   @default(false)
   googleId      String?   @unique
@@ -56,6 +57,20 @@ model Admin {
   updatedAt     DateTime  @updatedAt
 
   @@map("admins")
+}
+
+model Role {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique
+  description String?
+  permissions String[] @default([])
+  isSystem    Boolean  @default(false)
+  admins      Admin[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("roles")
 }
 
 model WorkingHour {
@@ -636,6 +651,10 @@ model Product {
   rejectionReason       String?
   adminFixedPrice       Float?    // Admin can override the vendor's base price
   
+  assignedQcId          String?   @db.ObjectId
+  assignedQc            QCChecker? @relation("ProductQCChecker", fields: [assignedQcId], references: [id])
+  qcInspectionData      Json?     // Stores the product inspection form data
+  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -697,7 +716,7 @@ enum ProductApprovalStatus {
 model Order {
   id                    String    @id @default(auto()) @map("_id") @db.ObjectId
   orderId               String    @unique // Human readable order ID (e.g., ORD-2024-001)
-  invoiceNo             String?   @unique // Invoice number per InvoiceSettings (e.g., INV-2024-25-0001)
+  invoiceNo             String?   // Invoice number per InvoiceSettings (e.g., INV-2024-25-0001)
 
   // Customer Information
   customerId            String?   @db.ObjectId
@@ -1115,6 +1134,7 @@ model QCChecker {
   
   // Relations
   vendorsList       Vendor[]  @relation("VendorQCChecker")
+  productsList      Product[] @relation("ProductQCChecker")
   inspections       Inspection[]
   
   createdAt         DateTime  @default(now())
@@ -1158,7 +1178,7 @@ model InvoiceSettings {
 
 model Settlement {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  settlementNumber String   @unique // e.g. SET-2024-0001
+  settlementNumber String   // e.g. SET-2024-0001
   vendorId         String   @db.ObjectId
   vendorName       String
   orderId          String   @db.ObjectId

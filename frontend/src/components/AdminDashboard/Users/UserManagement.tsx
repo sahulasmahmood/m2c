@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { userManagementService, Staff } from '@/services/userManagementService';
+import { roleService, Role } from '@/services/roleService';
+import { hasPermission } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/Card';
 import { Button } from '@/components/UI/Button';
 import { Badge } from '@/components/UI/Badge';
@@ -14,6 +16,7 @@ import {
   TableRow,
 } from '@/components/UI/Table';
 import { Breadcrumb } from '@/components/AdminDashboard/Breadcrumb/Breadcrumb';
+import { useRouter } from 'next/navigation';
 import Dropdown from '@/components/UI/Dropdown';
 import {
   Users as UsersIcon,
@@ -33,15 +36,29 @@ import {
 } from 'lucide-react';
 
 export default function UserManagement() {
+  const router = useRouter();
   const [users, setUsers] = useState<Staff[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchStaff();
+    fetchRoles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, roleFilter, statusFilter]);
+
+  const fetchRoles = async () => {
+    try {
+      const data = await roleService.getRoles();
+      if (data.success) {
+        setAvailableRoles(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch roles', error);
+    }
+  };
 
   const fetchStaff = async () => {
     try {
@@ -73,6 +90,14 @@ export default function UserManagement() {
     } catch (error) {
       console.error('Failed to delete staff', error);
     }
+  };
+
+  const handleAddStaff = () => {
+    router.push('/admin/dashboard/users/add');
+  };
+
+  const handleEditStaff = (userId: string) => {
+    router.push(`/admin/dashboard/users/edit/${userId}`);
   };
 
   // Calculate stats from current data
@@ -110,15 +135,13 @@ export default function UserManagement() {
   };
 
   const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return <Badge className="bg-purple-100 text-purple-800">Admin</Badge>;
-      case 'manager':
-        return <Badge className="bg-blue-100 text-blue-800">Manager</Badge>;
-      case 'employee':
-        return <Badge className="bg-green-100 text-green-800">Employee</Badge>;
-      default:
-        return <Badge className="bg-gray-100 text-gray-800">Unknown</Badge>;
+    const roleLower = role.toLowerCase();
+    if (roleLower.includes('admin')) {
+      return <Badge className="bg-purple-100 text-purple-800">{role}</Badge>;
+    } else if (roleLower.includes('manager')) {
+      return <Badge className="bg-blue-100 text-blue-800">{role}</Badge>;
+    } else {
+      return <Badge className="bg-green-100 text-green-800">{role}</Badge>;
     }
   };
 
@@ -131,12 +154,16 @@ export default function UserManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600">Manage internal staff and their access levels</p>
+          <p className="text-gray-600">Manage internal staff and their access levels (Ready for Add Staff)</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button className="bg-gray-900 hover:bg-gray-800 text-white">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add Staff Member
+          <Button
+            onClick={handleAddStaff}
+            className="bg-primary hover:bg-primary/90 text-white shadow-lg px-6 py-2 rounded-lg font-semibold flex items-center transition-all hover:scale-105 active:scale-95"
+            style={{ backgroundColor: '#111827' }} // Ensuring it's dark as requested
+          >
+            <UserPlus className="h-5 w-5 mr-2" />
+            <span>Add Staff Member</span>
           </Button>
         </div>
       </div>
@@ -240,11 +267,9 @@ export default function UserManagement() {
                 value={roleFilter}
                 options={[
                   { value: 'all', label: 'All Roles' },
-                  { value: 'admin', label: 'Admin' },
-                  { value: 'manager', label: 'Manager' },
-                  { value: 'employee', label: 'Employee' }
+                  ...availableRoles.map(r => ({ value: r.id, label: r.name }))
                 ]}
-                onChange={(value) => setRoleFilter(value as string)}
+                onChange={(value: string | string[]) => setRoleFilter(value as string)}
                 placeholder="Select role"
               />
             </div>
@@ -261,7 +286,7 @@ export default function UserManagement() {
                   { value: 'suspended', label: 'Suspended' },
                   { value: 'pending', label: 'Pending' }
                 ]}
-                onChange={(value) => setStatusFilter(value as string)}
+                onChange={(value: string | string[]) => setStatusFilter(value as string)}
                 placeholder="Select status"
               />
             </div>
@@ -364,15 +389,18 @@ export default function UserManagement() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-gray-100"
-                          title="Edit User"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        {user.status === 'active' ? (
+                        {hasPermission('edit_users') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:bg-gray-100"
+                            title="Edit User"
+                            onClick={() => handleEditStaff(user.id)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasPermission('edit_users') && user.status === 'active' ? (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -382,7 +410,7 @@ export default function UserManagement() {
                           >
                             <UserX className="h-4 w-4" />
                           </Button>
-                        ) : (
+                        ) : hasPermission('edit_users') ? (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -392,16 +420,18 @@ export default function UserManagement() {
                           >
                             <UserCheck className="h-4 w-4" />
                           </Button>
+                        ) : null}
+                        {hasPermission('delete_users') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:bg-red-100 text-red-600"
+                            title="Delete User"
+                            onClick={() => handleDelete(user.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-red-100 text-red-600"
-                          title="Delete User"
-                          onClick={() => handleDelete(user.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

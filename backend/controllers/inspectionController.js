@@ -199,10 +199,72 @@ const updateInspection = async (req, res) => {
     }
 };
 
+// Complete an Inspection and save results
+const completeInspection = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const checkerId = req.user.id;
+        const formData = req.body;
+
+        const inspection = await prisma.inspection.findUnique({ where: { id } });
+
+        if (!inspection) {
+            return res.status(404).json({ error: 'Inspection not found' });
+        }
+
+        if (inspection.checkerId !== checkerId) {
+            return res.status(403).json({ error: 'Unauthorized to complete this inspection' });
+        }
+
+        const mapStatusToResult = (formStatus) => {
+            switch (formStatus) {
+                case 'Approved': return 'PASSED';
+                case 'Conditionally Approved': return 'CONDITIONALLY_PASSED';
+                case 'Rejected': return 'FAILED';
+                default: return 'PASSED';
+            }
+        };
+
+        const resultStatus = formData.inspectionStatus ? mapStatusToResult(formData.inspectionStatus) : 'PASSED';
+
+        const updatedInspection = await prisma.inspection.update({
+            where: { id },
+            data: {
+                status: 'COMPLETED',
+                completedAt: new Date(),
+                result: resultStatus,
+                notes: formData.inspectorRemarks || '',
+                // Instead of splitting properties across the schema, we save the full factory inspection form data directly to the itemsToInspect field or a new json field if we had one.
+                // However, itemsToInspect is the only Json field in Inspection that we can freely write unstructured data to without schema change. 
+                // We'll update itemsToInspect with the resulting formData since it's flexible and currently used to hold config/results.
+                itemsToInspect: formData
+            },
+            include: {
+                vendor: true
+            }
+        });
+
+        // Also update vendor status
+        await prisma.vendor.update({
+            where: { id: inspection.vendorId },
+            data: {
+                status: resultStatus === 'PASSED' ? 'APPROVED' : (resultStatus === 'FAILED' ? 'REJECTED' : 'UNDER_REVIEW'),
+                assignedQcId: null // Clear inspector once completed
+            }
+        });
+
+        res.json({ success: true, message: 'Inspection completed successfully', inspection: updatedInspection });
+    } catch (error) {
+        console.error('Error completing inspection:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+};
+
 module.exports = {
     createInspection,
     getInspectionsByChecker,
     startInspection,
     getInspectionByVendorId,
-    updateInspection
+    updateInspection,
+    completeInspection
 };

@@ -201,7 +201,6 @@ export default function AssignQCChecker() {
               <TableHead>Contact</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Assigned QC Checker</TableHead>
-              <TableHead>Products Count</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -247,14 +246,6 @@ export default function AssignQCChecker() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-900">
-                        {Math.floor(Math.random() * 10) + 1} products
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
                       <Link
                         href={`/admin/dashboard/vendors/inspection/${vendor.id}`}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -275,7 +266,7 @@ export default function AssignQCChecker() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={5}>
                   <div className="p-12 text-center">
                     <p className="text-gray-500">No vendors found</p>
                   </div>

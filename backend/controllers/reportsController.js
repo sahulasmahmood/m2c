@@ -656,6 +656,56 @@ const getFinancialReport = async (req, res) => {
     }
 };
 
+// ============================================
+// GET QC FACTORY REPORTS
+// ============================================
+const getQcFactoryReports = async (req, res) => {
+    try {
+        const inspections = await prisma.inspection.findMany({
+            include: {
+                vendor: true,
+                checker: true
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        res.json({
+            success: true,
+            data: inspections,
+        });
+    } catch (error) {
+        console.error('Error fetching QC factory reports:', error);
+        res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+    }
+};
+
+// ============================================
+// GET QC PRODUCT REPORTS
+// ============================================
+const getQcProductReports = async (req, res) => {
+    try {
+        const products = await prisma.product.findMany({
+            where: {
+                qcInspectionData: {
+                    not: null
+                }
+            },
+            include: {
+                vendor: true
+            },
+            orderBy: { updatedAt: 'desc' },
+        });
+
+        res.json({
+            success: true,
+            data: products,
+        });
+    } catch (error) {
+        console.error('Error fetching QC product reports:', error);
+        res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+    }
+};
+
 module.exports = {
     getOverviewReport,
     getSalesReport,
@@ -665,4 +715,6 @@ module.exports = {
     getProductsReport,
     getCustomersReport,
     getFinancialReport,
+    getQcFactoryReports,
+    getQcProductReports,
 };

@@ -150,6 +150,37 @@ export default function VendorView({ vendorId }: VendorViewProps) {
     }
   }
 
+  const handleVerifyBankDetails = async () => {
+    if (!vendor) return
+
+    try {
+      setActionLoading('verify-bank')
+      await VendorService.verifyVendorBankDetails(vendor.id)
+
+      setVendor({
+        ...vendor,
+        bankDetails: {
+          ...vendor.bankDetails,
+          isVerified: true,
+          verifiedAt: new Date().toISOString()
+        } as any
+      })
+      toast({
+        title: 'Success',
+        description: 'Vendor bank details verified successfully'
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to verify bank details'
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive'
+      })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -298,8 +329,8 @@ export default function VendorView({ vendorId }: VendorViewProps) {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
-                      ? 'border-[#313131] text-[#313131]'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-[#313131] text-[#313131]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -320,7 +351,7 @@ export default function VendorView({ vendorId }: VendorViewProps) {
         {activeTab === 'facilities' && <FacilitiesTab vendor={vendor} />}
         {activeTab === 'documents' && <DocumentsTab vendor={vendor} />}
         {activeTab === 'performance' && <PerformanceTab vendor={vendor} />}
-        {activeTab === 'bank-details' && <BankDetailsTab vendor={vendor} />}
+        {activeTab === 'bank-details' && <BankDetailsTab vendor={vendor} onVerify={handleVerifyBankDetails} loading={actionLoading === 'verify-bank'} />}
       </div>
 
       {/* Rejection Modal */}
@@ -622,7 +653,7 @@ function DetailsTab({ vendor }: { vendor: VendorProfile }) {
                   <p className="font-medium">{vendor.storageCapacity}</p>
                 </div>
               )}
-              
+
               {/* Google Map Display */}
               {vendor.mapLink && (
                 <div className="mt-6">
@@ -895,7 +926,7 @@ function DocumentsTab({ vendor }: { vendor: VendorProfile }) {
   )
 }
 
-function BankDetailsTab({ vendor }: { vendor: VendorProfile }) {
+function BankDetailsTab({ vendor, onVerify, loading }: { vendor: VendorProfile, onVerify?: () => void, loading?: boolean }) {
   // Check if bank details strictly exist either as an object or as a nested object
   // Based on the VendorProfile interface, it's bankDetails?: any
   // But often it might be nested or direct properties
@@ -978,7 +1009,19 @@ function BankDetailsTab({ vendor }: { vendor: VendorProfile }) {
                   <CheckCircle className="h-3 w-3" /> Verified
                 </Badge>
               ) : (
-                <Badge className="bg-yellow-100 text-yellow-800">Pending Verification</Badge>
+                <div className="flex items-center gap-4">
+                  <Badge className="bg-yellow-100 text-yellow-800">Pending Verification</Badge>
+                  {onVerify && (
+                    <Button
+                      size="sm"
+                      onClick={onVerify}
+                      disabled={loading}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {loading ? <LoadingSpinner size="sm" /> : 'Verify Bank Details'}
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
             {bankDetails.verifiedAt && (

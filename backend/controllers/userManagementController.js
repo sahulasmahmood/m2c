@@ -1,5 +1,6 @@
 const { prisma } = require('../config/database');
 const bcrypt = require('bcryptjs');
+const { sendStaffCredentialsEmail } = require('../utils/emailService');
 
 // ==========================================
 // CUSTOMER MANAGEMENT
@@ -135,7 +136,7 @@ exports.getStaff = async (req, res) => {
         }
 
         if (role && role !== 'all') {
-            where.role = role;
+            where.roleId = role;
         }
 
         if (status && status !== 'all') {
@@ -161,7 +162,14 @@ exports.getStaff = async (req, res) => {
                 city: true,
                 state: true,
                 zipCode: true,
-                country: true
+                country: true,
+                role: {
+                    select: {
+                        id: true,
+                        name: true,
+                        permissions: true
+                    }
+                }
             }
         });
 
@@ -177,7 +185,9 @@ exports.getStaff = async (req, res) => {
                 lastName: s.name.split(' ').slice(1).join(' ') || '',
                 email: s.email,
                 phone: s.phoneNumber || 'N/A',
-                role: s.role,
+                role: s.role ? s.role.name : 'Unknown',
+                roleId: s.role ? s.role.id : null,
+                permissions: s.role ? s.role.permissions : [],
                 status: currentStatus,
                 joinDate: s.createdAt,
                 lastLogin: s.lastLogin || s.createdAt,
@@ -206,7 +216,7 @@ exports.getStaff = async (req, res) => {
 // Create staff member
 exports.createStaff = async (req, res) => {
     try {
-        const { firstName, lastName, email, phone, role, password } = req.body;
+        const { firstName, lastName, email, phone, roleId, password } = req.body;
 
         const existingAdmin = await prisma.admin.findUnique({ where: { email } });
         if (existingAdmin) return res.status(400).json({ success: false, error: 'Email already exists' });
@@ -218,13 +228,31 @@ exports.createStaff = async (req, res) => {
                 name: `${firstName} ${lastName}`,
                 email,
                 phoneNumber: phone,
-                role: role || 'employee',
+                roleId: roleId || null,
                 password: hashedPassword,
                 isActive: true,
-                isVerified: true, // Auto verify since created by SuperAdmin,
-                onboardingCompleted: true
+                isVerified: true,
+                onboardingCompleted: true,
+                googleId: `STAFF_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                provider: 'local'
             }
         });
+
+        const rawPassword = password || 'Staff@123!!';
+
+        try {
+            const loginLink = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/admin/login` : 'http://localhost:3000/admin/login';
+            await sendStaffCredentialsEmail({
+                to: email,
+                name: `${firstName} ${lastName}`,
+                email: email,
+                password: rawPassword,
+                loginLink: loginLink
+            });
+        } catch (emailError) {
+            console.error('Failed to send staff credentials email:', emailError);
+            // Optionally we can return a message saying the staff is created but email failed
+        }
 
         res.status(201).json({ success: true, data: newStaff });
     } catch (error) {
@@ -255,6 +283,30 @@ exports.updateStaffStatus = async (req, res) => {
     } catch (error) {
         console.error('Error updating staff status:', error);
         res.status(500).json({ success: false, error: 'Failed to update user status' });
+    }
+};
+
+// Update staff details
+exports.updateStaff = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { firstName, lastName, email, phone, roleId } = req.body;
+
+        const updatedStaff = await prisma.admin.update({
+            where: { id },
+            data: {
+                firstName,
+                lastName,
+                email,
+                phone,
+                roleId
+            }
+        });
+
+        res.json({ success: true, data: updatedStaff });
+    } catch (error) {
+        console.error('Error updating staff:', error);
+        res.status(500).json({ success: false, error: 'Failed to update staff details' });
     }
 };
 

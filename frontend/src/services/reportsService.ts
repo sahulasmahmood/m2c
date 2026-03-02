@@ -26,6 +26,12 @@ const reportsService = {
 
     getFinancial: (period: ReportPeriod = '30days') =>
         axiosInstance.get(`/reports/financial?period=${period}`).then(r => r.data),
+
+    getQcFactory: () =>
+        axiosInstance.get(`/reports/qc-factory`).then(r => r.data),
+
+    getQcProducts: () =>
+        axiosInstance.get(`/reports/qc-products`).then(r => r.data),
 };
 
 export default reportsService;

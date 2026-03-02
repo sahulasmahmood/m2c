@@ -5,7 +5,8 @@ const {
     getInspectionsByChecker,
     startInspection,
     getInspectionByVendorId,
-    updateInspection
+    updateInspection,
+    completeInspection
 } = require('../controllers/inspectionController');
 
 // Import the standard auth middleware used across the app
@@ -20,6 +21,9 @@ router.get('/', authenticateToken, getInspectionsByChecker);
 
 // 3. QC Checker starts an inspection
 router.post('/:id/start', authenticateToken, startInspection);
+
+// 3b. QC Checker completes an inspection
+router.post('/:id/complete', authenticateToken, completeInspection);
 
 // 4. Admin fetching an active inspection for a vendor
 router.get('/vendor/:vendorId', authenticateToken, requireAdminRole, getInspectionByVendorId);

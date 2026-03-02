@@ -599,6 +599,27 @@ class VendorService {
     }
   }
 
+  // Admin: Verify vendor bank details
+  static async verifyVendorBankDetails(vendorId: string) {
+    const token = this.getAdminToken();
+    if (!token) {
+      throw new Error('No admin authentication token found');
+    }
+
+    try {
+      const response = await axiosInstance.put(`/vendors/${vendorId}/verify-bank`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Verify vendor bank details error:', error);
+      throw error;
+    }
+  }
+
   // Admin: Assign QC Checker & Create Inspection
   static async assignQc(
     vendorId: string,

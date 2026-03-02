@@ -9,6 +9,8 @@ const {
     getProductsReport,
     getCustomersReport,
     getFinancialReport,
+    getQcFactoryReports,
+    getQcProductReports,
 } = require('../controllers/reportsController');
 const { authenticateToken, requireAdminRole } = require('../middleware/auth');
 
@@ -23,5 +25,7 @@ router.get('/vendors', getVendorsReport);
 router.get('/products', getProductsReport);
 router.get('/customers', getCustomersReport);
 router.get('/financial', getFinancialReport);
+router.get('/qc-factory', getQcFactoryReports);
+router.get('/qc-products', getQcProductReports);
 
 module.exports = router;
