@@ -743,10 +743,154 @@ const rejectVendorByQc = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Reject vendor error:', error);
+        console.error('Error rejecting vendor by QC:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to reject vendor',
+            message: 'An error occurred while rejecting the vendor'
+        });
+    }
+};
+
+// ============================
+// QC Checker: Get assigned products
+// ============================
+const getAssignedProducts = async (req, res) => {
+    try {
+        if (req.user.role !== 'QC_CHECKER') {
+            return res.status(403).json({ success: false, message: 'Access denied: QC Checker role required' });
+        }
+
+        const qcCheckerId = req.user.id;
+        const products = await prisma.product.findMany({
+            where: {
+                assignedQcId: qcCheckerId
+            },
+            include: {
+                vendor: {
+                    select: { companyName: true, ownerName: true, email: true }
+                },
+                images: {
+                    where: { isPrimary: true },
+                    take: 1
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.status(200).json({
+            success: true,
+            data: products
+        });
+    } catch (error) {
+        console.error('Error fetching assigned products:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while fetching assigned products'
+        });
+    }
+};
+
+// ============================
+// QC Checker: Approve Product
+// ============================
+const approveProductByQc = async (req, res) => {
+    try {
+        if (req.user.role !== 'QC_CHECKER') {
+            return res.status(403).json({ success: false, message: 'Access denied: QC Checker role required' });
+        }
+
+        const { productId } = req.params;
+        const { formData } = req.body;
+        const qcCheckerId = req.user.id;
+
+        const product = await prisma.product.findFirst({
+            where: {
+                id: productId,
+                assignedQcId: qcCheckerId
+            }
+        });
+
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found or not assigned to you'
+            });
+        }
+
+        const updatedProduct = await prisma.product.update({
+            where: { id: productId },
+            data: {
+                approvalStatus: 'APPROVED',
+                status: 'ACTIVE',
+                qcInspectionData: formData || null
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Product approved successfully',
+            data: updatedProduct
+        });
+    } catch (error) {
+        console.error('Error approving product by QC:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while approving the product'
+        });
+    }
+};
+
+// ============================
+// QC Checker: Reject Product
+// ============================
+const rejectProductByQc = async (req, res) => {
+    try {
+        if (req.user.role !== 'QC_CHECKER') {
+            return res.status(403).json({ success: false, message: 'Access denied: QC Checker role required' });
+        }
+
+        const { productId } = req.params;
+        const { reason, formData } = req.body;
+        const qcCheckerId = req.user.id;
+
+        if (!reason) {
+            return res.status(400).json({ success: false, message: 'Rejection reason is required' });
+        }
+
+        const product = await prisma.product.findFirst({
+            where: {
+                id: productId,
+                assignedQcId: qcCheckerId
+            }
+        });
+
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found or not assigned to you'
+            });
+        }
+
+        const updatedProduct = await prisma.product.update({
+            where: { id: productId },
+            data: {
+                approvalStatus: 'REJECTED',
+                rejectionReason: reason,
+                status: 'INACTIVE',
+                qcInspectionData: formData || null
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Product rejected successfully',
+            data: updatedProduct
+        });
+    } catch (error) {
+        console.error('Error rejecting product by QC:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while rejecting the product'
         });
     }
 };
@@ -763,4 +907,7 @@ module.exports = {
     getAssignedVendors,
     approveVendorByQc,
     rejectVendorByQc,
+    getAssignedProducts,
+    approveProductByQc,
+    rejectProductByQc,
 };

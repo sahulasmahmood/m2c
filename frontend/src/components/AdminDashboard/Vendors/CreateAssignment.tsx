@@ -399,9 +399,9 @@ export default function CreateAssignment() {
             <Card>
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Items to Inspect <span className="text-red-500">*</span>
+                  Category to Inspect <span className="text-red-500">*</span>
                 </h3>
-                <p className="text-sm text-gray-600 mb-4">Select the items that will be inspected</p>
+                <p className="text-sm text-gray-600 mb-4">Select the categories that will be inspected</p>
 
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {displayItems.map((item) => (
@@ -447,7 +447,7 @@ export default function CreateAssignment() {
                 {formData.selectedItems.length > 0 && (
                   <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <span className="font-semibold">{formData.selectedItems.length}</span> item(s) selected for inspection
+                      <span className="font-semibold">{formData.selectedItems.length}</span> category(ies) selected for inspection
                     </p>
                   </div>
                 )}
@@ -573,7 +573,7 @@ export default function CreateAssignment() {
                     )}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Items Selected</span>
+                    <span className="text-gray-600">Categories Selected</span>
                     {formData.selectedItems.length > 0 ? (
                       <span className="flex items-center gap-1">
                         <span className="font-semibold text-gray-900">{formData.selectedItems.length}</span>

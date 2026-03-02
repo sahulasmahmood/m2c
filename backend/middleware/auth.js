@@ -129,12 +129,8 @@ const authenticateToken = async (req, res, next) => {
     if (!user) {
       user = await prisma.admin.findUnique({
         where: { id: decoded.userId || decoded.id },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          isActive: true,
-          isVerified: true
+        include: {
+          role: true
         }
       });
       userType = 'ADMIN';
@@ -164,7 +160,9 @@ const authenticateToken = async (req, res, next) => {
     req.userId = user.id;
     req.user = {
       ...user,
-      role: userType
+      role: userType, // keeping for backwards compatibility
+      roleName: userType === 'ADMIN' && user.role ? user.role.name : userType,
+      permissions: userType === 'ADMIN' && user.role ? user.role.permissions : []
     };
 
     next();
@@ -257,6 +255,47 @@ const requireAdminRole = (req, res, next) => {
   next();
 };
 
+// Require specific permissions
+const requirePermission = (requiredPermissions) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required for this action'
+      });
+    }
+
+    // Super Admin overrides all permissions
+    if (req.user.roleName === 'Super Admin') {
+      return next();
+    }
+
+    const permissionsToCheck = Array.isArray(requiredPermissions)
+      ? requiredPermissions
+      : [requiredPermissions];
+
+    const hasPermission = permissionsToCheck.some(permission =>
+      req.user.permissions && req.user.permissions.includes(permission)
+    );
+
+    if (!hasPermission) {
+      return res.status(403).json({
+        success: false,
+        error: 'You do not have permission to perform this action'
+      });
+    }
+
+    next();
+  };
+};
+
 // Optional authentication (doesn't fail if no token)
 const optionalAuth = async (req, res, next) => {
   try {
@@ -337,5 +376,6 @@ module.exports = {
   requireRole,
   requireVendorRole,
   requireAdminRole,
+  requirePermission,
   optionalAuth
 };

@@ -1241,6 +1241,43 @@ const assignQc = async (req, res) => {
   }
 };
 
+// Verify vendor bank details (Admin only)
+const verifyVendorBankDetails = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+
+    const bankDetails = await prisma.vendorBankDetails.findUnique({
+      where: { vendorId }
+    });
+
+    if (!bankDetails) {
+      return res.status(404).json({ error: 'Bank details not found for this vendor' });
+    }
+
+    if (bankDetails.isVerified) {
+      return res.status(400).json({ error: 'Bank details are already verified' });
+    }
+
+    const updatedBankDetails = await prisma.vendorBankDetails.update({
+      where: { vendorId },
+      data: {
+        isVerified: true,
+        verifiedAt: new Date(),
+        verifiedBy: req.user?.id || req.admin?.id // Using user/admin id if available in token
+      }
+    });
+
+    res.json({
+      message: 'Vendor bank details verified successfully',
+      bankDetails: updatedBankDetails
+    });
+
+  } catch (error) {
+    console.error('Verify vendor bank details error:', error);
+    res.status(500).json({ error: 'Internal server error while verifying bank details' });
+  }
+};
+
 
 module.exports = {
   registerVendor,
@@ -1254,5 +1291,6 @@ module.exports = {
   suspendVendor,
   vendorLogin,
   testVendorEmail,
-  assignQc
+  assignQc,
+  verifyVendorBankDetails
 };

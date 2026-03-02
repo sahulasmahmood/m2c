@@ -10,7 +10,10 @@ const {
     getCheckerProfile,
     getAssignedVendors,
     approveVendorByQc,
-    rejectVendorByQc
+    rejectVendorByQc,
+    getAssignedProducts,
+    approveProductByQc,
+    rejectProductByQc
 } = require('../controllers/qcCheckerController');
 
 const { authenticateToken, requireAdminRole } = require('../middleware/auth');
@@ -29,6 +32,11 @@ router.get('/me', authenticateToken, getCheckerProfile);
 router.get('/vendors', authenticateToken, getAssignedVendors);
 router.post('/vendors/:vendorId/approve', authenticateToken, approveVendorByQc);
 router.post('/vendors/:vendorId/reject', authenticateToken, rejectVendorByQc);
+
+// QC Products
+router.get('/products', authenticateToken, getAssignedProducts);
+router.post('/products/:productId/approve', authenticateToken, approveProductByQc);
+router.post('/products/:productId/reject', authenticateToken, rejectProductByQc);
 
 // ============================================
 // ADMIN ROUTES (Requires Admin Auth)

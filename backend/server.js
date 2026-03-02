@@ -139,6 +139,11 @@ const invoiceSettingsRoutes = require('./routes/invoiceSettingsRoutes');
 const inspectionRoutes = require('./routes/inspectionRoutes');
 const userManagementRoutes = require('./routes/userManagementRoutes');
 const settlementRoutes = require('./routes/settlementRoutes');
+const reportsRoutes = require('./routes/reportsRoutes');
+const vendorReportsRoutes = require('./routes/vendorReportsRoutes');
+const roleRoutes = require('./routes/roleRoutes');
+const adminDashboardRoutes = require('./routes/adminDashboardRoutes');
+const vendorDashboardRoutes = require('./routes/vendorDashboardRoutes');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -165,6 +170,11 @@ app.use('/api/invoice-settings', invoiceSettingsRoutes);
 app.use('/api/inspections', inspectionRoutes);
 app.use('/api/admin/users', userManagementRoutes);
 app.use('/api/settlements', settlementRoutes);
+app.use('/api/reports', reportsRoutes);
+app.use('/api/vendor-reports', vendorReportsRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/admin-dashboard', adminDashboardRoutes);
+app.use('/api/vendor-dashboard', vendorDashboardRoutes);
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({

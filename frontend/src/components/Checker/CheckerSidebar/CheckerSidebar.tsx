@@ -10,6 +10,7 @@ import {
   FileText,
   Settings,
   LogOut,
+  Package,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { qcCheckerService } from '@/services/qcCheckerService'
@@ -24,6 +25,11 @@ const sidebarItems = [
     title: 'Vendors',
     href: '/checker/dashboard/vendors',
     icon: Factory,
+  },
+  {
+    title: 'Products',
+    href: '/checker/dashboard/products',
+    icon: Package,
   },
   {
     title: 'Reports',
