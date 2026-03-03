@@ -540,23 +540,47 @@ export default function Checkout() {
               <div className="p-6">
 
                 {/* Cart Items Preview (Optional) */}
-                <div className="mb-6 space-y-3 max-h-60 overflow-y-auto pr-2">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex gap-3 text-sm">
-                      <div className="w-12 h-12 bg-gray-100 rounded-md shrink-0 overflow-hidden">
-                        {item.product?.images?.[0]?.url ? (
-                          <img src={item.product.images[0].url} alt={item.product.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">No img</div>
-                        )}
+                <div className="mb-6 space-y-4 max-h-60 overflow-y-auto pr-2">
+                  {cartItems.map((item) => {
+                    const hasVariantImg = item.variant?.images && item.variant.images.length > 0;
+                    const displayImgUrl = hasVariantImg
+                      ? item.variant?.images?.[0]
+                      : item.product?.images?.[0]?.url;
+
+                    return (
+                      <div key={item.id} className="flex gap-3 text-sm border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                        <div className="w-16 h-16 bg-gray-100 rounded-md shrink-0 overflow-hidden">
+                          {displayImgUrl ? (
+                            <img src={displayImgUrl} alt={item.product?.name || "Product"} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">No Img</div>
+                          )}
+                        </div>
+                        <div className="flex-1 flex flex-col justify-between">
+                          <p className="font-medium text-slate-900 line-clamp-1">{item.product?.name || "Product"}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-slate-500">Qty: {item.quantity}</span>
+                            {item.variant && (
+                              <div className="flex items-center gap-2 text-xs text-slate-500 ml-2">
+                                <span className="flex items-center gap-1">
+                                  {item.variant.colorHex && (
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full border border-slate-300 inline-block"
+                                      style={{ backgroundColor: item.variant.colorHex }}
+                                    />
+                                  )}
+                                  {item.variant.color}
+                                </span>
+                                <span>|</span>
+                                <span>Size: {item.variant.size}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <span className="font-medium text-slate-900">${(item.price * item.quantity).toFixed(2)}</span>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-900 line-clamp-1">{item.product?.name || "Product"}</p>
-                        <p className="text-slate-500">Qty: {item.quantity}</p>
-                      </div>
-                      <span className="font-medium text-slate-900">${(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <div className="space-y-4 mb-6 border-t border-slate-200 pt-4">

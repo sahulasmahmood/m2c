@@ -160,12 +160,13 @@ export default function OrderHistory() {
                       <h4 className="font-medium text-slate-900">{item.productName}</h4>
                       <div className="flex items-center gap-4 text-sm text-slate-600 mt-1">
                         <span>Qty: {item.quantity}</span>
-                        {/* 
-                           Note: The backend/orderService might not define size/color in OrderItem interface yet 
-                           even though they might be in the database. 
-                           If they are needed, update the OrderItem interface in orderService.ts.
-                           For now we rely on what's available.
-                        */}
+                        {(item.color || item.size) && (
+                          <div className="flex items-center gap-2 border-l border-slate-300 pl-3 ml-3">
+                            {item.color && <span>{item.color}</span>}
+                            {item.color && item.size && <span>|</span>}
+                            {item.size && <span>Size: {item.size}</span>}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

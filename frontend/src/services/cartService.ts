@@ -3,6 +3,7 @@ import axios from '@/lib/axios';
 export interface CartItem {
   id: string;
   productId: string;
+  variantId?: string;
   quantity: number;
   price: number;
   product?: {
@@ -20,6 +21,14 @@ export interface CartItem {
     reviews?: number;
     material?: string;
     discount?: number;
+  };
+  variant?: {
+    size: string;
+    color: string;
+    colorHex?: string;
+    sku: string;
+    stock: number;
+    images?: string[];
   };
 }
 
@@ -105,16 +114,17 @@ class CartService {
     }
   }
 
-  addToLocalCart(productId: string, quantity: number = 1): void {
+  addToLocalCart(productId: string, quantity: number = 1, variantId?: string): void {
     const cart = this.getLocalCart();
-    const existingItem = cart.find(item => item.productId === productId);
+    const existingItem = cart.find(item => item.productId === productId && item.variantId === variantId);
 
     if (existingItem) {
       existingItem.quantity += quantity;
     } else {
       cart.push({
-        id: Date.now().toString(),
+        id: Date.now().toString() + Math.random().toString(36).substring(7),
         productId,
+        variantId,
         quantity,
         price: 0 // Will be updated when fetching product details
       });
@@ -123,15 +133,16 @@ class CartService {
     this.saveLocalCart(cart);
   }
 
-  removeFromLocalCart(productId: string): void {
+  removeFromLocalCart(id: string): void {
     const cart = this.getLocalCart();
-    const updatedCart = cart.filter(item => item.productId !== productId);
+    // Assuming we want to remove by the unique cart item 'id' to support multiple variants
+    const updatedCart = cart.filter(item => item.id !== id);
     this.saveLocalCart(updatedCart);
   }
 
-  updateLocalCartItem(productId: string, quantity: number): void {
+  updateLocalCartItem(id: string, quantity: number): void {
     const cart = this.getLocalCart();
-    const existingItem = cart.find(item => item.productId === productId);
+    const existingItem = cart.find(item => item.id === id);
 
     if (existingItem) {
       existingItem.quantity = quantity;

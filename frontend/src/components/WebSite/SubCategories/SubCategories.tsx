@@ -39,15 +39,15 @@ export default function SubCategories({ categorySlug }: { categorySlug: string }
           showRootOnly: 'true',
           includeSubcategories: 'true'
         });
-        
+
         if (categoriesResponse.success && categoriesResponse.data) {
           const foundCategory = categoriesResponse.data.find(
             (cat: Category) => cat.slug === categorySlug
           );
-          
+
           if (foundCategory) {
             setCategory(foundCategory);
-            
+
             // If category has subcategories, use them
             if (foundCategory.subcategories && foundCategory.subcategories.length > 0) {
               setSubcategories(foundCategory.subcategories);
@@ -172,10 +172,10 @@ export default function SubCategories({ categorySlug }: { categorySlug: string }
                       <Package className="w-16 h-16 text-gray-600 opacity-50" />
                     </div>
                   )}
-                  
+
                   {/* Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  
+
                   {/* Product Count Badge */}
                   {subcategory.productCount !== undefined && (
                     <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
@@ -240,13 +240,13 @@ export default function SubCategories({ categorySlug }: { categorySlug: string }
               Discover more products with our advanced search or browse our complete collection
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center font-sans">
-              <Link
-                href="/search"
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('open-search-modal'))}
                 className="inline-flex items-center px-8 py-4 bg-white text-gray-600 rounded-xl hover:bg-gray-50 transition-colors font-bold shadow-lg hover:shadow-xl transform hover:-translate-y-1 duration-300"
               >
                 <Package className="mr-2 w-5 h-5" />
                 Search Products
-              </Link>
+              </button>
               <Link
                 href="/products"
                 className="inline-flex items-center px-8 py-4 border-2 border-white text-white rounded-xl hover:bg-white hover:text-gray-600 transition-colors font-bold shadow-lg hover:shadow-xl transform hover:-translate-y-1 duration-300"
