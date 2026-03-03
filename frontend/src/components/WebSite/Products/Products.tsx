@@ -12,10 +12,11 @@ const Products = () => {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
   const subcategoryParam = searchParams.get('subcategory');
+  const searchStringParam = searchParams.get('search');
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchStringParam || '');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
   const [categoryName, setCategoryName] = useState('');
@@ -126,7 +127,14 @@ const Products = () => {
     return () => {
       ignore = true;
     };
-  }, [currentPage, searchTerm, selectedCategory, selectedSubcategory, priceRange, sortBy, inStockOnly]);
+  }, [currentPage, searchTerm, selectedCategory, selectedSubcategory, priceRange, sortBy, inStockOnly, searchStringParam]);
+
+  // Handle URL change reflecting updated searches
+  useEffect(() => {
+    if (searchStringParam !== null) {
+      setSearchTerm(searchStringParam);
+    }
+  }, [searchStringParam]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {

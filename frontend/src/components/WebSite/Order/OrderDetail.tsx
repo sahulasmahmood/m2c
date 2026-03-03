@@ -329,6 +329,13 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
                         <h3 className="font-semibold text-slate-900 mb-1">{item.productName}</h3>
                         <div className="flex items-center gap-4 text-sm text-slate-600 mb-2">
                           <span>Qty: {item.quantity}</span>
+                          {(item.color || item.size) && (
+                            <div className="flex items-center gap-2 border-l border-slate-300 pl-3 ml-3">
+                              {item.color && <span>{item.color}</span>}
+                              {item.color && item.size && <span>|</span>}
+                              {item.size && <span>Size: {item.size}</span>}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-lg font-bold text-slate-900">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import {
   Search,
@@ -22,9 +22,11 @@ import { getStoredAuth, isAuthenticated } from "@/lib/auth";
 import { cartService } from "@/services/cartService";
 import { wishlistService } from "@/services/wishlistService";
 import { userAuthService } from "@/services/userAuthService";
+import { categoryService, Category as APICategory } from "@/services/categoryService";
 
 const Header = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLanguageCurrencyOpen, setIsLanguageCurrencyOpen] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -39,6 +41,14 @@ const Header = () => {
   const [userName, setUserName] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [popularSearches, setPopularSearches] = useState<string[]>([
+    "Towels",
+    "Bath Linen",
+    "Kitchen Apron",
+    "Table Linen",
+    "Cotton Bags",
+    "Jute",
+  ]);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
@@ -64,6 +74,13 @@ const Header = () => {
     { value: "JPY", label: "JPY - Japanese Yen", symbol: "¥" },
     { value: "INR", label: "INR - Indian Rupee", symbol: "₹" },
   ];
+
+  // Listen for global open-search-modal event (e.g. from SubCategories page)
+  useEffect(() => {
+    const openModal = () => setShowSearchModal(true);
+    window.addEventListener('open-search-modal', openModal);
+    return () => window.removeEventListener('open-search-modal', openModal);
+  }, []);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -183,6 +200,42 @@ const Header = () => {
     return () => clearInterval(interval);
   }, [isUserLoggedIn]);
 
+  // Load Popular Searches (Subcategories)
+  useEffect(() => {
+    const fetchPopularSearches = async () => {
+      try {
+        const response = await categoryService.getAllCategories({
+          status: 'ACTIVE',
+          includeSubcategories: 'true'
+        });
+
+        if (response.success && response.data) {
+          // Extract subcategories
+          const subcategories: string[] = [];
+          response.data.forEach((cat) => {
+            if (cat.subcategories && cat.subcategories.length > 0) {
+              cat.subcategories.forEach((sub) => {
+                if (sub.status === 'ACTIVE') {
+                  subcategories.push(sub.name);
+                }
+              });
+            }
+          });
+
+          if (subcategories.length > 0) {
+            // Pick up to 6 random or first subcategories 
+            // Optional: Shuffle them or just slice the first 6
+            setPopularSearches(subcategories.slice(0, 8));
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load popular searches:", error);
+      }
+    };
+
+    fetchPopularSearches();
+  }, [])
+
   const isActiveLink = (href: string) => {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
@@ -232,6 +285,21 @@ const Header = () => {
       }, 1000)
     }
   };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setShowSearchModal(false);
+      router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery(""); // Clear it after sending
+    }
+  };
+
+  const handleSearchShortcut = (term: string) => {
+    setShowSearchModal(false);
+    router.push(`/products?search=${encodeURIComponent(term)}`);
+    setSearchQuery("");
+  }
 
   return (
     <div className="sticky top-0 z-50 font-sans">
@@ -553,8 +621,8 @@ const Header = () => {
               <Link
                 href="/"
                 className={`block px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${isActiveLink("/")
-                    ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
-                    : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
+                  ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
+                  : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
                   }`}
                 onClick={() => setIsMenuOpen(false)}
               >
@@ -564,8 +632,8 @@ const Header = () => {
               <Link
                 href="/products"
                 className={`block px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${isActiveLink("/products")
-                    ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
-                    : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
+                  ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
+                  : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
                   }`}
                 onClick={() => setIsMenuOpen(false)}
               >
@@ -575,8 +643,8 @@ const Header = () => {
               <Link
                 href="/about"
                 className={`block px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${isActiveLink("/about")
-                    ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
-                    : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
+                  ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
+                  : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
                   }`}
                 onClick={() => setIsMenuOpen(false)}
               >
@@ -586,8 +654,8 @@ const Header = () => {
               <Link
                 href="/contact"
                 className={`block px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${isActiveLink("/contact")
-                    ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
-                    : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
+                  ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
+                  : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
                   }`}
                 onClick={() => setIsMenuOpen(false)}
               >
@@ -597,8 +665,8 @@ const Header = () => {
               <Link
                 href="/order"
                 className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${isActiveLink("/order")
-                    ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
-                    : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
+                  ? "bg-linear-to-r from-gray-500 to-gray-600 text-white shadow-md"
+                  : "text-slate-700 hover:bg-slate-100 hover:text-gray-600"
                   }`}
                 onClick={() => setIsMenuOpen(false)}
               >
@@ -687,7 +755,7 @@ const Header = () => {
           >
             <div className="p-4 sm:p-6 md:p-8">
               {/* Search Input Section */}
-              <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8 bg-linear-to-r from-gray-600 to-gray-700 px-3 sm:px-4 md:px-5 py-3 sm:py-4 md:py-5 rounded-xl shadow-lg">
+              <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8 bg-linear-to-r from-gray-600 to-gray-700 px-3 sm:px-4 md:px-5 py-3 sm:py-4 md:py-5 rounded-xl shadow-lg">
                 <Search className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white shrink-0" />
                 <input
                   type="text"
@@ -697,37 +765,23 @@ const Header = () => {
                   className="flex-1 text-sm sm:text-base md:text-lg font-medium outline-none bg-transparent text-white placeholder-blue-100"
                   autoFocus
                 />
+                {searchQuery && (
+                  <button
+                    type="submit"
+                    className="bg-amber-500 hover:bg-amber-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors shrink-0"
+                  >
+                    Search
+                  </button>
+                )}
                 <button
+                  type="button"
                   onClick={() => setShowSearchModal(false)}
                   className="p-1.5 sm:p-2 md:p-2.5 hover:bg-gray-600 rounded-lg transition-all duration-200 shrink-0"
                   aria-label="Close search"
                 >
                   <X className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
                 </button>
-              </div>
-
-              {searchQuery && (
-                <div className="space-y-3 sm:space-y-4">
-                  <p className="text-xs sm:text-sm font-medium text-slate-600 mb-3 sm:mb-4">
-                    Search results for{" "}
-                    <span className="text-gray-600 font-bold">
-                      "{searchQuery}"
-                    </span>
-                  </p>
-                  <div className="text-center py-8 sm:py-12 md:py-16">
-                    <div className="mb-2 sm:mb-3 md:mb-4 flex justify-center">
-                      <Search className="w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 text-slate-300" />
-                    </div>
-                    <p className="text-sm sm:text-base text-slate-700 font-semibold">
-                      No results found
-                    </p>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-1 sm:mt-2">
-                      Try searching with different keywords
-                    </p>
-                  </div>
-                </div>
-              )}
-
+              </form>
               {!searchQuery && (
                 <div className="space-y-4 sm:space-y-6 md:space-y-8">
                   <div>
@@ -735,17 +789,10 @@ const Header = () => {
                       Popular Searches
                     </p>
                     <div className="flex flex-wrap gap-2 sm:gap-3">
-                      {[
-                        "Cotton Fabric",
-                        "Silk Textiles",
-                        "Denim",
-                        "Linen",
-                        "Wool",
-                        "Cotton Blend",
-                      ].map((term) => (
+                      {popularSearches.map((term) => (
                         <button
                           key={term}
-                          onClick={() => setSearchQuery(term)}
+                          onClick={() => handleSearchShortcut(term)}
                           className="px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 bg-linear-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border-2 border-gray-200 hover:border-gray-400 rounded-xl text-xs sm:text-sm font-semibold text-gray-700 transition-all duration-200 transform hover:scale-105 hover:shadow-md"
                         >
                           {term}

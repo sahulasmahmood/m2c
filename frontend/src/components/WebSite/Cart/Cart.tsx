@@ -41,6 +41,12 @@ interface OrderItem {
   material?: string
   discount?: number
   gstPercentage?: number
+  variantDetails?: {
+    size: string
+    color: string
+    colorHex?: string
+    sku: string
+  }
 }
 
 interface OrderSummary {
@@ -72,23 +78,48 @@ export default function Order() {
               const productRes = await publicProductService.getProduct(item.productId)
               if (productRes.success && productRes.data) {
                 const product = productRes.data
+
+                // If local cart has variantId, find the variant data inside the public product
+                let variantDetails = undefined;
+                let finalPrice = product.adminFixedPrice || product.basePrice;
+                let finalImages = product.images.map(img => img.url);
+                let stock = product.totalStock;
+
+                if (item.variantId && product.variants) {
+                  const foundVariant = product.variants.find((v: any) => v.id === item.variantId);
+                  if (foundVariant) {
+                    variantDetails = {
+                      size: foundVariant.size,
+                      color: foundVariant.color,
+                      colorHex: foundVariant.colorHex,
+                      sku: foundVariant.sku
+                    };
+                    finalPrice = foundVariant.price;
+                    stock = foundVariant.stock;
+                    if (foundVariant.images && foundVariant.images.length > 0) {
+                      finalImages = foundVariant.images;
+                    }
+                  }
+                }
+
                 return {
                   id: item.id, // Use local cart item ID
                   productId: item.productId,
                   name: product.name,
-                  price: product.adminFixedPrice || product.basePrice,
+                  price: finalPrice,
                   originalPrice: product.originalPrice,
-                  images: product.images.map(img => img.url),
+                  images: finalImages,
                   category: product.category,
                   rating: product.rating,
                   reviews: product.reviews,
                   inStock: product.inStock,
                   quantity: item.quantity,
-                  availableStock: product.totalStock,
+                  availableStock: stock,
                   description: product.description,
                   material: product.material,
                   discount: product.discount,
-                  gstPercentage: product.gstPercentage
+                  gstPercentage: product.gstPercentage,
+                  variantDetails
                 }
               }
             } catch (err) {
@@ -104,24 +135,39 @@ export default function Order() {
           // Fetch from backend for authenticated users
           const response = await cartService.getCart()
           if (response.success && response.data) {
-            const items = response.data.items.map((item: any) => ({
-              id: item.id,
-              productId: item.productId,
-              name: item.product?.name || 'Unknown Product',
-              price: item.price,
-              originalPrice: item.product?.originalPrice,
-              images: item.product?.images?.map((img: any) => img.url) || [],
-              category: item.product?.category || '',
-              rating: item.product?.rating,
-              reviews: item.product?.reviews,
-              inStock: item.product?.inStock ?? true,
-              availableStock: item.product?.availableStock,
-              quantity: item.quantity,
-              description: item.product?.description,
-              material: item.product?.material,
-              discount: item.product?.discount,
-              gstPercentage: item.product?.gstPercentage
-            }))
+            const items = response.data.items.map((item: any) => {
+              const hasVariantImg = item.variant?.images && item.variant.images.length > 0;
+              const hasProductImg = item.product?.images && item.product.images.length > 0;
+
+              const imgArray = hasVariantImg
+                ? item.variant.images
+                : (hasProductImg ? item.product.images.map((img: any) => img.url) : []);
+
+              return {
+                id: item.id,
+                productId: item.productId,
+                name: item.product?.name || 'Unknown Product',
+                price: item.price,
+                originalPrice: item.product?.originalPrice,
+                images: imgArray,
+                category: item.product?.category || '',
+                rating: item.product?.rating,
+                reviews: item.product?.reviews,
+                inStock: item.product?.inStock ?? true,
+                availableStock: item.variant?.stock ?? item.product?.availableStock,
+                quantity: item.quantity,
+                description: item.product?.description,
+                material: item.product?.material,
+                discount: item.product?.discount,
+                gstPercentage: item.product?.gstPercentage,
+                variantDetails: item.variant ? {
+                  size: item.variant.size,
+                  color: item.variant.color,
+                  colorHex: item.variant.colorHex,
+                  sku: item.variant.sku
+                } : undefined
+              }
+            })
             setCartItems(items)
           }
         }
@@ -174,16 +220,16 @@ export default function Order() {
 
   const updateQuantity = async (id: string, productId: string, newQuantity: number) => {
     if (newQuantity < 1) {
-      removeItem(id, productId)
+      removeItem(id)
       return
     }
 
     try {
       if (!isAuthenticated) {
-        cartService.updateLocalCartItem(productId, newQuantity)
+        cartService.updateLocalCartItem(id, newQuantity)
         setCartItems(items =>
           items.map(item =>
-            item.productId === productId ? { ...item, quantity: newQuantity } : item
+            item.id === id ? { ...item, quantity: newQuantity } : item
           )
         )
         showSuccessToast('Updated', 'Cart item quantity updated')
@@ -204,11 +250,11 @@ export default function Order() {
     }
   }
 
-  const removeItem = async (id: string, productId: string) => {
+  const removeItem = async (id: string) => {
     try {
       if (!isAuthenticated) {
-        cartService.removeFromLocalCart(productId)
-        setCartItems(items => items.filter(item => item.productId !== productId))
+        cartService.removeFromLocalCart(id)
+        setCartItems(items => items.filter(item => item.id !== id))
         showSuccessToast('Removed', 'Item removed from cart')
         return
       }
@@ -357,9 +403,29 @@ export default function Order() {
                                 </span>
                               )}
                             </div>
+                            {item.variantDetails && (
+                              <div className="flex gap-4 mt-2 mb-2 text-sm text-slate-700 font-medium border-t border-slate-100 pt-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-500">Color:</span>
+                                  <div className="flex items-center gap-1">
+                                    {item.variantDetails.colorHex && (
+                                      <div
+                                        className="w-3 h-3 rounded-full border border-slate-300"
+                                        style={{ backgroundColor: item.variantDetails.colorHex }}
+                                      />
+                                    )}
+                                    <span>{item.variantDetails.color}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-500">Size:</span>
+                                  <span>{item.variantDetails.size}</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                           <button
-                            onClick={() => removeItem(item.id, item.productId)}
+                            onClick={() => removeItem(item.id)}
                             className="p-2 text-slate-400 hover:text-gray-500 transition-colors"
                           >
                             <Trash2 className="w-5 h-5" />

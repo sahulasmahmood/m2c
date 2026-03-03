@@ -196,12 +196,22 @@ const getCart = async (req, res) => {
               orderBy: {
                 isPrimary: 'desc'
               }
-            }
+            },
+            variants: item.variantId ? {
+              where: { id: item.variantId },
+              select: { id: true, size: true, color: true, colorHex: true, images: true, stock: true }
+            } : false
           }
         });
 
+        let variantDetails = null;
+        if (item.variantId && product && product.variants && product.variants.length > 0) {
+          variantDetails = product.variants[0];
+        }
+
         return {
           ...item,
+          variant: variantDetails,
           product: product ? {
             id: product.id,
             name: product.name,
