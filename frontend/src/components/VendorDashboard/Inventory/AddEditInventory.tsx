@@ -19,6 +19,7 @@ interface InventoryFormData {
   manufacturingDate?: string // New field for manufacturing date
 
   // Inventory Management
+  currentStock: number // Current stock quantity
   lowStockAlert: number
   location: string
 
@@ -75,6 +76,7 @@ export default function AddEditInventory({ inventoryId, isEdit = false }: AddEdi
     description: '',
     manufacturingDate: '',
 
+    currentStock: 0,
     lowStockAlert: 5,
     location: '',
 
