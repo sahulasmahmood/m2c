@@ -897,14 +897,15 @@ const getAvailableInventoryItems = async (req, res) => {
 // Admin: Approve product
 const approveProduct = async (req, res) => {
   try {
-    const { id } = req.params; // Changed from productId to id
-    const { adminPrice } = req.body; // Get admin price from request body
-    const adminId = req.user.id; // Admin ID from auth middleware
+    const { id } = req.params;
+    const { adminPrice, variantPrices } = req.body; // Get admin price and variant prices
+    const adminId = req.user.id;
 
-    // Find the product
+    // Find the product with variants
     const product = await prisma.product.findUnique({
       where: { id: id },
       include: {
+        variants: true,
         vendor: {
           select: {
             id: true,
@@ -941,30 +942,65 @@ const approveProduct = async (req, res) => {
     // Prepare update data
     const updateData = {
       approvalStatus: 'APPROVED',
-      status: 'ACTIVE', // Product becomes ACTIVE for sale once Admin approves it
+      status: 'ACTIVE',
       approvedAt: new Date(),
       approvedBy: adminId,
-      rejectionReason: null // Clear any previous rejection reason
+      rejectionReason: null
     };
 
-    // Requirement: Must have an admin price for approval
-    const finalAdminPrice = adminPrice !== undefined && adminPrice !== null ? adminPrice : product.adminFixedPrice;
+    // Handle pricing based on whether product has variants
+    if (product.hasVariants && product.variants.length > 0) {
+      // Product has variants - require variant prices
+      if (!variantPrices || Object.keys(variantPrices).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Variant prices are required for products with variants'
+        });
+      }
 
-    if (!finalAdminPrice || finalAdminPrice <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Admin price is required for approval and must be greater than 0'
-      });
+      // Validate that all variants have prices
+      const missingPrices = product.variants.filter(v => !variantPrices[v.id] || parseFloat(variantPrices[v.id]) <= 0);
+      if (missingPrices.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Admin prices are required for all variants. Missing prices for: ${missingPrices.map(v => `${v.size}-${v.color}`).join(', ')}`
+        });
+      }
+
+      // Update each variant with admin price
+      await Promise.all(
+        product.variants.map(variant =>
+          prisma.productVariant.update({
+            where: { id: variant.id },
+            data: { adminFixedPrice: parseFloat(variantPrices[variant.id]) }
+          })
+        )
+      );
+
+      // For products with variants, adminFixedPrice can be null or average
+      // Let's set it to null since variants have individual prices
+      updateData.adminFixedPrice = null;
+
+    } else {
+      // Product without variants - require single admin price
+      const finalAdminPrice = adminPrice !== undefined && adminPrice !== null ? adminPrice : product.adminFixedPrice;
+
+      if (!finalAdminPrice || finalAdminPrice <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Admin price is required for approval and must be greater than 0'
+        });
+      }
+
+      updateData.adminFixedPrice = parseFloat(finalAdminPrice);
     }
-
-    // Store the finalized price
-    updateData.adminFixedPrice = parseFloat(finalAdminPrice);
 
     // Update product approval status
     const updatedProduct = await prisma.product.update({
       where: { id: id },
       data: updateData,
       include: {
+        variants: true,
         vendor: {
           select: {
             companyName: true,
@@ -1074,15 +1110,36 @@ const assignQCCheckerToProduct = async (req, res) => {
       return res.status(400).json({ error: 'QC Checker ID is required' });
     }
 
+    // Verify QC Checker exists
     const checker = await prisma.qCChecker.findUnique({ where: { id: qcCheckerId } });
     if (!checker) {
       return res.status(404).json({ error: 'QC Checker not found' });
     }
 
+    // Find the product to check its current status
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Determine the status after assignment
+    // If it was REINSPECTION, keep it as REINSPECTION so the checker knows it's a second round
+    // If it was PENDING or anything else, ensure it is set appropriately
+    let newApprovalStatus = product.approvalStatus;
+    if (product.approvalStatus === 'APPROVED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot reassign a product that has already been final approved. Use the manual update if absolutely necessary.'
+      });
+    }
+
+    // Update the product with the new checker
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: {
         assignedQcId: qcCheckerId,
+        // We could optionally reset the qcInspectionData, but maybe it's better to keep it for reference?
+        // qcInspectionData: null 
       },
       include: {
         assignedQc: {
@@ -1093,7 +1150,7 @@ const assignQCCheckerToProduct = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'QC Checker assigned to product successfully',
+      message: product.assignedQcId ? 'QC Checker reassigned successfully' : 'QC Checker assigned successfully',
       data: updatedProduct
     });
   } catch (error) {

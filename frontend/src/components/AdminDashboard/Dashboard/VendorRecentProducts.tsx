@@ -8,6 +8,8 @@ const getStatusBadge = (status: string) => {
       return <Badge className="bg-green-100 text-green-800">Active</Badge>
     case 'Pending':
       return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+    case 'REINSPECTION':
+      return <Badge className="bg-orange-100 text-orange-800 border border-orange-200">Reinspection</Badge>
     default:
       return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>
   }

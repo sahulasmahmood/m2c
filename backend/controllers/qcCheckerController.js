@@ -817,18 +817,59 @@ const approveProductByQc = async (req, res) => {
             });
         }
 
+        // Calculate the inspection result from formData
+        let approvalStatus = 'QC_APPROVED';
+        let productStatus = 'INACTIVE'; // Keep as INACTIVE until Admin finalizes with a price
+        
+        if (formData) {
+            // Extract remark codes from formData
+            const remarkFields = [
+                'shipperCartonRemark',
+                'innerCartonRemark',
+                'retailPackagingRemark',
+                'productTypeRemark',
+                'aqlWorkmanshipRemark',
+                'onSiteTestsRemark'
+            ];
+            
+            const remarkCodes = [];
+            remarkFields.forEach(field => {
+                const value = formData[field];
+                if (value && typeof value === 'string') {
+                    const code = parseInt(value.trim());
+                    if (!isNaN(code) && code >= 1 && code <= 10) {
+                        remarkCodes.push(code);
+                    }
+                }
+            });
+            
+            // Calculate average score
+            const average = remarkCodes.length > 0 
+                ? remarkCodes.reduce((sum, code) => sum + code, 0) / remarkCodes.length 
+                : 10;
+            
+            // Determine approval status based on average
+            if (average >= 8) {
+                approvalStatus = 'QC_APPROVED';
+            } else if (average >= 6) {
+                approvalStatus = 'REINSPECTION';
+            } else {
+                approvalStatus = 'REJECTED';
+            }
+        }
+
         const updatedProduct = await prisma.product.update({
             where: { id: productId },
             data: {
-                approvalStatus: 'QC_APPROVED',
-                status: 'INACTIVE', // Keep as INACTIVE until Admin finalizes with a price
+                approvalStatus,
+                status: productStatus,
                 qcInspectionData: formData || null
             }
         });
 
         res.status(200).json({
             success: true,
-            message: 'Product approved successfully',
+            message: `Product ${approvalStatus === 'QC_APPROVED' ? 'approved' : approvalStatus === 'REINSPECTION' ? 'marked for reinspection' : 'rejected'} successfully`,
             data: updatedProduct
         });
     } catch (error) {

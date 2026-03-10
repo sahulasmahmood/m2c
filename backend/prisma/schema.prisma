@@ -663,20 +663,21 @@ model Product {
 }
 
 model ProductVariant {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  productId String    @db.ObjectId
-  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  productId       String    @db.ObjectId
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   
-  size      String
-  color     String
-  colorHex  String?
-  sku       String    @unique
-  price     Float
-  stock     Int       @default(0)
-  images    String[]  @default([]) // Array of image URLs
+  size            String
+  color           String
+  colorHex        String?
+  sku             String    @unique
+  price           Float     // Vendor's price
+  adminFixedPrice Float?    // Admin's fixed price for this variant
+  stock           Int       @default(0)
+  images          String[]  @default([]) // Array of image URLs
   
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@map("product_variants")
 }
@@ -709,6 +710,7 @@ enum ProductApprovalStatus {
   QC_APPROVED
   APPROVED
   REJECTED
+  REINSPECTION
 }
 
 // ============================================

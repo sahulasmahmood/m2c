@@ -32,7 +32,7 @@ export interface AdminProduct {
   weight?: string;
   inStock: boolean;
   status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
-  approvalStatus: 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED';
+  approvalStatus: 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED' | 'REINSPECTION';
   approvedAt?: string;
   approvedBy?: string;
   rejectionReason?: string;
@@ -67,6 +67,7 @@ export interface AdminProduct {
     colorHex?: string;
     sku: string;
     price: number;
+    adminFixedPrice?: number; // Admin's fixed price for this variant
     stock: number;
     images?: string[];
   }>;
@@ -153,11 +154,18 @@ class AdminProductService {
   }
 
   // Approve a product
-  async approveProduct(id: string, adminPrice?: number): Promise<{ success: boolean; data?: AdminProduct; message?: string }> {
+  async approveProduct(
+    id: string,
+    adminPrice?: number,
+    variantPrices?: Record<string, number>
+  ): Promise<{ success: boolean; data?: AdminProduct; message?: string }> {
     try {
       const payload: any = {};
       if (adminPrice !== undefined) {
         payload.adminPrice = adminPrice;
+      }
+      if (variantPrices !== undefined) {
+        payload.variantPrices = variantPrices;
       }
       const response = await axios.put(`/products/${id}/approve`, payload);
       return response.data;
