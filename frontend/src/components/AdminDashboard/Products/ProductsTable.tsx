@@ -27,7 +27,7 @@ interface Product {
   adminFixedPrice?: number // Admin's fixed price
   totalStock: number
   status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK'
-  approvalStatus: 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED'
+  approvalStatus: 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED' | 'REINSPECTION'
   approvedAt?: string
   rejectionReason?: string
   createdAt: string
@@ -61,6 +61,8 @@ const getApprovalBadge = (status: string) => {
       return <Badge className="bg-green-100 text-green-800">Approved</Badge>
     case "QC_APPROVED":
       return <Badge className="bg-blue-100 text-blue-800">QC Approved</Badge>
+    case "REINSPECTION":
+      return <Badge className="bg-orange-100 text-orange-800">Reinspection</Badge>
     case "PENDING":
       return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
     case "REJECTED":
@@ -78,12 +80,23 @@ export default function ProductsTable() {
     status: '',
     search: ''
   })
+  const [searchInput, setSearchInput] = useState('') // Separate state for input
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     totalCount: 0,
     limit: 10
   })
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: searchInput }))
+      setPagination(prev => ({ ...prev, currentPage: 1 })) // Reset to first page on search
+    }, 500) // 500ms delay
+
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   // Load products
   useEffect(() => {
@@ -191,40 +204,79 @@ export default function ProductsTable() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Products Management</CardTitle>
-          <div className="flex items-center space-x-4">
-            {/* Filters */}
-            <div className="flex items-center space-x-2">
-              <Dropdown
-                label=""
-                value={filters.approvalStatus}
-                placeholder="Filter by Approval"
-                options={[
-                  { value: '', label: 'All Approvals' },
-                  { value: 'PENDING', label: 'Pending' },
-                  { value: 'QC_APPROVED', label: 'QC Approved' },
-                  { value: 'APPROVED', label: 'Approved' },
-                  { value: 'REJECTED', label: 'Rejected' }
-                ]}
-                onChange={(value) => setFilters(prev => ({ ...prev, approvalStatus: value as string }))}
+          <Link href="/admin/dashboard/products/add">
+            <Button className="bg-[#313131] text-white hover:bg-[#222222]">
+              Add Product
+            </Button>
+          </Link>
+        </div>
+        
+        {/* Search and Filters Row */}
+        <div className="flex items-center space-x-3 mt-4">
+          {/* Search Input */}
+          <div className="flex-1 max-w-md">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by product name, SKU, or description..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-transparent"
               />
-              <Dropdown
-                label=""
-                value={filters.status}
-                placeholder="Filter by Status"
-                options={[
-                  { value: '', label: 'All Status' },
-                  { value: 'ACTIVE', label: 'Active' },
-                  { value: 'INACTIVE', label: 'Inactive' },
-                  { value: 'OUT_OF_STOCK', label: 'Out of Stock' }
-                ]}
-                onChange={(value) => setFilters(prev => ({ ...prev, status: value as string }))}
-              />
+              <svg
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              {searchInput && (
+                <button
+                  onClick={() => setSearchInput('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
-            <Link href="/admin/dashboard/products/add">
-              <Button className="bg-[#313131] text-white hover:bg-[#222222]">
-                Add Product
-              </Button>
-            </Link>
+          </div>
+
+          {/* Filters */}
+          <div className="flex items-center space-x-2">
+            <Dropdown
+              label=""
+              value={filters.approvalStatus}
+              placeholder="Filter by Approval"
+              options={[
+                { value: '', label: 'All Approvals' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'QC_APPROVED', label: 'QC Approved' },
+                { value: 'REINSPECTION', label: 'Reinspection' },
+                { value: 'APPROVED', label: 'Approved' },
+                { value: 'REJECTED', label: 'Rejected' }
+              ]}
+              onChange={(value) => setFilters(prev => ({ ...prev, approvalStatus: value as string }))}
+            />
+            <Dropdown
+              label=""
+              value={filters.status}
+              placeholder="Filter by Status"
+              options={[
+                { value: '', label: 'All Status' },
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'INACTIVE', label: 'Inactive' },
+                { value: 'OUT_OF_STOCK', label: 'Out of Stock' }
+              ]}
+              onChange={(value) => setFilters(prev => ({ ...prev, status: value as string }))}
+            />
           </div>
         </div>
       </CardHeader>

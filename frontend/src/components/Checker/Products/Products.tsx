@@ -97,6 +97,7 @@ export default function Products() {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'PENDING': return 'bg-yellow-100 text-yellow-800'
+            case 'REINSPECTION': return 'bg-orange-100 text-orange-800'
             case 'APPROVED': return 'bg-green-100 text-green-800'
             case 'REJECTED': return 'bg-red-100 text-red-800'
             default: return 'bg-gray-100 text-gray-800'
@@ -196,7 +197,7 @@ export default function Products() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            {(product.approvalStatus === 'PENDING' || product.approvalStatus === 'UNDER_REVIEW') && (
+                                            {(product.approvalStatus === 'PENDING' || product.approvalStatus === 'UNDER_REVIEW' || product.approvalStatus === 'REINSPECTION') && (
                                                 <div className="flex items-center justify-end space-x-2">
                                                     <Button
                                                         variant="outline"

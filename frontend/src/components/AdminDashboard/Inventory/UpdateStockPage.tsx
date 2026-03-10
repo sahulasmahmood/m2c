@@ -226,7 +226,7 @@ export default function UpdateStockPage({ inventoryId }: UpdateStockPageProps) {
 
   const stockDifference = product?.hasVariants
     ? calculateTotalVariantStock() - (product?.totalStock || 0)
-    : parseInt(newStock || '0') - inventoryItem?.baseStock
+    : parseInt(newStock || '0') - (inventoryItem?.baseStock || 0)
 
   const isIncrease = stockDifference > 0
   const isDecrease = stockDifference < 0

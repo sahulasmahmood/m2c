@@ -21,7 +21,7 @@ interface VendorProductRequest {
   basePrice: number
   totalStock: number
   status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK'
-  approvalStatus: 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED'
+  approvalStatus: 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED' | 'REINSPECTION'
   approvedAt?: string
   rejectionReason?: string
   createdAt: string
@@ -52,7 +52,7 @@ export default function VendorProductRequests() {
   const [requests, setRequests] = useState<VendorProductRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED'>('PENDING')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED' | 'REINSPECTION'>('PENDING')
   const [selectedRequest, setSelectedRequest] = useState<VendorProductRequest | null>(null)
   const [showRejectionModal, setShowRejectionModal] = useState(false)
   const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null)
@@ -190,6 +190,8 @@ export default function VendorProductRequests() {
         return 'bg-yellow-100 text-yellow-800'
       case 'QC_APPROVED':
         return 'bg-blue-100 text-blue-800'
+      case 'REINSPECTION':
+        return 'bg-orange-100 text-orange-800'
       case 'APPROVED':
         return 'bg-green-100 text-green-800'
       case 'REJECTED':
@@ -257,6 +259,7 @@ export default function VendorProductRequests() {
                   { value: 'all', label: 'All Status' },
                   { value: 'PENDING', label: 'Pending QC' },
                   { value: 'QC_APPROVED', label: 'QC Approved (Ready)' },
+                  { value: 'REINSPECTION', label: 'Reinspection Required' },
                   { value: 'APPROVED', label: 'Final Approved' },
                   { value: 'REJECTED', label: 'Rejected' }
                 ]}
@@ -373,7 +376,7 @@ export default function VendorProductRequests() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {(request.approvalStatus === 'PENDING' || request.approvalStatus === 'QC_APPROVED') && (
+                        {(request.approvalStatus === 'PENDING' || request.approvalStatus === 'QC_APPROVED' || request.approvalStatus === 'REINSPECTION') && (
                           <>
                             {request.approvalStatus === 'QC_APPROVED' && (
                               <Button
@@ -395,13 +398,13 @@ export default function VendorProductRequests() {
                             >
                               <X className="h-4 w-4" />
                             </Button>
-                            {request.approvalStatus === 'PENDING' && (
+                            {(request.approvalStatus === 'PENDING' || request.approvalStatus === 'REINSPECTION') && (
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleAssignClick(request.id)}
                                 className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                title="Assign QC Checker"
+                                title={request.approvalStatus === 'REINSPECTION' ? "Reassign QC Checker" : "Assign QC Checker"}
                               >
                                 <UserPlus className="h-4 w-4" />
                               </Button>

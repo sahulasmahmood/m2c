@@ -36,6 +36,7 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
   const [showRejectionModal, setShowRejectionModal] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
   const [adminPrice, setAdminPrice] = useState('')
+  const [variantPrices, setVariantPrices] = useState<Record<string, string>>({})
   const [actionLoading, setActionLoading] = useState(false)
 
   // Fetch product data from backend
@@ -48,6 +49,15 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
           setProduct(response.data)
           // Set initial admin price to the product's admin fixed price or base price
           setAdminPrice((response.data.adminFixedPrice || response.data.basePrice).toString())
+
+          // Initialize variant prices if product has variants
+          if (response.data.hasVariants && response.data.variants) {
+            const initialVariantPrices: Record<string, string> = {}
+            response.data.variants.forEach(variant => {
+              initialVariantPrices[variant.id] = (variant.adminFixedPrice || variant.price).toString()
+            })
+            setVariantPrices(initialVariantPrices)
+          }
         } else {
           showErrorToast('Error', 'Product not found')
         }
@@ -65,14 +75,42 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
   }, [requestId])
 
   const handleApprove = async () => {
-    if (!product || !adminPrice || parseFloat(adminPrice) <= 0) {
-      showErrorToast('Invalid Price', 'Please enter a valid admin price')
-      return
+    if (!product) return
+
+    // Validate pricing based on whether product has variants
+    if (product.hasVariants && product.variants && product.variants.length > 0) {
+      // Check if all variants have valid prices
+      const invalidVariants = product.variants.filter(v =>
+        !variantPrices[v.id] || parseFloat(variantPrices[v.id]) <= 0
+      )
+
+      if (invalidVariants.length > 0) {
+        showErrorToast('Invalid Prices', 'Please enter valid admin prices for all variants')
+        return
+      }
+    } else {
+      // Single product - check admin price
+      if (!adminPrice || parseFloat(adminPrice) <= 0) {
+        showErrorToast('Invalid Price', 'Please enter a valid admin price')
+        return
+      }
     }
 
     try {
       setActionLoading(true)
-      const response = await adminProductService.approveProduct(product.id, parseFloat(adminPrice))
+
+      // Prepare the request based on product type
+      const variantPricesNum = product.hasVariants && product.variants
+        ? Object.fromEntries(
+          Object.entries(variantPrices).map(([id, price]) => [id, parseFloat(price)])
+        )
+        : undefined
+
+      const response = await adminProductService.approveProduct(
+        product.id,
+        product.hasVariants ? undefined : parseFloat(adminPrice),
+        variantPricesNum
+      )
 
       if (response.success) {
         showSuccessToast('Product Approved', 'The vendor product has been approved and is now live.')
@@ -82,7 +120,7 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
           ...prev,
           approvalStatus: 'APPROVED',
           approvedAt: new Date().toISOString(),
-          adminFixedPrice: parseFloat(adminPrice) // Store in adminFixedPrice field
+          adminFixedPrice: product.hasVariants ? undefined : parseFloat(adminPrice)
         } : null)
         // Optionally redirect back to requests list
         setTimeout(() => {
@@ -133,6 +171,8 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
         return 'bg-yellow-100 text-yellow-800'
       case 'qc_approved':
         return 'bg-blue-100 text-blue-800'
+      case 'reinspection':
+        return 'bg-orange-100 text-orange-800'
       case 'approved':
         return 'bg-green-100 text-green-800'
       case 'rejected':
@@ -212,7 +252,7 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
           <Badge className={getStatusColor(product.approvalStatus)}>
             {product.approvalStatus.replace('_', ' ').charAt(0).toUpperCase() + product.approvalStatus.replace('_', ' ').slice(1).toLowerCase()}
           </Badge>
-          {(product.approvalStatus === 'PENDING' || product.approvalStatus === 'QC_APPROVED') && (
+          {(product.approvalStatus === 'PENDING' || product.approvalStatus === 'QC_APPROVED' || product.approvalStatus === 'REINSPECTION') && (
             <>
               {product.approvalStatus === 'QC_APPROVED' ? (
                 <Button
@@ -225,10 +265,12 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
                 </Button>
               ) : (
                 <div className="flex flex-col items-end">
-                  <Badge variant="outline" className="text-xs text-yellow-600 mb-1">
-                    Waiting for QC Approval
+                  <Badge variant="outline" className={product.approvalStatus === 'REINSPECTION' ? "text-orange-600 mb-1 border-orange-200" : "text-yellow-600 mb-1 border-yellow-200"}>
+                    {product.approvalStatus === 'REINSPECTION' ? "Reinspection Required" : "Waiting for QC Approval"}
                   </Badge>
-                  <span className="text-[10px] text-gray-400 italic">QC must approve first</span>
+                  <span className="text-[10px] text-gray-400 italic">
+                    {product.approvalStatus === 'REINSPECTION' ? "Must be reassigned or re-inspected" : "QC must approve first"}
+                  </span>
                 </div>
               )}
               <Button
@@ -253,7 +295,7 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
             <CardHeader>
               <CardTitle className="flex items-center">
                 <ImageIcon className="h-5 w-5 mr-2" />
-                Product Images
+                {product.hasVariants ? 'Product Images (General)' : 'Product Images'}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -267,6 +309,11 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
                         fill
                         className="object-cover"
                       />
+                      {image.isPrimary && (
+                        <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                          Primary
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -278,6 +325,87 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
               </div>
             </CardContent>
           </Card>
+
+          {/* Variants with Images */}
+          {product.hasVariants && product.variants && product.variants.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Layers className="h-5 w-5 mr-2" />
+                  Product Variants ({product.variants.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {product.variants.map((variant, index) => (
+                    <div key={variant.id || index} className="p-4 border rounded-lg bg-gray-50">
+                      {/* Variant Details */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          {variant.colorHex && (
+                            <div
+                              className="w-10 h-10 rounded border-2 border-gray-300 shadow-sm"
+                              style={{ backgroundColor: variant.colorHex }}
+                              title={variant.color}
+                            />
+                          )}
+                          <div>
+                            <h4 className="font-semibold text-gray-900">
+                              {variant.size} - {variant.color}
+                            </h4>
+                            <p className="text-xs text-gray-500 font-mono">{variant.sku}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-900">₹{variant.price}</p>
+                          {variant.adminFixedPrice && (
+                            <p className="text-xs text-green-600">Admin: ₹{variant.adminFixedPrice}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Variant Info Grid */}
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="bg-white p-3 rounded border">
+                          <p className="text-xs text-gray-500 mb-1">Vendor Price</p>
+                          <p className="text-sm font-semibold text-gray-900">₹{variant.price}</p>
+                        </div>
+                        {variant.adminFixedPrice && (
+                          <div className="bg-white p-3 rounded border border-green-200">
+                            <p className="text-xs text-gray-500 mb-1">Admin Price</p>
+                            <p className="text-sm font-semibold text-green-600">₹{variant.adminFixedPrice}</p>
+                          </div>
+                        )}
+                        <div className="bg-white p-3 rounded border">
+                          <p className="text-xs text-gray-500 mb-1">Stock</p>
+                          <p className="text-sm font-semibold text-gray-900">{variant.stock} units</p>
+                        </div>
+                      </div>
+
+                      {/* Variant Images */}
+                      {variant.images && variant.images.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 mb-2">Variant Images</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {variant.images.map((imageUrl, imgIndex) => (
+                              <div key={imgIndex} className="relative aspect-square rounded-lg overflow-hidden border bg-white">
+                                <Image
+                                  src={imageUrl}
+                                  alt={`${variant.size} - ${variant.color} - Image ${imgIndex + 1}`}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Product Description */}
           <Card>
@@ -497,79 +625,97 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
               </div>
             </CardContent>
           </Card>
-
-          {/* Variants */}
-          {product.hasVariants && product.variants && product.variants.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Product Variants</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {product.variants.map((variant, index) => (
-                    <div key={variant.id || index} className="p-3 border rounded-lg">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="font-medium text-gray-500">Size:</span>
-                          <span className="ml-2 text-gray-900">{variant.size}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-500">Color:</span>
-                          <span className="ml-2 text-gray-900">{variant.color}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-500">Price:</span>
-                          <span className="ml-2 text-gray-900">₹{variant.price}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-500">Stock:</span>
-                          <span className="ml-2 text-gray-900">{variant.stock}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
 
       {/* Approval Modal */}
       {showApprovalModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Approve Product Request</h3>
             <p className="text-gray-600 mb-4">
               Set the final price for this product. This will be the price customers see.
             </p>
             <div className="mb-4 p-3 bg-gray-50 rounded-lg">
               <p className="text-sm font-medium text-gray-700">Product: {product.name}</p>
-              <p className="text-sm text-gray-600">Vendor Price: ₹{product.basePrice}</p>
-              {product.adminFixedPrice && (
-                <p className="text-sm text-green-600">Current Admin Price: ₹{product.adminFixedPrice}</p>
-              )}
               <p className="text-sm text-gray-600">Vendor: {product.vendor.companyName}</p>
             </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Admin Fixed Price (₹)
-              </label>
-              <input
-                type="number"
-                value={adminPrice}
-                onChange={(e) => setAdminPrice(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-transparent"
-                placeholder="Enter final price"
-                step="0.01"
-                min="0"
-                disabled={actionLoading}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                This will be the final price customers see. Vendor's original price: ₹{product.basePrice}
-              </p>
-            </div>
-            <div className="flex justify-end space-x-3">
+
+            {/* Conditional rendering based on whether product has variants */}
+            {product.hasVariants && product.variants && product.variants.length > 0 ? (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Set Admin Prices for Each Variant
+                </label>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {product.variants.map((variant) => (
+                    <div key={variant.id} className="p-3 border border-gray-200 rounded-lg bg-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className="w-6 h-6 rounded border border-gray-300"
+                            style={{ backgroundColor: variant.colorHex || '#ccc' }}
+                          />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {variant.size} - {variant.color}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Vendor Price: ₹{variant.price} | Stock: {variant.stock}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Admin Price (₹)
+                        </label>
+                        <input
+                          type="number"
+                          value={variantPrices[variant.id] || ''}
+                          onChange={(e) => setVariantPrices(prev => ({
+                            ...prev,
+                            [variant.id]: e.target.value
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-transparent text-sm"
+                          placeholder="Enter admin price"
+                          step="0.01"
+                          min="0"
+                          disabled={actionLoading}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Set individual prices for each variant. These will be the final prices customers see.
+                </p>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Admin Fixed Price (₹)
+                </label>
+                <div className="mb-2 text-sm text-gray-600">
+                  Vendor's Base Price: ₹{product.basePrice}
+                </div>
+                <input
+                  type="number"
+                  value={adminPrice}
+                  onChange={(e) => setAdminPrice(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-transparent"
+                  placeholder="Enter final price"
+                  step="0.01"
+                  min="0"
+                  disabled={actionLoading}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This will be the final price customers see.
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 mt-6">
               <Button
                 variant="outline"
                 onClick={() => setShowApprovalModal(false)}
@@ -579,7 +725,7 @@ export default function VendorProductRequestView({ requestId }: VendorProductReq
               </Button>
               <Button
                 onClick={handleApprove}
-                disabled={!adminPrice || parseFloat(adminPrice) <= 0 || actionLoading}
+                disabled={actionLoading}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {actionLoading ? 'Approving...' : 'Approve Product'}

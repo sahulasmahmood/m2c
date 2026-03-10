@@ -77,7 +77,7 @@ export default function Products() {
             <h1 className="text-2xl font-bold text-[#222222]">My Products</h1>
             <p className="text-slate-600">Manage your product catalog</p>
           </div>
-          <Button 
+          <Button
             onClick={handleAddProduct}
             className="bg-[#222222] text-white text-base font-semibold hover:bg-[#313131]"
           >
@@ -104,7 +104,7 @@ export default function Products() {
           <h1 className="text-2xl font-bold text-[#222222]">My Products</h1>
           <p className="text-slate-600">Manage your product catalog</p>
         </div>
-        <Button 
+        <Button
           onClick={handleAddProduct}
           className="bg-[#222222] text-white text-base font-semibold hover:bg-[#313131]"
         >
@@ -158,37 +158,33 @@ export default function Products() {
                     </TableCell>
                     <TableCell>
                       <span className={product.totalStock === 0 ? 'text-red-600' : 'text-[#222222]'}>
-                        {product.hasVariants && product.variants 
+                        {product.hasVariants && product.variants
                           ? product.variants.reduce((sum, v) => sum + v.stock, 0)
                           : product.totalStock
                         }
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs capitalize ${
-                        product.status === 'ACTIVE' 
-                          ? 'bg-green-100 text-green-800' 
+                      <span className={`px-2 py-1 rounded-full text-xs capitalize ${product.status === 'ACTIVE'
+                          ? 'bg-green-100 text-green-800'
                           : product.status === 'INACTIVE'
-                          ? 'bg-gray-100 text-gray-800'
-                          : product.status === 'OUT_OF_STOCK'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                            ? 'bg-gray-100 text-gray-800'
+                            : product.status === 'OUT_OF_STOCK'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                        }`}>
                         {product.status?.toLowerCase().replace('_', ' ')}
                       </span>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <span className={`px-2 py-1 rounded-full text-xs capitalize ${
-                          product.approvalStatus === 'APPROVED' 
-                            ? 'bg-green-100 text-green-800' 
-                            : product.approvalStatus === 'PENDING'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : product.approvalStatus === 'REJECTED'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {product.approvalStatus?.toLowerCase()}
+                        <span className={`px-2 py-1 rounded-full text-xs capitalize ${product.approvalStatus === 'APPROVED'
+                            ? 'bg-green-100 text-green-800'
+                            : product.approvalStatus === 'REINSPECTION'
+                              ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                          {product.approvalStatus === 'REINSPECTION' ? 'Reinspection Required' : product.approvalStatus?.toLowerCase()}
                         </span>
                         {product.approvalStatus === 'REJECTED' && product.rejectionReason && (
                           <div className="text-xs text-red-600 max-w-32 truncate" title={product.rejectionReason}>
@@ -202,25 +198,25 @@ export default function Products() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="hover:bg-gray-50 hover:text-[#222222]"
                           onClick={() => handleViewProduct(product)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="hover:bg-gray-50 hover:text-[#222222]"
                           onClick={() => handleEditProduct(product)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="text-gray-700 hover:bg-gray-50 hover:text-red-600"
                           onClick={() => handleDeleteProduct(product.id)}
                         >

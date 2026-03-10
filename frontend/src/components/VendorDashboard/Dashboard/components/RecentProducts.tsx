@@ -23,6 +23,8 @@ const getStatusBadge = (status: string) => {
       return 'bg-yellow-100 text-yellow-800';
     case 'rejected':
       return 'bg-red-100 text-red-800';
+    case 'REINSPECTION':
+      return 'bg-orange-100 text-orange-800 border border-orange-200';
     default:
       return 'bg-gray-100 text-gray-800';
   }
