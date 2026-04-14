@@ -1317,5 +1317,4 @@ enum InspectionStatus {
 enum InspectionResult {
   PASSED
   FAILED
-  CONDITIONALLY_PASSED
 }
