@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { ArrowRight } from 'lucide-react-native';
 import { router } from 'expo-router';
 import ProductCard from '../ProductCard/ProductCardSimple';
@@ -48,31 +48,27 @@ export default function BestSellerSection({ onAddToCart, onToggleWishlist }: Bes
   if (products.length === 0) return null;
 
   return (
-    <View className="bg-white px-4 pt-6 pb-4">
-
-      {/* ── Section Header ─────────────────────────────────────────────────── */}
-      <View className="flex-row items-center justify-between mb-5">
-        {/* Left: accent bar + title */}
-        <View className="flex-row items-center flex-1">
-          <View className="w-1 h-6 bg-black rounded-full mr-3" />
-          <View>
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-0.5">
-              Top Picks
-            </Text>
-            <Text className="text-lg font-bold text-gray-900 leading-tight">
-              Best Sellers
-            </Text>
-          </View>
+    <View className="bg-white px-4 py-6">
+      {/* Header Section */}
+      <View className="flex-row items-center justify-between mb-4">
+        <View className="flex-1">
+          <Text className="text-xl font-bold text-gray-900">
+            Best Seller Products
+          </Text>
+          <Text className="text-sm text-gray-600 mt-1">
+            Highest rated products that have earned our customers' trust
+          </Text>
         </View>
-
-        {/* Right: ghost "View All" link */}
-        <TouchableOpacity
-          onPress={() => router.push('/products' as any)}
-          className="flex-row items-center bg-gray-700 px-3 py-1.5 rounded-lg"
+        <Pressable
+          onPress={() => router.push('/(any)/products' as any)}
+          accessibilityLabel="View all best seller products"
+          accessibilityRole="button"
+          style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+          className="flex-row items-center bg-gray-800 px-4 py-2 rounded-xl ml-2"
         >
-          <Text className="text-sm font-semibold text-gray-100 mr-1">View All</Text>
-          <ArrowRight size={12} color="#f5f5f5" />
-        </TouchableOpacity>
+          <Text className="text-white font-medium text-sm mr-1">View All</Text>
+          <ArrowRight size={14} color="#ffffff" />
+        </Pressable>
       </View>
 
       {/* ── Products Grid ──────────────────────────────────────────────────── */}
@@ -84,6 +80,18 @@ export default function BestSellerSection({ onAddToCart, onToggleWishlist }: Bes
         ))}
       </View>
 
+      {/* Bottom View All Button */}
+      <View className="items-center mt-4">
+        <Pressable
+          onPress={() => router.push('/(any)/products' as any)}
+          accessibilityLabel="View all products"
+          accessibilityRole="button"
+          style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+          className="bg-gray-800 px-8 py-3 rounded-xl"
+        >
+          <Text className="text-white font-bold">View All Products</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

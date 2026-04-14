@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, AppState } from 'react-native';
-import { Search, User, ShoppingCart, Menu } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, TextInput } from 'react-native';
+import { Search, User, ShoppingCart } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { cartService } from '@/services/cartService';
 import { userAuthService } from '@/services/userAuthService';
 import Sidebar from '../Sidebar/Sidebar';
+
+const pressableOpacity = ({ pressed }: { pressed: boolean }) => ({
+  opacity: pressed ? 0.7 : 1,
+});
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,10 +55,9 @@ export function Header() {
 
   // ── Search handlers ────────────────────────────────────────────────────────
   const handleSearch = () => {
-    if (searchQuery.trim()) {
-      router.push(`/(any)/search?q=${encodeURIComponent(searchQuery.trim())}` as any);
-    } else {
-      router.push('/(any)/search' as any);
+    const q = searchQuery.trim();
+    if (q.length > 0) {
+      router.push(`/(any)/products?search=${encodeURIComponent(q)}` as any);
     }
   };
 
@@ -66,80 +69,69 @@ export function Header() {
   const badgeLabel = cartCount > 99 ? '99+' : String(cartCount);
 
   return (
-    <>
-      <View className="bg-black">
-        {/* Row 1 — Menu · Brand · Profile · Cart */}
-        <View className="px-4 py-3 flex-row items-center justify-between">
-          {/* Hamburger */}
-          <TouchableOpacity
-            onPress={() => setSidebarVisible(true)}
-            className="p-2"
-            activeOpacity={0.7}
+    <View className="bg-gray-900">
+      {/* First Section - Brand, Profile, Cart */}
+      <View className="px-4 py-3 flex-row items-center justify-between">
+        {/* Brand Text (tap to go home) */}
+        <Pressable
+          onPress={() => router.push('/(tabs)' as any)}
+          accessibilityLabel="Go to home"
+          accessibilityRole="button"
+          className="flex-1"
+          style={pressableOpacity}
+        >
+          <Text className="text-base font-bold text-white">M2C MarkDowns</Text>
+          <Text className="text-xs text-gray-400">Private Limited</Text>
+        </Pressable>
+
+        {/* Profile Icon */}
+        <Pressable
+          onPress={() => router.push('/(tabs)/profile' as any)}
+          accessibilityLabel="View profile"
+          accessibilityRole="button"
+          style={pressableOpacity}
+          className="p-2"
+          hitSlop={8}
+        >
+          <User size={24} color="#ffffff" />
+        </Pressable>
+
+        {/* Cart Icon */}
+        <Pressable
+          onPress={() => router.push('/(tabs)/cart' as any)}
+          accessibilityLabel="View cart"
+          accessibilityRole="button"
+          style={pressableOpacity}
+          className="p-2 ml-1"
+          hitSlop={8}
+        >
+          <ShoppingCart size={24} color="#ffffff" />
+        </Pressable>
+      </View>
+
+      {/* Second Section - Search Bar */}
+      <View className="px-4 pb-3">
+        <View className="flex-row items-center bg-white rounded-xl overflow-hidden">
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search products..."
+            placeholderTextColor="#9ca3af"
+            className="flex-1 px-4 py-3 text-gray-900"
+            style={{ fontSize: 16 }}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+            accessibilityLabel="Search products"
+          />
+          <Pressable
+            onPress={handleSearch}
+            accessibilityLabel="Submit search"
+            accessibilityRole="button"
+            style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+            className="bg-amber-400 px-4 py-3"
           >
-            <Menu size={24} color="#ffffff" />
-          </TouchableOpacity>
-
-          {/* Brand name */}
-          <View className="flex-1 mx-3">
-            <Text className="text-base font-bold text-white">
-              M2C MarkDowns
-            </Text>
-            <Text className="text-xs text-gray-500">
-              Private Limited
-            </Text>
-          </View>
-
-          {/* Profile */}
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)/profile' as any)}
-            className="p-2"
-            activeOpacity={0.7}
-          >
-            <User size={24} color="#ffffff" />
-          </TouchableOpacity>
-
-          {/* Cart with badge */}
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)/cart' as any)}
-            className="p-2 ml-2"
-            activeOpacity={0.7}
-            style={{ position: 'relative' }}
-          >
-            <ShoppingCart size={24} color="#ffffff" />
-
-            {/* Badge — only shown when count > 0, matching web */}
-            {cartCount > 0 && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  backgroundColor: '#ffffff', // Pure white, matches monochrome theme
-                  borderRadius: 99,
-                  minWidth: 18,
-                  height: 18,
-                  paddingHorizontal: 4,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  // Thin black ring to separate badge from icon
-                  borderWidth: 1.5,
-                  borderColor: '#000000', // pure black
-                }}
-              >
-                <Text
-                  style={{
-                    color: '#000000',
-                    fontSize: 10,
-                    fontWeight: '800',
-                    lineHeight: 13,
-                  }}
-                  numberOfLines={1}
-                >
-                  {badgeLabel}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+            <Search size={24} color="#000000" />
+          </Pressable>
         </View>
 
         {/* Row 2 — Search bar */}

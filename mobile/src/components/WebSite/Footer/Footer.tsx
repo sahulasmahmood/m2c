@@ -1,16 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Linking, Image } from 'react-native';
-import {
-  Mail,
-  Phone,
-  MapPin,
-  Facebook,
-  Twitter,
-  Instagram,
-  Linkedin,
-  MessageCircle,
-  ChevronRight,
-} from 'lucide-react-native';
+import { View, Text, Pressable, Linking, Image } from 'react-native';
+import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, ChevronRight } from 'lucide-react-native';
 import { router } from 'expo-router';
 
 export default function Footer() {
@@ -36,9 +26,9 @@ export default function Footer() {
   ];
 
   const legalLinks = [
-    { label: 'Privacy Policy',   href: '/privacy' },
-    { label: 'Terms of Service', href: '/terms' },
-    { label: 'Return Policy',    href: '/returns' },
+    { label: 'Privacy Policy', href: '/(any)/privacy' },
+    { label: 'Terms of Service', href: '/(any)/terms' },
+    { label: 'Return Policy', href: '/(any)/returns' },
   ];
 
   const socialLinks = [
@@ -78,87 +68,94 @@ export default function Footer() {
           </View>
         </View>
 
-        {/* ── Links Grid ───────────────────────────────────────────────────── */}
-        <View className="flex-row mb-6">
-          {/* Quick Links — 50% */}
-          <View className="w-1/2 pr-4">
-            <Text className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-              Quick Links
-            </Text>
-            {quickLinks.map(link => (
-              <TouchableOpacity
-                key={link.label}
-                onPress={() => handleLinkPress(link.href)}
-                className="flex-row items-center py-2"
-              >
-                <ChevronRight size={12} color="#6b7280" />
-                <Text className="text-gray-300 text-sm ml-1.5">{link.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        {/* Links Grid */}
+        <View className="mb-4">
+          <View className="flex-row">
+            {/* Quick Links - Left Side (50%) */}
+            <View className="w-1/2 pr-2">
+              <Text className="text-lg font-bold text-white mb-4">Quick Links</Text>
+              <View className="space-y-2">
+                {quickLinks.map((link) => (
+                  <Pressable
+                    key={link.label}
+                    onPress={() => handleLinkPress(link.href)}
+                    accessibilityLabel={`Go to ${link.label}`}
+                    accessibilityRole="button"
+                    style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                    className="flex-row items-center py-2"
+                  >
+                    <ChevronRight size={14} color="#9ca3af" />
+                    <Text className="text-gray-300 text-sm ml-2">{link.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
 
-          {/* Legal Links — 50% */}
-          <View className="w-1/2 pl-4 border-l border-gray-800">
-            <Text className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-              Legal
-            </Text>
-            {legalLinks.map(link => (
-              <TouchableOpacity
-                key={link.label}
-                onPress={() => handleLinkPress(link.href)}
-                className="flex-row items-center py-2"
-              >
-                <ChevronRight size={12} color="#6b7280" />
-                <Text className="text-gray-300 text-sm ml-1.5" numberOfLines={2}>
-                  {link.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {/* Legal Links - Right Side (50%) */}
+            <View className="w-1/2 pl-2">
+              <Text className="text-lg font-bold text-white mb-4">Legal</Text>
+              <View className="space-y-2">
+                {legalLinks.map((link) => (
+                  <Pressable
+                    key={link.label}
+                    onPress={() => handleLinkPress(link.href)}
+                    accessibilityLabel={`Go to ${link.label}`}
+                    accessibilityRole="button"
+                    style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                    className="flex-row items-center py-2"
+                  >
+                    <ChevronRight size={14} color="#9ca3af" />
+                    <Text className="text-gray-300 text-sm ml-2" numberOfLines={2}>
+                      {link.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* ── 2. Contact Info — simple, no colour ──────────────────────────── */}
-        <View className="mb-6 pb-6 border-b border-gray-800">
-          <Text className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-            Contact
-          </Text>
+        {/* Contact Info */}
+        <View className="mb-8 bg-gray-800 rounded-2xl p-5">
+          <Text className="text-lg font-bold text-white mb-4">Get In Touch</Text>
+          <View className="space-y-4 gap-2">
+            <Pressable
+              onPress={handleEmailPress}
+              accessibilityLabel="Send email"
+              accessibilityRole="button"
+              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              className="flex-row items-center bg-gray-700 rounded-xl p-3"
+            >
+              <View className="bg-blue-500 rounded-full p-2">
+                <Mail size={16} color="#ffffff" />
+              </View>
+              <Text className="text-gray-200 text-sm ml-3 flex-1">
+                info@m2cmarkdowns.com
+              </Text>
+            </Pressable>
 
-          {/* Email */}
-          <TouchableOpacity
-            onPress={handleEmailPress}
-            className="flex-row items-center py-2.5"
-          >
-            <View className="w-7 h-7 rounded-full border border-gray-700 items-center justify-center mr-3">
-              <Mail size={13} color="#9ca3af" />
-            </View>
-            <Text className="text-gray-300 text-sm flex-1">
-              info@m2cmarkdowns.com
-            </Text>
-          </TouchableOpacity>
+            <Pressable
+              onPress={handlePhonePress}
+              accessibilityLabel="Call us"
+              accessibilityRole="button"
+              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              className="flex-row items-center bg-gray-700 rounded-xl p-3"
+            >
+              <View className="bg-green-500 rounded-full p-2">
+                <Phone size={16} color="#ffffff" />
+              </View>
+              <Text className="text-gray-200 text-sm ml-3 flex-1">
+                +1 (234) 567-8900
+              </Text>
+            </Pressable>
 
-          {/* Divider */}
-          <View className="border-b border-gray-800 mx-10" />
-
-          {/* Phone */}
-          <TouchableOpacity
-            onPress={handlePhonePress}
-            className="flex-row items-center py-2.5"
-          >
-            <View className="w-7 h-7 rounded-full border border-gray-700 items-center justify-center mr-3">
-              <Phone size={13} color="#9ca3af" />
-            </View>
-            <Text className="text-gray-300 text-sm flex-1">
-              +1 (234) 567-8900
-            </Text>
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View className="border-b border-gray-800 mx-10" />
-
-          {/* Address */}
-          <View className="flex-row items-start py-2.5">
-            <View className="w-7 h-7 rounded-full border border-gray-700 items-center justify-center mr-3 mt-0.5">
-              <MapPin size={13} color="#9ca3af" />
+            <View className="flex-row items-start bg-gray-700 rounded-xl p-3">
+              <View className="bg-red-500 rounded-full p-2">
+                <MapPin size={16} color="#ffffff" />
+              </View>
+              <Text className="text-gray-200 text-sm ml-3 flex-1 leading-5">
+                123 Textile Street, Fashion District{'\n'}New York, NY 10001
+              </Text>
             </View>
             <Text className="text-gray-300 text-sm flex-1 leading-5">
               123 Textile Street, Fashion District{'\n'}New York, NY 10001
@@ -176,14 +173,19 @@ export default function Footer() {
           {/* Right icons */}
           <View className="flex-row items-center gap-2">
             {socialLinks.map((social, index) => (
-              <TouchableOpacity
+              <Pressable
                 key={index}
-                onPress={social.onPress ? social.onPress : () => handleLinkPress(social.url)}
-                className="w-9 h-9 rounded-full border border-gray-700 items-center justify-center"
-                accessibilityLabel={social.label}
+                onPress={() => handleLinkPress(social.url)}
+                accessibilityLabel="Open social media"
+                accessibilityRole="button"
+                className="p-4 rounded-full shadow-lg"
+                style={({ pressed }) => ({
+                  backgroundColor: social.color + '20',
+                  opacity: pressed ? 0.7 : 1,
+                })}
               >
-                <social.icon size={17} color="#9ca3af" />
-              </TouchableOpacity>
+                <social.icon size={22} color={social.color} />
+              </Pressable>
             ))}
           </View>
         </View>
