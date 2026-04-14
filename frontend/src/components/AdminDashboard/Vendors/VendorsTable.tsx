@@ -28,6 +28,8 @@ const getStatusBadge = (status: string) => {
       return <Badge className="bg-green-100 text-green-800">Approved</Badge>
     case 'PENDING':
       return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+    case 'UNDER_REVIEW':
+      return <Badge className="bg-blue-100 text-blue-800">Under Review</Badge>
     case 'SUSPENDED':
       return <Badge className="bg-gray-100 text-gray-800">Suspended</Badge>
     case 'REJECTED':
@@ -271,6 +273,7 @@ export default function VendorsTable() {
                 options={[
                   { value: '', label: 'All Status' },
                   { value: 'PENDING', label: 'Pending' },
+                  { value: 'UNDER_REVIEW', label: 'Under Review' },
                   { value: 'APPROVED', label: 'Approved' },
                   { value: 'REJECTED', label: 'Rejected' },
                   { value: 'SUSPENDED', label: 'Suspended' }
@@ -342,7 +345,7 @@ export default function VendorsTable() {
                             <Edit className="h-4 w-4 text-blue-500" />
                           </Button>
                         </Link>
-                        {vendor.status === 'PENDING' && (
+                        {(vendor.status === 'PENDING' || vendor.status === 'UNDER_REVIEW') && (
                           <>
                             <Button 
                               variant="ghost" 

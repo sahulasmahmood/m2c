@@ -175,6 +175,20 @@ class QCCheckerService {
         }
     }
 
+    // Get vendor full details + inspection stats + recent completed inspections
+    async getVendorDetails(vendorId: string): Promise<{ success: boolean; data: { vendor: any; stats: any; recentInspections: any[] } }> {
+        try {
+            const response = await axios.get(`/qc-checkers/vendors/${vendorId}/details`, {
+                headers: {
+                    'Authorization': `Bearer ${this.getCheckerToken()}`
+                }
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to fetch vendor details');
+        }
+    }
+
     // Approve Vendor
     async approveVendor(vendorId: string): Promise<{ success: boolean; message: string; data: any }> {
         try {
@@ -276,7 +290,9 @@ class QCCheckerService {
             });
             return response.data;
         } catch (error: any) {
-            throw new Error(error.message || 'Failed to start inspection');
+            const err = new Error(error?.response?.data?.error || error?.message || 'Failed to start inspection') as Error & { status?: number };
+            err.status = error?.response?.status;
+            throw err;
         }
     }
 

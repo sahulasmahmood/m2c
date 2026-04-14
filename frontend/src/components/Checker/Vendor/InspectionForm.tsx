@@ -75,23 +75,46 @@ export default function InspectionForm({ vendorName, vendorId, onComplete }: Ins
     documentsUpload: [] as any[]
   })
 
-  // Fetch true inspection data
+  // Fetch inspection data and auto-start if SCHEDULED
   useEffect(() => {
     async function loadActiveInspection() {
       try {
         const response = await qcCheckerService.getInspections()
         if (response.success && response.inspections) {
           // Find an active inspection for this vendor
-          const inspection = response.inspections.find(
+          let inspection = response.inspections.find(
             (i: any) =>
               (vendorId ? i.vendorId === vendorId : i.vendor?.companyName === vendorName) &&
               (i.status === "IN_PROGRESS" || i.status === "SCHEDULED")
           )
 
+          if (!inspection) {
+            inspection = response.inspections.find(
+              (i: any) =>
+                (vendorId ? i.vendorId === vendorId : i.vendor?.companyName === vendorName)
+            )
+          }
+
           if (inspection) {
             setInspectionId(inspection.id)
 
-            // Extract categories assigned from the backend's itemsToInspect array
+            // Auto-start the inspection if it's still SCHEDULED.
+            // 400 = backend rejected because already started elsewhere — benign, proceed.
+            // Other codes (403/404/500) = real errors, surface to user.
+            if (inspection.status === "SCHEDULED") {
+              try {
+                await qcCheckerService.startInspection(inspection.id)
+              } catch (startErr: any) {
+                if (startErr?.status !== 400) {
+                  console.error("Auto-start failed:", startErr)
+                  showErrorToast(
+                    "Could not start inspection",
+                    startErr?.message || "Please refresh the page and try again."
+                  )
+                }
+              }
+            }
+
             const assignedCategories = Array.isArray(inspection.itemsToInspect)
               ? inspection.itemsToInspect.map((i: any) => i.itemName).join(', ')
               : "";
@@ -100,7 +123,6 @@ export default function InspectionForm({ vendorName, vendorId, onComplete }: Ins
               ...prev,
               factoryName: inspection.factoryName || prev.factoryName,
               categoryToInspect: assignedCategories || prev.categoryToInspect,
-              // Map any existing attributes here if needed
             }))
           }
         }

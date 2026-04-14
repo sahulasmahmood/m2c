@@ -637,6 +637,112 @@ const getAssignedVendors = async (req, res) => {
 };
 
 // ============================
+// QC Checker: Get Vendor Details + Stats
+// ============================
+const getVendorDetails = async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        const checkerId = req.user?.checkerId || req.userId;
+
+        const vendor = await prisma.vendor.findFirst({
+            where: { id: vendorId, assignedQcId: checkerId },
+            include: {
+                certifications: true,
+                assignedQc: { select: { name: true, checkerId: true } },
+            },
+        });
+
+        if (!vendor) {
+            return res.status(404).json({
+                success: false,
+                error: 'Vendor not found or not assigned to you',
+            });
+        }
+
+        const completedWhere = { vendorId, status: 'COMPLETED' };
+
+        const [
+            totalInspections,
+            totalCompleted,
+            passedCount,
+            scoreAgg,
+            completedForOnTime,
+            recentCompleted,
+        ] = await Promise.all([
+            prisma.inspection.count({ where: { vendorId } }),
+            prisma.inspection.count({ where: completedWhere }),
+            prisma.inspection.count({ where: { ...completedWhere, result: 'PASSED' } }),
+            prisma.inspection.aggregate({
+                where: { ...completedWhere, score: { not: null } },
+                _avg: { score: true },
+            }),
+            prisma.inspection.findMany({
+                where: completedWhere,
+                select: { scheduledDate: true, completedAt: true },
+            }),
+            prisma.inspection.findMany({
+                where: completedWhere,
+                orderBy: { completedAt: 'desc' },
+                take: 10,
+                select: {
+                    id: true,
+                    poNumber: true,
+                    clientName: true,
+                    scheduledDate: true,
+                    completedAt: true,
+                    result: true,
+                    score: true,
+                    itemsToInspect: true,
+                },
+            }),
+        ]);
+
+        const passRate = totalCompleted > 0 ? Math.round((passedCount / totalCompleted) * 100) : 0;
+        const averageScore = scoreAgg._avg.score != null
+            ? Number(scoreAgg._avg.score.toFixed(1))
+            : 0;
+
+        // Compare against IST end-of-day so result is stable across server timezones
+        const onTimeCount = completedForOnTime.filter(i => {
+            if (!i.completedAt || !i.scheduledDate) return false;
+            const istEndOfDay = new Date(`${i.scheduledDate}T23:59:59.999+05:30`);
+            if (isNaN(istEndOfDay.getTime())) return false;
+            return new Date(i.completedAt) <= istEndOfDay;
+        }).length;
+        const onTimeDelivery = totalCompleted > 0
+            ? Math.round((onTimeCount / totalCompleted) * 100)
+            : 0;
+
+        const latest = recentCompleted[0];
+        const lastPoDate = latest
+            ? (latest.completedAt ? latest.completedAt.toISOString() : latest.scheduledDate)
+            : null;
+
+        res.json({
+            success: true,
+            data: {
+                vendor,
+                stats: {
+                    totalInspections,
+                    totalCompleted,
+                    passRate,
+                    averageScore,
+                    onTimeDelivery,
+                    lastPoDate,
+                },
+                recentInspections: recentCompleted,
+            },
+        });
+    } catch (error) {
+        console.error('Get vendor details error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch vendor details',
+        });
+    }
+};
+
+// ============================
 // QC Checker: Approve Vendor
 // ============================
 const approveVendorByQc = async (req, res) => {
@@ -946,6 +1052,7 @@ module.exports = {
     qcCheckerLogin,
     getCheckerProfile,
     getAssignedVendors,
+    getVendorDetails,
     approveVendorByQc,
     rejectVendorByQc,
     getAssignedProducts,

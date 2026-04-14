@@ -7,7 +7,7 @@ export const vendors: Vendor[] = [
     name: "Nav Nit Group of Textiles",
     location: "Gujarat, India",
     recentPO: "PO-2024-001",
-    status: "active",
+    status: "APPROVED",
     contactPerson: {
       name: "Rajesh Patel",
       designation: "Quality Manager",
@@ -33,7 +33,7 @@ export const vendors: Vendor[] = [
     name: "Fabric Tech Industries",
     location: "Tamil Nadu, India",
     recentPO: "PO-2024-002",
-    status: "pending",
+    status: "PENDING",
     contactPerson: {
       name: "Suresh Kumar",
       designation: "Production Manager",
@@ -59,7 +59,7 @@ export const vendors: Vendor[] = [
     name: "Weave & Co",
     location: "Karnataka, India",
     recentPO: "PO-2024-003",
-    status: "active",
+    status: "APPROVED",
     contactPerson: {
       name: "Arjun Reddy",
       designation: "Quality Head",
@@ -85,7 +85,7 @@ export const vendors: Vendor[] = [
     name: "Thread Masters",
     location: "Maharashtra, India",
     recentPO: "PO-2024-004",
-    status: "active",
+    status: "APPROVED",
     contactPerson: {
       name: "Vikram Singh",
       designation: "Operations Manager",
@@ -111,7 +111,7 @@ export const vendors: Vendor[] = [
     name: "Premium Fabrics Ltd",
     location: "Rajasthan, India",
     recentPO: "PO-2024-005",
-    status: "review",
+    status: "UNDER_REVIEW",
     contactPerson: {
       name: "Deepak Agarwal",
       designation: "Quality Assurance Manager",

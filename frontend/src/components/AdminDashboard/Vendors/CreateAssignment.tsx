@@ -111,7 +111,7 @@ export default function CreateAssignment() {
               scheduledTime: insp.scheduledTime || "",
               priority: insp.priority || "",
               estimatedDuration: insp.estimatedDuration || "",
-              selectedItems: (insp.itemsToInspect || []).map((i: any) => i.id)
+              selectedItems: Array.isArray(insp.itemsToInspect) ? insp.itemsToInspect.map((i: any) => i.id) : []
             }));
           }
         } catch (error) {

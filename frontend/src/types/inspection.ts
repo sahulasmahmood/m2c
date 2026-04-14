@@ -5,7 +5,8 @@ export interface Vendor {
   name: string
   location: string
   recentPO: string
-  status: 'active' | 'pending' | 'review'
+  status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'
+  inspectionStatus?: string | null
   contactPerson: {
     name: string
     designation: string

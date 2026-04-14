@@ -507,6 +507,11 @@ const getAllVendors = async (req, res) => {
         certifications: true,
         documents: true,
         assignedQc: true,
+        inspections: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { id: true, status: true, result: true, completedAt: true },
+        },
         _count: {
           select: {
             certifications: true,
@@ -543,11 +548,13 @@ const getAllVendors = async (req, res) => {
     const formattedVendors = vendors.map(vendor => {
       const categoryNames = (vendor.productCategories || []).map(id => categoryMap[id] || id);
       const subCategoryNames = (vendor.productTypes || []).map(id => categoryMap[id] || id);
+      const { inspections, ...rest } = vendor;
       return {
-        ...vendor,
+        ...rest,
         productCategories: categoryNames,
         productTypes: subCategoryNames,
-        password: undefined
+        latestInspection: inspections?.[0] || null,
+        password: undefined,
       };
     });
 

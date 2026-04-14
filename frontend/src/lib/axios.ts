@@ -14,6 +14,12 @@ const axiosInstance: AxiosInstance = axios.create({
 // Request interceptor to add auth token
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // If the request already has an explicit Authorization header, don't overwrite it.
+    // Services like qcCheckerService and vendorService set their own tokens.
+    if (config.headers.Authorization) {
+      return config;
+    }
+
     // Get token from localStorage or sessionStorage
     // Check for admin token first, then vendor token, then checker token, then user token
     const adminToken = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
