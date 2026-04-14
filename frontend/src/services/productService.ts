@@ -80,6 +80,9 @@ export interface ProductVariant {
   colorHex?: string;
   sku: string;
   price: number;
+  originalPrice?: number;
+  discount?: number;
+  adminFixedPrice?: number;
   stock: number;
   images: string[];
 }

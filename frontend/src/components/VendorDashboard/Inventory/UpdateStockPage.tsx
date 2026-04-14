@@ -64,6 +64,7 @@ export default function UpdateStockPage({ inventoryId }: UpdateStockPageProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [inventoryItem, setInventoryItem] = useState<InventoryItem | null>(null)
   const [product, setProduct] = useState<Product | null>(null)
+  const [productApprovalStatus, setProductApprovalStatus] = useState<string | null>(null)
 
   // Stock update form state
   const [newStock, setNewStock] = useState('')
@@ -98,6 +99,7 @@ export default function UpdateStockPage({ inventoryId }: UpdateStockPageProps) {
           if (productResponse.data.success) {
             const productData = productResponse.data.data
             setProduct(productData)
+            setProductApprovalStatus(productData.approvalStatus || null)
 
             // Initialize variant stocks
             if (productData.hasVariants && productData.variants && productData.variants.length > 0) {
@@ -268,6 +270,32 @@ export default function UpdateStockPage({ inventoryId }: UpdateStockPageProps) {
             Back to Inventory
           </Button>
         </div>
+      </div>
+    )
+  }
+
+  // Guard: stock updates only allowed after product is approved
+  if (!inventoryItem.hasProductCreated || !product || productApprovalStatus !== 'APPROVED') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="max-w-md w-full border border-gray-200">
+          <CardContent className="p-8 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-yellow-100 rounded-full flex items-center justify-center">
+              <Package className="h-8 w-8 text-yellow-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Stock Update Not Available</h2>
+            <p className="text-sm text-gray-600">
+              {!inventoryItem.hasProductCreated
+                ? 'A product must be created from this inventory item before stock can be updated.'
+                : `Stock updates are only available after the product has been approved by admin. Current status: ${productApprovalStatus || 'Unknown'}`
+              }
+            </p>
+            <Button onClick={() => router.push('/vendor/dashboard/inventory')} className="mt-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Inventory
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }

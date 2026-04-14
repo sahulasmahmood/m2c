@@ -38,6 +38,7 @@ interface InventoryItem {
   createdAt: string
   updatedAt: string
   hasProductCreated: boolean
+  productApprovalStatus?: 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED' | 'REINSPECTION' | null
 }
 
 const getStatusBadge = (currentStock: number, lowStockAlert: number) => {
@@ -48,6 +49,18 @@ const getStatusBadge = (currentStock: number, lowStockAlert: number) => {
     return <Badge className="bg-yellow-100 text-yellow-800">Low Stock</Badge>
   }
   return <Badge className="bg-green-100 text-green-800">In Stock</Badge>
+}
+
+const getApprovalBadge = (item: InventoryItem) => {
+  if (!item.hasProductCreated) return <Badge className="bg-gray-100 text-gray-600">No Product</Badge>
+  switch (item.productApprovalStatus) {
+    case 'APPROVED': return <Badge className="bg-green-100 text-green-800">Approved</Badge>
+    case 'PENDING': return <Badge className="bg-yellow-100 text-yellow-800">Pending Approval</Badge>
+    case 'QC_APPROVED': return <Badge className="bg-blue-100 text-blue-800">QC Approved</Badge>
+    case 'REJECTED': return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+    case 'REINSPECTION': return <Badge className="bg-orange-100 text-orange-800">Reinspection</Badge>
+    default: return <Badge className="bg-gray-100 text-gray-600">Unknown</Badge>
+  }
 }
 
 export default function Inventory() {
@@ -309,6 +322,7 @@ export default function Inventory() {
                     <TableHead>Product</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Vendor</TableHead>
+                    <TableHead>Product Status</TableHead>
                     <TableHead>Current Stock</TableHead>
                     <TableHead>Min Stock</TableHead>
                     <TableHead>Status</TableHead>
@@ -319,7 +333,7 @@ export default function Inventory() {
                 <TableBody>
                   {filteredItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12">
+                      <TableCell colSpan={9} className="text-center py-12">
                         <div className="text-gray-500">
                           <p className="text-lg font-medium">No inventory items found</p>
                           <p className="text-sm">Try adjusting your search or filter criteria</p>
@@ -345,6 +359,9 @@ export default function Inventory() {
                           </div>
                         </TableCell>
                         <TableCell>
+                          {getApprovalBadge(item)}
+                        </TableCell>
+                        <TableCell>
                           <span className={item.currentStock <= item.lowStockAlert ? 'text-red-600 font-bold' : 'text-gray-900'}>
                             {item.currentStock}
                           </span>
@@ -358,13 +375,25 @@ export default function Inventory() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUpdateStock(item)}
-                            >
-                              Update Stock
-                            </Button>
+                            {item.hasProductCreated && item.productApprovalStatus === 'APPROVED' ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUpdateStock(item)}
+                              >
+                                Update Stock
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled
+                                className="opacity-50 cursor-not-allowed"
+                                title={!item.hasProductCreated ? 'Create a product first' : `Product status: ${item.productApprovalStatus}`}
+                              >
+                                Update Stock
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"

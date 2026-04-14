@@ -216,8 +216,8 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
   };
 
   // Get current price based on selected variant or admin fixed price or base price
-  const currentPrice = selectedVariant?.price || product.adminFixedPrice || product.basePrice;
-  const originalPrice = product.originalPrice;
+  const currentPrice = selectedVariant?.adminFixedPrice || selectedVariant?.price || product.adminFixedPrice || product.basePrice;
+  const originalPrice = selectedVariant?.originalPrice || product.originalPrice;
 
   // Get current image URL
   const currentImageUrl = displayImages[selectedImage]?.url;
@@ -489,7 +489,15 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
                                       )}
                                       <span className="text-xs text-gray-600">{variant.color}</span>
                                     </div>
-                                    <div className="text-lg font-bold text-gray-900 mt-1">${variant.price.toFixed(2)}</div>
+                                    <div className="flex items-center gap-1 mt-1">
+                                      <span className="text-lg font-bold text-gray-900">${(variant.adminFixedPrice || variant.price).toFixed(2)}</span>
+                                      {variant.originalPrice && variant.originalPrice > (variant.adminFixedPrice || variant.price) && (
+                                        <span className="text-xs text-gray-400 line-through">${variant.originalPrice.toFixed(2)}</span>
+                                      )}
+                                      {variant.discount && variant.discount > 0 && (
+                                        <span className="text-xs text-green-600 font-medium">{variant.discount}% off</span>
+                                      )}
+                                    </div>
                                     <div className="text-xs text-gray-500">
                                       {variant.stock > 0 ? `${variant.stock} in stock` : 'Out of stock'}
                                     </div>

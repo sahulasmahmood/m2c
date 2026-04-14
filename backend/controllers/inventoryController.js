@@ -123,9 +123,24 @@ const getVendorInventory = async (req, res) => {
     // Get inventory items with pagination
     const inventoryItems = await prisma.inventory.findMany({
       where,
+      include: {
+        products: {
+          select: { id: true, approvalStatus: true },
+          take: 1
+        }
+      },
       orderBy: { createdAt: 'desc' },
       skip: (parseInt(page) - 1) * parseInt(limit),
       take: parseInt(limit)
+    });
+
+    // Enrich items with product approval status
+    const enrichedItems = inventoryItems.map(item => {
+      const { products, ...rest } = item;
+      return {
+        ...rest,
+        productApprovalStatus: products?.[0]?.approvalStatus || null
+      };
     });
 
     // Calculate pagination info
@@ -136,7 +151,7 @@ const getVendorInventory = async (req, res) => {
     res.json({
       success: true,
       data: {
-        items: inventoryItems,
+        items: enrichedItems,
         pagination: {
           currentPage: parseInt(page),
           totalPages,
@@ -413,6 +428,26 @@ const updateStock = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Inventory item not found'
+      });
+    }
+
+    // Check if product exists and is approved before allowing stock update
+    if (!existingItem.hasProductCreated || !existingItem.productId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Stock cannot be updated until a product is created and approved by admin.'
+      });
+    }
+
+    const linkedProduct = await prisma.product.findUnique({
+      where: { id: existingItem.productId },
+      select: { approvalStatus: true }
+    });
+
+    if (!linkedProduct || linkedProduct.approvalStatus !== 'APPROVED') {
+      return res.status(403).json({
+        success: false,
+        message: `Stock update is not allowed. Product approval status: ${linkedProduct?.approvalStatus || 'UNKNOWN'}. Only approved products allow stock updates.`
       });
     }
 
@@ -822,11 +857,24 @@ const getAllInventory = async (req, res) => {
             companyName: true,
             email: true
           }
+        },
+        products: {
+          select: { id: true, approvalStatus: true },
+          take: 1
         }
       },
       orderBy: { createdAt: 'desc' },
       skip: (parseInt(page) - 1) * parseInt(limit),
       take: parseInt(limit)
+    });
+
+    // Enrich items with product approval status
+    const enrichedItems = inventoryItems.map(item => {
+      const { products, ...rest } = item;
+      return {
+        ...rest,
+        productApprovalStatus: products?.[0]?.approvalStatus || null
+      };
     });
 
     // Calculate pagination info
@@ -837,7 +885,7 @@ const getAllInventory = async (req, res) => {
     res.json({
       success: true,
       data: {
-        items: inventoryItems,
+        items: enrichedItems,
         pagination: {
           currentPage: parseInt(page),
           totalPages,

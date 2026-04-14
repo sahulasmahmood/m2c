@@ -20,6 +20,7 @@ export interface InventoryItem {
   notes?: string;
   hasProductCreated: boolean;
   productId?: string;
+  productApprovalStatus?: 'PENDING' | 'QC_APPROVED' | 'APPROVED' | 'REJECTED' | 'REINSPECTION' | null;
   createdAt: string;
   updatedAt: string;
 }

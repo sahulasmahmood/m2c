@@ -98,7 +98,7 @@ const createOrder = async (req, res) => {
                 });
             }
 
-            const unitPrice = variant ? variant.price : (product.adminFixedPrice || product.basePrice);
+            const unitPrice = variant ? (variant.adminFixedPrice || variant.price) : (product.adminFixedPrice || product.basePrice);
             const itemTotal = unitPrice * item.quantity;
             subtotal += itemTotal;
 

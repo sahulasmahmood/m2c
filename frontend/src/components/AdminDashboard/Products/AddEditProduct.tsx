@@ -73,6 +73,8 @@ interface ProductVariant {
   colorHex?: string // New field for color picker hex value
   sku: string
   price: number
+  originalPrice?: number
+  discount?: number
   stock: number
   images: string[]
 }
@@ -789,6 +791,8 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
         colorHex: newVariant.colorHex || '#000000',
         sku: newVariant.sku!,
         price: newVariant.price || 0,
+        originalPrice: newVariant.originalPrice || undefined,
+        discount: newVariant.discount || undefined,
         stock: newVariant.stock || 0,
         images: newVariant.images || []
       }
@@ -2218,6 +2222,105 @@ export default function AddEditProduct({ productId, isEdit = false, inventoryId 
                       </div>
                     )}
                   </div>
+
+                  {/* Variant Pricing Section */}
+                  {formData.hasVariants && formData.variants.length > 0 && (
+                    <div className="border-2 border-gray-300 rounded-lg p-6">
+                      <h4 className="font-semibold text-gray-900 mb-4">Variant Pricing</h4>
+                      <p className="text-sm text-gray-600 mb-4">Set individual pricing for each variant. Original price and discount are optional — used to show strikethrough pricing to customers.</p>
+                      <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                        {formData.variants.map((variant) => (
+                          <div key={variant.id} className="p-4 border border-gray-200 rounded-lg bg-white">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div
+                                className="w-5 h-5 rounded-full border border-gray-300"
+                                style={{ backgroundColor: variant.colorHex || '#ccc' }}
+                              />
+                              <span className="text-sm font-medium text-gray-900">
+                                {variant.size} - {variant.color}
+                              </span>
+                              <span className="text-xs text-gray-500 font-mono">({variant.sku})</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Selling Price (₹) *
+                                </label>
+                                <div className="relative">
+                                  <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">₹</span>
+                                  <input
+                                    type="number"
+                                    value={variant.price}
+                                    onChange={(e) => updateVariant(variant.id, 'price', parseFloat(e.target.value) || 0)}
+                                    className="w-full pl-6 pr-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                    step="0.01"
+                                    min="0"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Original Price (₹)
+                                </label>
+                                <div className="relative">
+                                  <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">₹</span>
+                                  <input
+                                    type="number"
+                                    value={variant.originalPrice || ''}
+                                    onChange={(e) => {
+                                      const origPrice = parseFloat(e.target.value) || 0;
+                                      // Update both originalPrice and auto-calculated discount in one state update
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        variants: prev.variants.map(v => {
+                                          if (v.id === variant.id) {
+                                            const disc = origPrice > 0 && v.price > 0 && origPrice > v.price
+                                              ? Math.round(((origPrice - v.price) / origPrice) * 100)
+                                              : undefined;
+                                            return { ...v, originalPrice: origPrice || undefined, discount: disc };
+                                          }
+                                          return v;
+                                        })
+                                      }));
+                                    }}
+                                    className="w-full pl-6 pr-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="For showing discount"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Discount %
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    value={variant.discount || ''}
+                                    readOnly
+                                    className="w-full px-2 py-2 border border-gray-200 rounded-md text-sm bg-gray-50 text-gray-600"
+                                    placeholder="Auto"
+                                  />
+                                  <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">%</span>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Variant Price Summary */}
+                            {variant.originalPrice && variant.originalPrice > variant.price && (
+                              <div className="mt-2 p-2 bg-gray-50 rounded-md flex items-center gap-4 text-sm">
+                                <span className="text-gray-900 font-semibold">₹{variant.price.toFixed(2)}</span>
+                                <span className="text-gray-400 line-through">₹{variant.originalPrice.toFixed(2)}</span>
+                                <span className="text-green-600 font-medium">
+                                  Save ₹{(variant.originalPrice - variant.price).toFixed(2)} ({variant.discount}%)
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

@@ -131,7 +131,7 @@ const createProduct = async (req, res) => {
       }
     }
 
-    // Start transaction
+    // Start transaction with extended timeout for multiple DB operations
     const result = await prisma.$transaction(async (tx) => {
       // Determine the stock to use
       let productStock = 0;
@@ -140,8 +140,8 @@ const createProduct = async (req, res) => {
         // If has variants, total stock is sum of variant stocks
         productStock = variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
       } else if (isFromInventory && inventoryItem) {
-        // If from inventory (and no variants), use inventory stock
-        productStock = inventoryItem.currentStock;
+        // If from inventory (and no variants), use user-entered stock or fallback to inventory stock
+        productStock = parseInt(totalStock) || inventoryItem.currentStock;
       } else {
         // Otherwise use provided total stock
         productStock = parseInt(totalStock) || 0;
@@ -201,6 +201,8 @@ const createProduct = async (req, res) => {
           colorHex: variant.colorHex,
           sku: variant.sku,
           price: parseFloat(variant.price),
+          originalPrice: variant.originalPrice ? parseFloat(variant.originalPrice) : null,
+          discount: variant.discount ? parseFloat(variant.discount) : null,
           stock: parseInt(variant.stock) || 0,
           images: variant.images || []
         }));
@@ -242,8 +244,9 @@ const createProduct = async (req, res) => {
           inventoryUpdateData.baseStock = inventoryItem.currentStock; // Preserve original as base stock
           inventoryUpdateData.currentStock = inventoryItem.currentStock + variantStockSum; // Total stock
         } else {
-          // For products without variants, base stock equals current stock
-          inventoryUpdateData.baseStock = inventoryItem.currentStock;
+          // For products without variants, sync inventory stock with product stock
+          inventoryUpdateData.baseStock = productStock;
+          inventoryUpdateData.currentStock = productStock;
         }
 
         await tx.inventory.update({
@@ -253,7 +256,7 @@ const createProduct = async (req, res) => {
       }
 
       return product;
-    });
+    }, { timeout: 30000 });
 
     // Fetch the complete product with relations
     const completeProduct = await prisma.product.findUnique({
@@ -594,6 +597,8 @@ const updateProduct = async (req, res) => {
             colorHex: variant.colorHex,
             sku: variant.sku,
             price: parseFloat(variant.price),
+            originalPrice: variant.originalPrice ? parseFloat(variant.originalPrice) : null,
+            discount: variant.discount ? parseFloat(variant.discount) : null,
             stock: parseInt(variant.stock) || 0,
             images: variant.images || []
           }));
@@ -1373,7 +1378,7 @@ const createProductByAdmin = async (req, res) => {
       }
     }
 
-    // Start transaction
+    // Start transaction with extended timeout for multiple DB operations
     const result = await prisma.$transaction(async (tx) => {
       // Determine the stock to use
       let productStock = 0;
@@ -1382,8 +1387,8 @@ const createProductByAdmin = async (req, res) => {
         // If has variants, total stock is sum of variant stocks
         productStock = variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
       } else if (isFromInventory && inventoryItem) {
-        // If from inventory (and no variants), use inventory stock
-        productStock = inventoryItem.currentStock;
+        // If from inventory (and no variants), use user-entered stock or fallback to inventory stock
+        productStock = parseInt(totalStock) || inventoryItem.currentStock;
       } else {
         // Otherwise use provided total stock
         productStock = parseInt(totalStock) || 0;
@@ -1446,6 +1451,8 @@ const createProductByAdmin = async (req, res) => {
           colorHex: variant.colorHex,
           sku: variant.sku,
           price: parseFloat(variant.price),
+          originalPrice: variant.originalPrice ? parseFloat(variant.originalPrice) : null,
+          discount: variant.discount ? parseFloat(variant.discount) : null,
           stock: parseInt(variant.stock) || 0,
           images: variant.images || []
         }));
@@ -1487,8 +1494,9 @@ const createProductByAdmin = async (req, res) => {
           inventoryUpdateData.baseStock = inventoryItem.currentStock; // Preserve original as base stock
           inventoryUpdateData.currentStock = inventoryItem.currentStock + variantStockSum; // Total stock
         } else {
-          // For products without variants, base stock equals current stock
-          inventoryUpdateData.baseStock = inventoryItem.currentStock;
+          // For products without variants, sync inventory stock with product stock
+          inventoryUpdateData.baseStock = productStock;
+          inventoryUpdateData.currentStock = productStock;
         }
 
         await tx.inventory.update({
@@ -1498,7 +1506,7 @@ const createProductByAdmin = async (req, res) => {
       }
 
       return product;
-    });
+    }, { timeout: 30000 });
 
     // Fetch the complete product with relations
     const completeProduct = await prisma.product.findUnique({
@@ -1720,6 +1728,8 @@ const updateProductByAdmin = async (req, res) => {
             colorHex: variant.colorHex,
             sku: variant.sku,
             price: parseFloat(variant.price),
+            originalPrice: variant.originalPrice ? parseFloat(variant.originalPrice) : null,
+            discount: variant.discount ? parseFloat(variant.discount) : null,
             stock: parseInt(variant.stock) || 0,
             images: variant.images || []
           }));
@@ -2086,6 +2096,9 @@ const getPublicProducts = async (req, res) => {
             color: true,
             colorHex: true,
             price: true,
+            originalPrice: true,
+            discount: true,
+            adminFixedPrice: true,
             stock: true,
             images: true
           }
@@ -2165,6 +2178,9 @@ const getPublicProduct = async (req, res) => {
             colorHex: true,
             sku: true,
             price: true,
+            originalPrice: true,
+            discount: true,
+            adminFixedPrice: true,
             stock: true,
             images: true
           },

@@ -28,6 +28,18 @@ const getStatusBadge = (status: string, currentStock: number, lowStockAlert: num
   return <Badge className="bg-green-100 text-green-800">In Stock</Badge>
 }
 
+const getApprovalBadge = (item: APIInventoryItem) => {
+  if (!item.hasProductCreated) return <Badge className="bg-gray-100 text-gray-600">No Product</Badge>
+  switch (item.productApprovalStatus) {
+    case 'APPROVED': return <Badge className="bg-green-100 text-green-800">Approved</Badge>
+    case 'PENDING': return <Badge className="bg-yellow-100 text-yellow-800">Pending Approval</Badge>
+    case 'QC_APPROVED': return <Badge className="bg-blue-100 text-blue-800">QC Approved</Badge>
+    case 'REJECTED': return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+    case 'REINSPECTION': return <Badge className="bg-orange-100 text-orange-800">Reinspection</Badge>
+    default: return <Badge className="bg-gray-100 text-gray-600">Unknown</Badge>
+  }
+}
+
 export default function Inventory() {
   const [inventoryItems, setInventoryItems] = useState<APIInventoryItem[]>([])
   const [inventoryStats, setInventoryStats] = useState<InventoryStats | null>(null)
@@ -330,19 +342,7 @@ export default function Inventory() {
                     </TableCell>
                     <TableCell className="font-mono text-sm text-slate-600">{item.sku}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        {item.hasProductCreated ? (
-                          <>
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-sm text-green-600">Product Created</span>
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                            <span className="text-sm text-slate-500">No Product</span>
-                          </>
-                        )}
-                      </div>
+                      {getApprovalBadge(item)}
                     </TableCell>
                     <TableCell>
                       <span className={item.currentStock <= item.lowStockAlert ? 'text-red-600 font-bold' : 'text-[#222222] font-semibold'}>
@@ -363,14 +363,26 @@ export default function Inventory() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="hover:bg-gray-50 hover:border-gray-200"
-                          onClick={() => handleRestock(item)}
-                        >
-                          Update Stock
-                        </Button>
+                        {item.hasProductCreated && item.productApprovalStatus === 'APPROVED' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="hover:bg-gray-50 hover:border-gray-200"
+                            onClick={() => handleRestock(item)}
+                          >
+                            Update Stock
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            className="opacity-50 cursor-not-allowed"
+                            title={!item.hasProductCreated ? 'Create a product first' : `Product status: ${item.productApprovalStatus}`}
+                          >
+                            Update Stock
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"

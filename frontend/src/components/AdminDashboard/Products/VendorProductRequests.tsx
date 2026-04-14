@@ -114,6 +114,14 @@ export default function VendorProductRequests() {
   }
 
   const handleApprove = async (requestId: string) => {
+    // Check if the product has variants - if so, redirect to detail view for per-variant pricing
+    const request = requests.find(r => r.id === requestId)
+    if (request?.variants && request.variants.length > 0) {
+      showErrorToast('Variant Product', 'This product has variants. Please set individual variant prices from the detail view.')
+      router.push(`/admin/dashboard/products/vendor-requests/view/${requestId}`)
+      return
+    }
+
     const adminPrice = prompt('Enter the admin fixed price for this product:')
     if (!adminPrice || adminPrice.trim() === '' || parseFloat(adminPrice) <= 0) {
       showErrorToast('Invalid Price', 'Please enter a valid admin price')

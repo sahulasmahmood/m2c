@@ -672,6 +672,8 @@ model ProductVariant {
   colorHex        String?
   sku             String    @unique
   price           Float     // Vendor's price
+  originalPrice   Float?    // Original price before discount
+  discount        Float?    // Discount percentage
   adminFixedPrice Float?    // Admin's fixed price for this variant
   stock           Int       @default(0)
   images          String[]  @default([]) // Array of image URLs
