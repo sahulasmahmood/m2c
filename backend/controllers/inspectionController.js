@@ -213,6 +213,14 @@ const completeInspection = async (req, res) => {
             return res.status(403).json({ error: 'Unauthorized to complete this inspection' });
         }
 
+        if (inspection.status === 'COMPLETED') {
+            return res.status(400).json({ error: 'Inspection is already completed' });
+        }
+
+        if (inspection.status === 'CANCELLED') {
+            return res.status(400).json({ error: 'Cannot complete a cancelled inspection' });
+        }
+
         const mapStatusToResult = (formStatus) => {
             switch (formStatus) {
                 case 'Approved': return 'PASSED';
@@ -228,12 +236,10 @@ const completeInspection = async (req, res) => {
             where: { id },
             data: {
                 status: 'COMPLETED',
+                startedAt: inspection.startedAt || new Date(),
                 completedAt: new Date(),
                 result: resultStatus,
                 notes: formData.inspectorRemarks || '',
-                // Instead of splitting properties across the schema, we save the full factory inspection form data directly to the itemsToInspect field or a new json field if we had one.
-                // However, itemsToInspect is the only Json field in Inspection that we can freely write unstructured data to without schema change. 
-                // We'll update itemsToInspect with the resulting formData since it's flexible and currently used to hold config/results.
                 itemsToInspect: formData
             },
             include: {
@@ -246,7 +252,6 @@ const completeInspection = async (req, res) => {
             where: { id: inspection.vendorId },
             data: {
                 status: resultStatus === 'FAILED' ? 'REJECTED' : 'UNDER_REVIEW',
-                assignedQcId: null // Clear inspector once completed
             }
         });
 

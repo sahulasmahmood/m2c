@@ -7,18 +7,21 @@ import {
   Clock,
   MapPin,
   Factory,
-  User,
   Phone,
   Mail,
-  Package,
-  AlertTriangle,
   CheckCircle,
   Play,
-  FileText,
   TrendingUp,
   BarChart3,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Globe,
+  Briefcase,
+  Package,
+  Warehouse,
+  Award,
+  FileText,
+  Loader2
 } from "lucide-react"
 import { Vendor } from "@/types/inspection"
 import qcCheckerService from "@/services/qcCheckerService"
@@ -27,109 +30,88 @@ import { showSuccessToast, showErrorToast } from "@/lib/toast-utils"
 interface VendorDetailProps {
   vendor: Vendor
   onBack: () => void
-  onStartInspection: (vendor: Vendor) => void
 }
 
 export default function VendorDetail({
   vendor,
   onBack,
-  onStartInspection
 }: VendorDetailProps) {
   const [activeTab, setActiveTab] = useState('overview')
   const [isProcessing, setIsProcessing] = useState(false)
-  const isActionable = vendor.status === 'review' || vendor.status === 'pending'
-  const [inspections, setInspections] = useState<any[]>([]);
+  const currentStatus = (vendor.status || '').toUpperCase()
+  const isActionable = currentStatus === 'UNDER_REVIEW' || currentStatus === 'PENDING'
+  const [inspections, setInspections] = useState<any[]>([])
+  const [fullVendor, setFullVendor] = useState<any>(null)
+  const [stats, setStats] = useState<any>(null)
+  const [recentInspections, setRecentInspections] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Fetch true inspections instead of using mock upcoming
   useEffect(() => {
-    async function loadInspections() {
+    async function loadAll() {
+      setLoading(true)
+      setError(null)
       try {
-        const response = await qcCheckerService.getInspections();
-        if (response.success) {
-          // Filter to just this vendor
-          setInspections(response.inspections.filter((i: any) => i.vendorId === vendor.id));
+        const [detailsRes, inspectionsRes] = await Promise.all([
+          qcCheckerService.getVendorDetails(vendor.id),
+          qcCheckerService.getInspections(),
+        ])
+        if (detailsRes.success) {
+          setFullVendor(detailsRes.data.vendor)
+          setStats(detailsRes.data.stats)
+          setRecentInspections(detailsRes.data.recentInspections || [])
         }
-      } catch (err) {
-        console.error("Failed to load inspections", err);
+        if (inspectionsRes.success) {
+          setInspections(inspectionsRes.inspections.filter((i: any) => i.vendorId === vendor.id))
+        }
+      } catch (err: any) {
+        console.error("Failed to load vendor details", err)
+        setError(err?.message || "Failed to load vendor details")
+      } finally {
+        setLoading(false)
       }
     }
-    loadInspections();
-  }, [vendor.id]);
+    loadAll()
+  }, [vendor.id])
 
-  // Mock detailed vendor data - extending the vendor object with additional data
-  const vendorDetails = {
-    ...vendor,
-    fullName: vendor.name,
-    establishedYear: "1995",
-    certifications: ["ISO 9001:2015", "OEKO-TEX Standard 100", "GOTS Certified"],
-    specialization: "Premium Cotton Textiles & Sustainable Fabrics",
-    capacity: "50,000 units/month",
-    recentOrders: [
-      {
-        id: 1,
-        po: "PO-2024-001",
-        items: "Cotton T-Shirts",
-        quantity: 5000,
-        status: "completed",
-        date: "2024-01-08",
-        result: "passed"
-      },
-      {
-        id: 2,
-        po: "PO-2023-089",
-        items: "Denim Jeans",
-        quantity: 3000,
-        status: "completed",
-        date: "2023-12-15",
-        result: "passed"
-      },
-      {
-        id: 3,
-        po: "PO-2023-078",
-        items: "Polo Shirts",
-        quantity: 2500,
-        status: "completed",
-        date: "2023-11-20",
-        result: "failed"
-      }
-    ],
-  }
-
-  // Use state instead of mock upcoming items
-  const actualUpcomingInspections = inspections.filter(i => i.status === 'SCHEDULED' || i.status === 'IN_PROGRESS');
+  const actualUpcomingInspections = inspections.filter(
+    i => i.status === 'SCHEDULED' || i.status === 'IN_PROGRESS'
+  )
 
   const handleStartInspection = async (inspectionId: string) => {
-    setIsProcessing(true);
+    setIsProcessing(true)
     try {
-      await qcCheckerService.startInspection(inspectionId);
-      showSuccessToast("Inspection Started", "The inspection status is now In Progress");
-      // Ideally redirect to the specific inspection panel here
+      await qcCheckerService.startInspection(inspectionId)
+      showSuccessToast("Inspection Started", "The inspection status is now In Progress")
     } catch (error) {
-      showErrorToast("Error", "Failed to start inspection. Ensure it has not been completed.");
+      showErrorToast("Error", "Failed to start inspection. Ensure it has not been completed.")
     } finally {
-      setIsProcessing(false);
+      setIsProcessing(false)
     }
-  };
+  }
 
   const getStatusColor = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       active: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      approved: "bg-emerald-100 text-emerald-800 border-emerald-200",
       pending: "bg-amber-100 text-amber-800 border-amber-200",
       review: "bg-blue-100 text-blue-800 border-blue-200",
+      under_review: "bg-blue-100 text-blue-800 border-blue-200",
       completed: "bg-slate-100 text-slate-800 border-slate-200",
       passed: "bg-emerald-100 text-emerald-800 border-emerald-200",
-      failed: "bg-red-100 text-red-800 border-red-200"
+      failed: "bg-red-100 text-red-800 border-red-200",
+      conditionally_passed: "bg-amber-100 text-amber-800 border-amber-200",
     }
-    return colors[status as keyof typeof colors] || colors.active
+    return colors[status?.toLowerCase()] || colors.active
   }
 
   const getPriorityColor = (priority: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       high: "bg-red-100 text-red-800 border-red-200",
       medium: "bg-amber-100 text-amber-800 border-amber-200",
       low: "bg-green-100 text-green-800 border-green-200"
     }
-    return colors[priority as keyof typeof colors] || colors.medium
+    return colors[priority?.toLowerCase()] || colors.medium
   }
 
   const tabs = [
@@ -138,6 +120,37 @@ export default function VendorDetail({
     { id: 'upcoming', label: 'Upcoming Inspections' },
     { id: 'performance', label: 'Performance' }
   ]
+
+  const companyName = fullVendor?.companyName || vendor.name
+  const location = fullVendor
+    ? [fullVendor.factoryCity, fullVendor.factoryState].filter(Boolean).join(", ") || vendor.location
+    : vendor.location
+  const specializations: string[] = fullVendor?.specializations || []
+  const productCategories: string[] = fullVendor?.productCategories || []
+  const certifications: any[] = fullVendor?.certifications || []
+  const paymentTerms: string[] = fullVendor?.paymentTerms || []
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-100">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-3 text-slate-600">Loading vendor details...</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <button onClick={onBack} className="mb-4 flex items-center gap-2 text-slate-600 hover:text-slate-900">
+          <ArrowLeft className="w-5 h-5" /> Back
+        </button>
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-6">
+          {error}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 font-sans">
@@ -151,11 +164,16 @@ export default function VendorDetail({
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
               <h1 className="text-3xl font-bold text-slate-900">Vendor Details</h1>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(vendor.status)}`}>
-                {vendor.status.toUpperCase()}
+              <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(fullVendor?.status || vendor.status)}`}>
+                {(fullVendor?.status || vendor.status).toString().replace(/_/g, " ")}
               </span>
+              {fullVendor?.assignedQc?.name && (
+                <span className="px-3 py-1 rounded-full text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200">
+                  QC: {fullVendor.assignedQc.name}
+                </span>
+              )}
             </div>
             <p className="text-slate-600">Comprehensive vendor information and inspection history</p>
           </div>
@@ -164,13 +182,13 @@ export default function VendorDetail({
               <>
                 <button
                   onClick={async () => {
-                    setIsProcessing(true);
+                    setIsProcessing(true)
                     try {
-                      await qcCheckerService.approveVendor(vendor.id);
-                      showSuccessToast("Success", "Vendor Approved successfully");
-                      onBack(); // Refresh list ideally, but going back works
+                      await qcCheckerService.approveVendor(vendor.id)
+                      showSuccessToast("Success", "Vendor Approved successfully")
+                      onBack()
                     } catch (e) {
-                      showErrorToast("Error", "Failed to approve vendor");
+                      showErrorToast("Error", "Failed to approve vendor")
                     } finally { setIsProcessing(false) }
                   }}
                   disabled={isProcessing}
@@ -181,15 +199,15 @@ export default function VendorDetail({
                 </button>
                 <button
                   onClick={async () => {
-                    const reason = window.prompt("Enter Rejection Reason:");
+                    const reason = window.prompt("Enter Rejection Reason:")
                     if (reason) {
-                      setIsProcessing(true);
+                      setIsProcessing(true)
                       try {
-                        await qcCheckerService.rejectVendor(vendor.id, reason);
-                        showSuccessToast("Success", "Vendor Rejected successfully");
-                        onBack();
+                        await qcCheckerService.rejectVendor(vendor.id, reason)
+                        showSuccessToast("Success", "Vendor Rejected successfully")
+                        onBack()
                       } catch (e) {
-                        showErrorToast("Error", "Failed to reject vendor");
+                        showErrorToast("Error", "Failed to reject vendor")
                       } finally { setIsProcessing(false) }
                     }
                   }}
@@ -224,7 +242,7 @@ export default function VendorDetail({
             </div>
             <div>
               <p className="text-blue-100 text-sm">Vendor</p>
-              <p className="font-semibold">{vendorDetails.fullName}</p>
+              <p className="font-semibold">{companyName}</p>
             </div>
           </div>
 
@@ -234,7 +252,7 @@ export default function VendorDetail({
             </div>
             <div>
               <p className="text-blue-100 text-sm">Location</p>
-              <p className="font-semibold">{vendor.location}</p>
+              <p className="font-semibold">{location}</p>
             </div>
           </div>
 
@@ -243,8 +261,10 @@ export default function VendorDetail({
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-blue-100 text-sm">Recent PO</p>
-              <p className="font-semibold">{vendor.recentPO}</p>
+              <p className="text-blue-100 text-sm">Last PO</p>
+              <p className="font-semibold">
+                {stats?.lastPoDate ? new Date(stats.lastPoDate).toLocaleDateString() : "No PO yet"}
+              </p>
             </div>
           </div>
 
@@ -254,7 +274,7 @@ export default function VendorDetail({
             </div>
             <div>
               <p className="text-blue-100 text-sm">Pass Rate</p>
-              <p className="font-semibold">{vendorDetails.performance.passRate}%</p>
+              <p className="font-semibold">{stats?.passRate ?? 0}%</p>
             </div>
           </div>
         </div>
@@ -280,121 +300,235 @@ export default function VendorDetail({
         </div>
       </div>
 
-      {/* Tab Content */}
+      {/* Overview Tab */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Company Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Company Information</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-600">Company Name</label>
-                <p className="text-slate-900 font-medium">{vendorDetails.fullName}</p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Company Information */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-blue-600" /> Company Information
+              </h3>
+              <div className="space-y-4">
+                <Field label="Company Name" value={companyName} />
+                <Field label="Company Type" value={fullVendor?.companyType} />
+                <Field label="Vendor Type" value={fullVendor?.vendorType} />
+                <Field label="Established" value={fullVendor?.establishedYear?.toString()} />
+                <Field label="GST Number" value={fullVendor?.gstNumber} />
+                <Field label="Annual Turnover" value={fullVendor?.annualTurnover} />
+                {fullVendor?.website && (
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Website</label>
+                    <a
+                      href={fullVendor.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-blue-600 hover:underline mt-1"
+                    >
+                      <Globe className="w-4 h-4" /> {fullVendor.website}
+                    </a>
+                  </div>
+                )}
+                {fullVendor?.companyDescription && (
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Description</label>
+                    <p className="text-slate-900 text-sm mt-1">{fullVendor.companyDescription}</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="text-sm font-medium text-slate-600">Established</label>
-                <p className="text-slate-900">{vendorDetails.establishedYear}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-600">Specialization</label>
-                <p className="text-slate-900">{vendorDetails.specialization}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-600">Production Capacity</label>
-                <p className="text-slate-900 font-medium">{vendorDetails.capacity}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-600">Certifications</label>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {vendorDetails.certifications.map((cert, index) => (
-                    <span key={index} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full border border-green-200">
-                      {cert}
-                    </span>
-                  ))}
+            </div>
+
+            {/* Contact Information */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Phone className="w-5 h-5 text-blue-600" /> Contact Information
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-600">Primary Contact</label>
+                  <div className="mt-1">
+                    <p className="text-slate-900 font-medium">{fullVendor?.ownerName || "—"}</p>
+                    <p className="text-sm text-slate-600">Owner</p>
+                    <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-600">
+                      {fullVendor?.businessPhone && (
+                        <div className="flex items-center gap-1">
+                          <Phone className="w-4 h-4" />
+                          <span>{fullVendor.businessPhone}</span>
+                        </div>
+                      )}
+                      {fullVendor?.businessEmail && (
+                        <div className="flex items-center gap-1">
+                          <Mail className="w-4 h-4" />
+                          <span>{fullVendor.businessEmail}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                {fullVendor?.businessAddress && (
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Business Address</label>
+                    <p className="text-slate-700 text-sm mt-1">
+                      {[fullVendor.businessAddress, fullVendor.businessCity, fullVendor.businessState, fullVendor.businessZipCode]
+                        .filter(Boolean).join(", ")}
+                    </p>
+                  </div>
+                )}
+
+                {fullVendor?.factoryAddress && (
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 flex items-center gap-1">
+                      <Factory className="w-4 h-4" /> Factory
+                    </label>
+                    <p className="text-slate-700 text-sm mt-1">
+                      {[fullVendor.factoryAddress, fullVendor.factoryCity, fullVendor.factoryState, fullVendor.factoryZipCode]
+                        .filter(Boolean).join(", ")}
+                    </p>
+                    {fullVendor.factorySize && (
+                      <p className="text-xs text-slate-500 mt-1">Size: {fullVendor.factorySize}</p>
+                    )}
+                  </div>
+                )}
+
+                {fullVendor?.warehouseAddress && (
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 flex items-center gap-1">
+                      <Warehouse className="w-4 h-4" /> Warehouse
+                    </label>
+                    <p className="text-slate-700 text-sm mt-1">
+                      {[fullVendor.warehouseAddress, fullVendor.warehouseCity, fullVendor.warehouseState]
+                        .filter(Boolean).join(", ")}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Contact Information */}
+          {/* Capabilities */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Contact Information</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-600">Primary Contact</label>
-                <div className="mt-1">
-                  <p className="text-slate-900 font-medium">{vendorDetails.contactPerson.name}</p>
-                  <p className="text-sm text-slate-600">{vendorDetails.contactPerson.designation}</p>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
-                    <div className="flex items-center gap-1">
-                      <Phone className="w-4 h-4" />
-                      <span>{vendorDetails.contactPerson.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Mail className="w-4 h-4" />
-                      <span>{vendorDetails.contactPerson.email}</span>
-                    </div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5 text-blue-600" /> Capabilities & Products
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="Production Capacity" value={fullVendor?.productionCapacity} />
+              <Field label="Minimum Order Quantity" value={fullVendor?.minimumOrderQuantity} />
+              <Field label="Delivery Time" value={fullVendor?.deliveryTime} />
+              <Field label="Quality Control" value={fullVendor?.qualityControl} />
+
+              {productCategories.length > 0 && (
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-600">Product Categories</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {productCategories.map((c, i) => (
+                      <span key={i} className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">{c}</span>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div>
-                <label className="text-sm font-medium text-slate-600">Factory Details</label>
-                <div className="mt-1">
-                  <p className="text-slate-900 font-medium">{vendorDetails.factory.name}</p>
-                  <p className="text-slate-700 text-sm">{vendorDetails.factory.address}</p>
-                  <p className="text-sm text-slate-600 mt-1">Working Hours: {vendorDetails.factory.workingHours}</p>
+              {specializations.length > 0 && (
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-600">Specializations</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {specializations.map((s, i) => (
+                      <span key={i} className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded-full border border-purple-200">{s}</span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {paymentTerms.length > 0 && (
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-600">Payment Terms</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {paymentTerms.map((t, i) => (
+                      <span key={i} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-full border border-slate-200">{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {certifications.length > 0 && (
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-600 flex items-center gap-1">
+                    <Award className="w-4 h-4" /> Certifications
+                  </label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {certifications.map((c: any, i: number) => (
+                      <span key={i} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full border border-green-200">
+                        {c.name}{c.issuedBy ? ` — ${c.issuedBy}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
+      {/* Inspection History */}
       {activeTab === 'history' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Inspection History</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-600" /> Recent Inspection History
+          </h3>
           <div className="space-y-4">
-            {vendorDetails.recentOrders.map((order) => (
-              <div key={order.id} className="border border-slate-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
+            {recentInspections.length > 0 ? recentInspections.map((insp: any) => (
+              <div key={insp.id} className="border border-slate-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200">
-                      {order.po}
+                      {insp.poNumber}
                     </span>
-                    <span className="font-medium text-slate-900">{order.items}</span>
+                    <span className="font-medium text-slate-900">{insp.clientName}</span>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.result)}`}>
-                    {order.result.toUpperCase()}
-                  </span>
+                  {insp.result && (
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(insp.result)}`}>
+                      {insp.result.replace(/_/g, " ")}
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center gap-6 text-sm text-slate-600">
-                  <span>Quantity: {order.quantity.toLocaleString()} pcs</span>
-                  <span>Date: {order.date}</span>
-                  <span>Status: {order.status}</span>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-slate-600">
+                  <span>Scheduled: {insp.scheduledDate}</span>
+                  {insp.completedAt && (
+                    <span>Completed: {new Date(insp.completedAt).toLocaleDateString()}</span>
+                  )}
+                  {typeof insp.score === 'number' && (
+                    <span>Score: <span className="font-semibold text-slate-900">{insp.score}/10</span></span>
+                  )}
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-sm text-slate-500 text-center py-8">
+                No completed inspections yet.
+              </p>
+            )}
           </div>
         </div>
       )}
 
+      {/* Upcoming Inspections */}
       {activeTab === 'upcoming' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Upcoming Inspections</h3>
           <div className="space-y-4">
             {actualUpcomingInspections.length > 0 ? actualUpcomingInspections.map((inspection: any) => (
               <div key={inspection.id} className="border border-slate-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200">
                       {inspection.poNumber}
                     </span>
                     <span className="font-medium text-slate-900">{inspection.clientName}</span>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(inspection.priority)}`}>
-                    {inspection.priority.toUpperCase()}
-                  </span>
+                  {inspection.priority && (
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(inspection.priority)}`}>
+                      {inspection.priority.toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-6 text-sm text-slate-600">
                   <div className="flex items-center gap-1">
@@ -407,46 +541,60 @@ export default function VendorDetail({
                   </div>
                 </div>
               </div>
-            )) : <p className="text-sm text-slate-500">No pending inspections found.</p>}
+            )) : <p className="text-sm text-slate-500 text-center py-8">No pending inspections found.</p>}
           </div>
         </div>
       )}
 
+      {/* Performance */}
       {activeTab === 'performance' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-center">
-            <div className="p-3 bg-blue-100 rounded-lg w-fit mx-auto mb-3">
-              <BarChart3 className="w-6 h-6 text-blue-600" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{vendorDetails.performance.totalInspections}</p>
-            <p className="text-sm text-slate-600">Total Inspections</p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-center">
-            <div className="p-3 bg-green-100 rounded-lg w-fit mx-auto mb-3">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{vendorDetails.performance.passRate}%</p>
-            <p className="text-sm text-slate-600">Pass Rate</p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-center">
-            <div className="p-3 bg-amber-100 rounded-lg w-fit mx-auto mb-3">
-              <TrendingUp className="w-6 h-6 text-amber-600" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{vendorDetails.performance.averageScore}/10</p>
-            <p className="text-sm text-slate-600">Average Score</p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-center">
-            <div className="p-3 bg-purple-100 rounded-lg w-fit mx-auto mb-3">
-              <Clock className="w-6 h-6 text-purple-600" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{vendorDetails.performance.onTimeDelivery}%</p>
-            <p className="text-sm text-slate-600">On-Time Delivery</p>
-          </div>
+          <StatCard
+            icon={<BarChart3 className="w-6 h-6 text-blue-600" />}
+            bg="bg-blue-100"
+            value={stats?.totalCompleted ?? 0}
+            label="Total Inspections"
+          />
+          <StatCard
+            icon={<CheckCircle className="w-6 h-6 text-green-600" />}
+            bg="bg-green-100"
+            value={`${stats?.passRate ?? 0}%`}
+            label="Pass Rate"
+          />
+          <StatCard
+            icon={<TrendingUp className="w-6 h-6 text-amber-600" />}
+            bg="bg-amber-100"
+            value={`${stats?.averageScore ?? 0}/10`}
+            label="Average Score"
+          />
+          <StatCard
+            icon={<Clock className="w-6 h-6 text-purple-600" />}
+            bg="bg-purple-100"
+            value={`${stats?.onTimeDelivery ?? 0}%`}
+            label="On-Time Delivery"
+          />
         </div>
       )}
+    </div>
+  )
+}
+
+function Field({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null
+  return (
+    <div>
+      <label className="text-sm font-medium text-slate-600">{label}</label>
+      <p className="text-slate-900">{value}</p>
+    </div>
+  )
+}
+
+function StatCard({ icon, bg, value, label }: { icon: React.ReactNode; bg: string; value: React.ReactNode; label: string }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-center">
+      <div className={`p-3 ${bg} rounded-lg w-fit mx-auto mb-3`}>{icon}</div>
+      <p className="text-2xl font-bold text-slate-900">{value}</p>
+      <p className="text-sm text-slate-600">{label}</p>
     </div>
   )
 }

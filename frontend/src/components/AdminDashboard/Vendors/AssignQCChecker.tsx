@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, UserCheck, Building2, Mail, Phone, CheckCircle, Plus, Package, Eye } from "lucide-react";
+import { Search, UserCheck, Building2, Mail, Phone, CheckCircle, Plus, Package, Eye, FileText } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "../../UI/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../UI/Table";
@@ -17,6 +17,7 @@ interface Vendor {
   status: string;
   assignedChecker: string | null;
   assignedCheckerName: string | null;
+  inspectionStatus: string | null;
 }
 
 interface QCChecker {
@@ -37,8 +38,11 @@ export default function AssignQCChecker() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Fetch vendors (filter for pending or under review usually)
-        const vendorListResponse = await vendorService.getAllVendors({ limit: 100 });
+        const [vendorListResponse, checkersResponse] = await Promise.all([
+          vendorService.getAllVendors({ limit: 100 }),
+          qcCheckerService.getAllQCCheckers(),
+        ]);
+
         const AllVendors = vendorListResponse.vendors.map((v: any) => ({
           id: v.id,
           companyName: v.companyName,
@@ -48,11 +52,10 @@ export default function AssignQCChecker() {
           status: v.status,
           assignedChecker: v.assignedQcId || null,
           assignedCheckerName: v.assignedQc?.name || null,
+          inspectionStatus: v.latestInspection?.status || null,
         }));
         setVendors(AllVendors);
 
-        // Fetch QC checkers
-        const checkersResponse = await qcCheckerService.getAllQCCheckers();
         if (checkersResponse.success) {
           setQcCheckers(checkersResponse.data);
         }
@@ -253,13 +256,23 @@ export default function AssignQCChecker() {
                       >
                         <Eye className="h-4 w-4" />
                       </Link>
-                      <Link
-                        href={`/admin/dashboard/vendors/assign-qc-checker/add?vendorId=${vendor.id}`}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors"
-                      >
-                        <UserCheck className="h-4 w-4" />
-                        {vendor.assignedChecker ? "Update" : "Assign"}
-                      </Link>
+                      {vendor.inspectionStatus === "COMPLETED" ? (
+                        <Link
+                          href={`/admin/dashboard/vendors/inspection/${vendor.id}`}
+                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          <FileText className="h-4 w-4" />
+                          View Report
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/admin/dashboard/vendors/assign-qc-checker/add?vendorId=${vendor.id}`}
+                          className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          <UserCheck className="h-4 w-4" />
+                          {vendor.assignedChecker ? "Update" : "Assign"}
+                        </Link>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

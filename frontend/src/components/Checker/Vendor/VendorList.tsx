@@ -1,10 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Factory, MapPin, Calendar, ArrowRight, Eye } from "lucide-react"
+import { Search, Factory, MapPin, Calendar, ArrowRight, Eye, CheckCircle } from "lucide-react"
 import InspectionForm from "@/components/Checker/Vendor/InspectionForm"
 import VendorDetail from "@/components/Checker/Vendor/VendorDetail"
-import { vendors } from "@/data/inspectionData"
 import { Vendor } from "@/types/inspection"
 
 interface VendorsPageProps {
@@ -23,18 +22,28 @@ export default function VendorsPage({ selectedVendor, onVendorSelect }: VendorsP
   const [assignedVendors, setAssignedVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchVendors = async () => {
-      try {
-        setLoading(true)
-        const response = await qcCheckerService.getAssignedVendors()
-        if (response.success) {
-          const formattedVendors = response.data.map((v: any) => ({
+  const fetchVendors = async () => {
+    try {
+      setLoading(true)
+      const [vendorsRes, inspectionsRes] = await Promise.all([
+        qcCheckerService.getAssignedVendors(),
+        qcCheckerService.getInspections()
+      ])
+
+      if (vendorsRes.success) {
+        const inspections = inspectionsRes.success ? inspectionsRes.inspections : []
+
+        const formattedVendors = vendorsRes.data.map((v: any) => {
+          // Find the latest inspection for this vendor
+          const vendorInspection = inspections.find((i: any) => i.vendorId === v.id)
+
+          return {
             id: v.id,
             name: v.companyName,
             location: `${v.factoryCity || "Unknown City"}, ${v.factoryState || "Unknown State"}`,
             recentPO: v.submittedAt ? new Date(v.submittedAt).toLocaleDateString() : "N/A",
-            status: v.status.toLowerCase() === 'under_review' ? 'review' : v.status.toLowerCase(),
+            status: v.status,
+            inspectionStatus: vendorInspection?.status || null,
             contactPerson: {
               name: v.ownerName,
               designation: "Owner",
@@ -54,16 +63,18 @@ export default function VendorsPage({ selectedVendor, onVendorSelect }: VendorsP
               averageScore: 0,
               onTimeDelivery: 0
             }
-          }))
-          setAssignedVendors(formattedVendors)
-        }
-      } catch (error) {
-        console.error("Failed to fetch assigned vendors:", error)
-      } finally {
-        setLoading(false)
+          }
+        })
+        setAssignedVendors(formattedVendors)
       }
+    } catch (error) {
+      console.error("Failed to fetch assigned vendors:", error)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchVendors()
   }, [])
 
@@ -74,18 +85,23 @@ export default function VendorsPage({ selectedVendor, onVendorSelect }: VendorsP
   )
 
   const getStatusColor = (status: string) => {
-    const colors = {
-      active: "bg-emerald-100 text-emerald-800 border-emerald-200",
-      pending: "bg-amber-100 text-amber-800 border-amber-200",
-      review: "bg-blue-100 text-blue-800 border-blue-200",
+    const colors: Record<string, string> = {
+      APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+      UNDER_REVIEW: "bg-blue-100 text-blue-800 border-blue-200",
+      REJECTED: "bg-red-100 text-red-800 border-red-200",
+      SUSPENDED: "bg-slate-100 text-slate-800 border-slate-200",
     }
-    return colors[status as keyof typeof colors] || colors.active
+    return colors[status] || colors.PENDING
   }
+
+  const formatStatus = (status: string) => status.replace(/_/g, " ").toLowerCase()
 
   const handleCompleteInspection = () => {
     setInProgressInspection(false)
     setSelectedVendorData(null)
     onVendorSelect(null)
+    fetchVendors()
   }
 
   const handleViewDetails = (vendor: Vendor) => {
@@ -123,7 +139,6 @@ export default function VendorsPage({ selectedVendor, onVendorSelect }: VendorsP
       <VendorDetail
         vendor={selectedVendorData}
         onBack={handleBackToList}
-        onStartInspection={handleStartInspection}
       />
     )
   }
@@ -167,8 +182,8 @@ export default function VendorsPage({ selectedVendor, onVendorSelect }: VendorsP
                     <h3 className="font-bold text-slate-900 text-lg leading-tight">{vendor.name}</h3>
                   </div>
                 </div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(vendor.status)}`}>
-                  {vendor.status}
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium border capitalize ${getStatusColor(vendor.status)}`}>
+                  {formatStatus(vendor.status)}
                 </span>
               </div>
 
@@ -196,16 +211,23 @@ export default function VendorsPage({ selectedVendor, onVendorSelect }: VendorsP
                   <Eye className="w-4 h-4" />
                   Details
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleStartInspection(vendor)
-                  }}
-                  className="flex-1 bg-linear-to-r from-blue-600 to-blue-700 text-white font-semibold py-2 px-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2 group text-sm"
-                >
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  Start
-                </button>
+                {vendor.inspectionStatus === "COMPLETED" ? (
+                  <div className="flex-1 bg-emerald-100 text-emerald-800 font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm border border-emerald-200">
+                    <CheckCircle className="w-4 h-4" />
+                    Completed
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleStartInspection(vendor)
+                    }}
+                    className="flex-1 bg-linear-to-r from-blue-600 to-blue-700 text-white font-semibold py-2 px-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2 group text-sm"
+                  >
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    {vendor.inspectionStatus === "IN_PROGRESS" ? "Continue" : "Start"}
+                  </button>
+                )}
               </div>
             </div>
           </div>
