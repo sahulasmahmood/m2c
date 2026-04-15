@@ -234,14 +234,14 @@ export default function Testing({ formData, setFormData }: TestingProps) {
         <p className="text-slate-600">Functional tests for durability and color integrity (Section C - Item 6)</p>
         <p className="text-xs text-slate-500 mt-2">
           <span className="text-red-500 mr-0.5" aria-label="required">*</span>
-          Mark Pass or Fail on at least one test before moving on.
+          Mark Pass or Fail on every test. Pass requires a Right photo, Fail requires a Wrong photo.
         </p>
       </div>
 
       {tests.map((test) => (
         <div key={test.id} className="bg-slate-50/50 rounded-xl p-6 border border-slate-200">
           <div className="mb-4">
-            <label className="block text-slate-900 font-semibold mb-2">{test.label}</label>
+            <label className="block text-slate-900 font-semibold mb-2">{test.label}<span className="text-red-500 ml-0.5" aria-label="required">*</span></label>
             <p className="text-slate-600 text-sm mb-4">{test.detail}</p>
 
             <div className="flex items-center gap-6 mb-6">
@@ -280,7 +280,7 @@ export default function Testing({ formData, setFormData }: TestingProps) {
               <label className="block text-slate-700 font-medium mb-3 text-sm">Test Photos:</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-slate-600 font-medium mb-2 text-sm p-2 rounded">✓ Right/Correct Photo</label>
+                  <label className="block text-slate-600 font-medium mb-2 text-sm p-2 rounded">✓ Right/Correct Photo{test.pass && <span className="text-red-500 ml-0.5" aria-label="required">*</span>}</label>
                   <div className="border-2 border-dashed border-green-300 rounded-lg p-4 text-center hover:border-green-400 transition-colors cursor-pointer bg-green-50">
                     <input
                       ref={(el) => {
@@ -324,7 +324,7 @@ export default function Testing({ formData, setFormData }: TestingProps) {
                 </div>
 
                 <div>
-                  <label className="block text-slate-600 font-medium mb-2 text-sm p-2 rounded">✗ Wrong/Incorrect Photo</label>
+                  <label className="block text-slate-600 font-medium mb-2 text-sm p-2 rounded">✗ Wrong/Incorrect Photo{test.fail && <span className="text-red-500 ml-0.5" aria-label="required">*</span>}</label>
                   <div className="border-2 border-dashed border-red-300 bg-red-50 rounded-lg p-4 text-center hover:border-red-400 transition-colors cursor-pointer">
                     <input
                       ref={(el) => {

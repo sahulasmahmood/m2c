@@ -226,7 +226,7 @@ export default function Measurements({ formData, setFormData }: MeasurementsProp
       )}
 
       <div>
-        <label className="block text-slate-700 font-semibold mb-3">Photo Evidence:</label>
+        <label className="block text-slate-700 font-semibold mb-3">Photo Evidence:<span className="text-red-500 ml-0.5" aria-label="required">*</span></label>
         <p className="text-slate-600 text-sm mb-4">
           Carton dimensions, product measurements, weight verification
         </p>

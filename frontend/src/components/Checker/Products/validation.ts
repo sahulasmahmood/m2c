@@ -80,6 +80,10 @@ function validateMeasurements(d: any): StepErrors {
     if (samples.length === 0) {
         e.measurements = "Add at least one measurement sample"
     }
+    const photos = Array.isArray(d.measurementPhotos) ? d.measurementPhotos : []
+    if (photos.length === 0) {
+        e.measurementPhotos = "Upload at least one measurement photo"
+    }
     return e
 }
 
@@ -99,6 +103,10 @@ function validatePackaging(d: any): StepErrors {
     for (const [key, label] of remarks) {
         if (isBlank(d[key])) e[key] = `${label} is required`
     }
+    const photos = Array.isArray(d.packagingPhotos) ? d.packagingPhotos : []
+    if (photos.length === 0) {
+        e.packagingPhotos = "Upload at least one packaging photo"
+    }
     return e
 }
 
@@ -110,13 +118,26 @@ function validateDefects(_d: any): StepErrors {
 }
 
 // ---------------- Testing ----------------
-// At least one on-site test must be decided (Pass or Fail). A report with
-// zero test decisions is not a real inspection.
+// Every on-site test must be decided (Pass or Fail). Pass requires at
+// least one right photo; Fail requires at least one wrong photo.
 function validateTesting(d: any): StepErrors {
     const e: StepErrors = {}
     const tests = Array.isArray(d.tests) ? d.tests : []
-    const anyDecided = tests.some((t: any) => t?.pass === true || t?.fail === true)
-    if (!anyDecided) e.tests = "Mark Pass or Fail on at least one test"
+    for (const t of tests) {
+        const decided = t?.pass === true || t?.fail === true
+        if (!decided) {
+            e.tests = `"${t?.label || "Test"}" requires a Pass or Fail decision`
+            break
+        }
+        if (t.pass && (!Array.isArray(t.rightPhotos) || t.rightPhotos.length === 0)) {
+            e.tests = `"${t.label}" passed — upload at least one Right/Correct photo`
+            break
+        }
+        if (t.fail && (!Array.isArray(t.wrongPhotos) || t.wrongPhotos.length === 0)) {
+            e.tests = `"${t.label}" failed — upload at least one Wrong/Incorrect photo`
+            break
+        }
+    }
     return e
 }
 
@@ -124,6 +145,12 @@ function validateTesting(d: any): StepErrors {
 function validateDocumentation(d: any): StepErrors {
     const e: StepErrors = {}
     if (isBlank(d.inspectorSignature)) e.inspectorSignature = "Inspector signature is required"
+    const docs = Array.isArray(d.documentationPhotos) ? d.documentationPhotos : []
+    if (docs.length === 0) e.documentationPhotos = "Upload at least one general documentation photo"
+    const photocopies = Array.isArray(d.photocopyDocuments) ? d.photocopyDocuments : []
+    if (photocopies.length === 0) e.photocopyDocuments = "Upload at least one photocopy document"
+    const ids = Array.isArray(d.companyIdCards) ? d.companyIdCards : []
+    if (ids.length === 0) e.companyIdCards = "Upload at least one company ID card"
     return e
 }
 

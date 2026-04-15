@@ -1147,6 +1147,14 @@ const approveProductByQc = async (req, res) => {
             });
         }
 
+        // Prevent duplicate submission — only PENDING or REINSPECTION products can be inspected
+        if (product.approvalStatus !== 'PENDING' && product.approvalStatus !== 'REINSPECTION') {
+            return res.status(409).json({
+                success: false,
+                message: `Product inspection already completed with status: ${product.approvalStatus}`
+            });
+        }
+
         // Calculate the inspection result from formData
         let approvalStatus = 'QC_APPROVED';
         let productStatus = 'INACTIVE'; // Keep as INACTIVE until Admin finalizes with a price
@@ -1243,6 +1251,14 @@ const rejectProductByQc = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: 'Product not found or not assigned to you'
+            });
+        }
+
+        // Prevent duplicate submission — only PENDING or REINSPECTION products can be rejected
+        if (product.approvalStatus !== 'PENDING' && product.approvalStatus !== 'REINSPECTION') {
+            return res.status(409).json({
+                success: false,
+                message: `Product inspection already completed with status: ${product.approvalStatus}`
             });
         }
 
