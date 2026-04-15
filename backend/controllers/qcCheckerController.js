@@ -126,9 +126,8 @@ const createQCChecker = async (req, res) => {
                 password: plainPassword,
                 loginLink,
             });
-            console.log(`✅ QC Checker credentials email sent to: ${email}`);
         } catch (emailError) {
-            console.error('⚠️ Failed to send credentials email:', emailError.message);
+            console.error('Failed to send credentials email:', emailError.message);
             // Still return success but with a warning
         }
 
@@ -468,15 +467,12 @@ const qcCheckerLogin = async (req, res) => {
             });
         }
 
-        console.log(`🔍 QC Checker login attempt: ${checkerId}`);
-
         // Find checker by checkerId
         const checker = await prisma.qCChecker.findUnique({
             where: { checkerId: checkerId.toUpperCase() },
         });
 
         if (!checker) {
-            console.log('❌ QC Checker not found');
             return res.status(401).json({
                 success: false,
                 error: 'Invalid credentials. Please check your Checker ID and password.',
@@ -485,7 +481,6 @@ const qcCheckerLogin = async (req, res) => {
 
         // Check if checker is active
         if (!checker.isActive || checker.status === 'SUSPENDED') {
-            console.log('❌ QC Checker account is not active');
             return res.status(401).json({
                 success: false,
                 error: 'Your account is not active. Please contact admin.',
@@ -495,7 +490,6 @@ const qcCheckerLogin = async (req, res) => {
         // Verify password
         const isPasswordValid = await bcrypt.compare(password, checker.password);
         if (!isPasswordValid) {
-            console.log('❌ Invalid password');
             return res.status(401).json({
                 success: false,
                 error: 'Invalid credentials. Please check your Checker ID and password.',
@@ -510,8 +504,6 @@ const qcCheckerLogin = async (req, res) => {
 
         // Generate token
         const token = generateCheckerToken(checker.id);
-
-        console.log(`✅ QC Checker login successful: ${checker.name} (${checker.checkerId})`);
 
         res.json({
             success: true,
@@ -982,8 +974,19 @@ const rejectVendorByQc = async (req, res) => {
 };
 
 // ============================
-// QC Checker: Get assigned products
+// QC Checker: Get assigned products (paginated + filterable)
 // ============================
+// Matches the ProductApprovalStatus enum in schema.prisma — note there is
+// no UNDER_REVIEW for products (vendor statuses use it, product statuses don't).
+const ALLOWED_PRODUCT_APPROVAL_STATUSES = [
+    'PENDING',
+    'QC_APPROVED',
+    'APPROVED',
+    'REINSPECTION',
+    'REJECTED',
+];
+const ALLOWED_PRODUCT_SORT_FIELDS = ['createdAt', 'name', 'approvalStatus', 'basePrice'];
+
 const getAssignedProducts = async (req, res) => {
     try {
         if (req.user.role !== 'QC_CHECKER') {
@@ -991,31 +994,71 @@ const getAssignedProducts = async (req, res) => {
         }
 
         const qcCheckerId = req.user.id;
-        const products = await prisma.product.findMany({
-            where: {
-                assignedQcId: qcCheckerId
-            },
-            include: {
-                vendor: {
-                    select: { companyName: true, ownerName: true, email: true }
+
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 12, 1), 50);
+        // Cap search to bound DB scan cost — same pattern as getAssignedVendors.
+        const search = (req.query.search || '').toString().trim().slice(0, 100);
+        const status = req.query.status ? req.query.status.toString().toUpperCase() : null;
+        const sortBy = ALLOWED_PRODUCT_SORT_FIELDS.includes(req.query.sortBy)
+            ? req.query.sortBy
+            : 'createdAt';
+        const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
+
+        if (status && !ALLOWED_PRODUCT_APPROVAL_STATUSES.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: `Invalid status. Must be one of: ${ALLOWED_PRODUCT_APPROVAL_STATUSES.join(', ')}`,
+            });
+        }
+
+        const where = { assignedQcId: qcCheckerId };
+        if (status) where.approvalStatus = status;
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { baseSku: { contains: search, mode: 'insensitive' } },
+                { category: { contains: search, mode: 'insensitive' } },
+                { vendor: { companyName: { contains: search, mode: 'insensitive' } } },
+            ];
+        }
+
+        const [total, products] = await Promise.all([
+            prisma.product.count({ where }),
+            prisma.product.findMany({
+                where,
+                include: {
+                    vendor: {
+                        select: { companyName: true, ownerName: true, email: true },
+                    },
+                    images: {
+                        where: { isPrimary: true },
+                        take: 1,
+                    },
                 },
-                images: {
-                    where: { isPrimary: true },
-                    take: 1
-                }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+                orderBy: { [sortBy]: sortOrder },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+        ]);
 
         res.status(200).json({
             success: true,
-            data: products
+            data: {
+                products,
+                pagination: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                },
+            },
         });
     } catch (error) {
         console.error('Error fetching assigned products:', error);
         res.status(500).json({
             success: false,
-            message: 'An error occurred while fetching assigned products'
+            message: 'An error occurred while fetching assigned products',
         });
     }
 };

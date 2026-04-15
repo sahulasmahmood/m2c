@@ -41,10 +41,8 @@ export default function PDFPreviewModal({ isOpen, onClose, reportData, reportId 
       
       if (result.success) {
         if ('method' in result && result.method === 'html') {
-          console.log('Report opened in new window for printing')
           showSuccessToast('Report Generated', 'Report opened in new window for printing.')
         } else if ('fileName' in result) {
-          console.log('PDF downloaded:', result.fileName)
           showSuccessToast('Download Complete', `PDF report has been downloaded: ${result.fileName}`)
         }
         // Close modal after successful download
@@ -153,7 +151,6 @@ export default function PDFPreviewModal({ isOpen, onClose, reportData, reportId 
                       <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Description</th>
                       <th className="border border-slate-300 px-3 py-2 text-left font-semibold">PO Quantity</th>
                       <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Inspected</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -163,7 +160,6 @@ export default function PDFPreviewModal({ isOpen, onClose, reportData, reportId 
                         <td className="border border-slate-300 px-3 py-2">{item.itemDescription}</td>
                         <td className="border border-slate-300 px-3 py-2">{item.poQuantity.toLocaleString()}</td>
                         <td className="border border-slate-300 px-3 py-2">{item.inspectedQuantity}</td>
-                        <td className="border border-slate-300 px-3 py-2">{item.status}</td>
                       </tr>
                     ))}
                   </tbody>

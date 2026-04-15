@@ -35,6 +35,23 @@ const createInspection = async (req, res) => {
             return res.status(404).json({ error: 'Vendor not found' });
         }
 
+        // Invariant: a vendor can have at most one active inspection at a time.
+        // Prevents admin double-click / rescheduling from creating duplicate
+        // SCHEDULED rows, which let checkers unintentionally submit the same
+        // report twice and produce duplicate COMPLETED history entries.
+        const active = await prisma.inspection.findFirst({
+            where: { vendorId, status: { in: ['SCHEDULED', 'IN_PROGRESS'] } },
+            select: { id: true, status: true, scheduledDate: true },
+        });
+        if (active) {
+            return res.status(409).json({
+                success: false,
+                error: 'An active inspection already exists for this vendor',
+                message: `Complete or cancel the existing ${active.status.toLowerCase()} inspection (scheduled ${active.scheduledDate}) before scheduling a new one.`,
+                activeInspectionId: active.id,
+            });
+        }
+
         const newInspection = await prisma.inspection.create({
             data: {
                 vendorId,
@@ -266,6 +283,22 @@ const completeInspection = async (req, res) => {
             }
         });
 
+        // Cascade-cancel any sibling SCHEDULED/IN_PROGRESS rows for this vendor.
+        // They're now stale — keeping them would let getActiveInspectionForVendor
+        // resurface them to the checker, who could submit again and create
+        // duplicate COMPLETED history. Self-heals pre-existing bad data.
+        await prisma.inspection.updateMany({
+            where: {
+                vendorId: inspection.vendorId,
+                id: { not: id },
+                status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+            },
+            data: {
+                status: 'CANCELLED',
+                notes: `Auto-cancelled: superseded by completed inspection ${id}`,
+            },
+        });
+
         // Also update vendor status - Keep as UNDER_REVIEW for admin approval even if QC passes
         await prisma.vendor.update({
             where: { id: inspection.vendorId },
@@ -289,7 +322,7 @@ const completeInspection = async (req, res) => {
         res.json({ success: true, message: 'Inspection completed successfully', inspection: updatedInspection });
     } catch (error) {
         console.error('Error completing inspection:', error);
-        res.status(500).json({ error: 'Internal server error', details: error.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 };
 
