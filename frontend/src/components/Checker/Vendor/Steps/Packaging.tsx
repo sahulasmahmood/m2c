@@ -149,7 +149,7 @@ export default function Packaging({ formData, setFormData }: PackagingProps) {
       ))}
 
       <div>
-        <label className="block text-slate-700 font-semibold mb-3">Photo Evidence:</label>
+        <label className="block text-slate-700 font-semibold mb-3">Photo Evidence:<span className="text-red-500 ml-0.5" aria-label="required">*</span></label>
         <p className="text-slate-600 text-sm mb-4">Carton quality, labels, internal protection details</p>
         <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer bg-slate-50/50">
           <input

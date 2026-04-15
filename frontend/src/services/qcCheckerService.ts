@@ -336,7 +336,7 @@ class QCCheckerService {
             });
             return response.data;
         } catch (error: any) {
-            throw new Error(error.message || 'Failed to approve product');
+            throw new Error(error.response?.data?.message || error.message || 'Failed to approve product');
         }
     }
 
@@ -350,7 +350,7 @@ class QCCheckerService {
             });
             return response.data;
         } catch (error: any) {
-            throw new Error(error.message || 'Failed to reject product');
+            throw new Error(error.response?.data?.message || error.message || 'Failed to reject product');
         }
     }
 

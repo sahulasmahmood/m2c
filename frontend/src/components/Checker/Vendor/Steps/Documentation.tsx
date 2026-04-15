@@ -203,7 +203,7 @@ export default function Documentation({ formData, setFormData }: DocumentationPr
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* General Documentation Photos */}
         <div>
-          <label className="block text-slate-700 font-semibold mb-3 text-sm">General Documentation:</label>
+          <label className="block text-slate-700 font-semibold mb-3 text-sm">General Documentation:<span className="text-red-500 ml-0.5" aria-label="required">*</span></label>
           <p className="text-slate-600 text-xs mb-3">Signed draft report, packing list, etc.</p>
           <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors cursor-pointer bg-slate-50/50">
             <input
