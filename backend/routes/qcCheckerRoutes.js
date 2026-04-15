@@ -10,6 +10,7 @@ const {
     getCheckerProfile,
     getAssignedVendors,
     getVendorDetails,
+    getActiveInspectionForVendor,
     approveVendorByQc,
     rejectVendorByQc,
     getAssignedProducts,
@@ -32,6 +33,7 @@ router.post('/login', qcCheckerLogin);
 router.get('/me', authenticateToken, getCheckerProfile);
 router.get('/vendors', authenticateToken, getAssignedVendors);
 router.get('/vendors/:vendorId/details', authenticateToken, getVendorDetails);
+router.get('/vendors/:vendorId/active-inspection', authenticateToken, getActiveInspectionForVendor);
 router.post('/vendors/:vendorId/approve', authenticateToken, approveVendorByQc);
 router.post('/vendors/:vendorId/reject', authenticateToken, rejectVendorByQc);
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Check, ArrowLeft, ArrowRight } from "lucide-react"
 import FactoryDetails from "./Steps/FactoryDetails"
 import LegalRegistration from "./Steps/LegalRegistration"
@@ -12,6 +12,7 @@ import BasicEvidence from "./Steps/BasicEvidence"
 
 import qcCheckerService from "@/services/qcCheckerService"
 import { showSuccessToast, showErrorToast } from "@/lib/toast-utils"
+import { validateStep, validateAll, hasErrors, groupFieldErrors, type Step as ValidationStep, type StepErrors, type AllErrors } from "./validation"
 
 interface InspectionFormProps {
   vendorName: string
@@ -19,20 +20,14 @@ interface InspectionFormProps {
   onComplete: () => void
 }
 
-type Step =
-  | "factoryDetails"
-  | "legalRegistration"
-  | "productionInfo"
-  | "basicInfrastructure"
-  | "qualitySafety"
-  | "inspectionInfo"
-  | "basicEvidence"
+type Step = ValidationStep
 
 export default function InspectionForm({ vendorName, vendorId, onComplete }: InspectionFormProps) {
   const [currentStep, setCurrentStep] = useState<Step>("factoryDetails")
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [inspectionId, setInspectionId] = useState<string | null>(null)
+  const [errors, setErrors] = useState<AllErrors>({})
   const [formData, setFormData] = useState({
     // 1. Factory Details
     vendorName: vendorName,
@@ -76,72 +71,99 @@ export default function InspectionForm({ vendorName, vendorId, onComplete }: Ins
     documentsUpload: [] as any[]
   })
 
-  // Fetch inspection data and auto-start if SCHEDULED
+  // Tracks which vendorId has already been prefilled. Prevents the effect
+  // from clobbering checker edits (including intentional clears) on re-fire —
+  // StrictMode double-invoke, Fast Refresh, parent re-renders all land here.
+  const prefilledForVendorIdRef = useRef<string | null>(null)
+
+  // Fetch inspection data and auto-start if SCHEDULED.
+  // Fast path: single scoped request, inspector name from localStorage, auto-start runs
+  // in background (does not gate first paint).
   useEffect(() => {
+    let cancelled = false
+
     async function loadActiveInspection() {
+      // Inspector name from cached login data — zero network cost.
+      // `prev.inspectorName ||` so a typed value is never overwritten.
+      const cached = qcCheckerService.getCheckerData?.()
+      if (cached?.name && !cancelled) {
+        setFormData(prev => ({ ...prev, inspectorName: prev.inspectorName || cached.name }))
+      }
+
+      if (!vendorId) {
+        if (!cancelled) setLoading(false)
+        return
+      }
+
+      // One-shot guard: skip prefill + auto-start if we've already done both
+      // for this vendorId in this component lifecycle.
+      if (prefilledForVendorIdRef.current === vendorId) {
+        if (!cancelled) setLoading(false)
+        return
+      }
+
       try {
-        const [response, profile] = await Promise.all([
-          qcCheckerService.getInspections(),
-          qcCheckerService.getCheckerProfile().catch(() => null),
-        ])
+        const res = await qcCheckerService.getActiveInspectionForVendor(vendorId)
+        if (cancelled) return
 
-        if (profile?.data?.name) {
-          setFormData(prev => ({ ...prev, inspectorName: profile.data.name }))
-        }
-        if (response.success && response.inspections) {
-          // Find an active inspection for this vendor
-          let inspection = response.inspections.find(
-            (i: any) =>
-              (vendorId ? i.vendorId === vendorId : i.vendor?.companyName === vendorName) &&
-              (i.status === "IN_PROGRESS" || i.status === "SCHEDULED")
-          )
+        const inspection = res?.inspection
+        if (inspection) {
+          setInspectionId(inspection.id)
 
-          if (!inspection) {
-            inspection = response.inspections.find(
-              (i: any) =>
-                (vendorId ? i.vendorId === vendorId : i.vendor?.companyName === vendorName)
-            )
-          }
+          const assignedCategories = Array.isArray(inspection.itemsToInspect)
+            ? inspection.itemsToInspect.map((i: any) => i.itemName).join(', ')
+            : ""
 
-          if (inspection) {
-            setInspectionId(inspection.id)
+          // Prefill from vendor record. All fields stay editable — checker can
+          // correct discrepancies they see at the factory. prev.* takes precedence
+          // so user edits are never overwritten on re-renders.
+          const v = inspection.vendor || {}
+          const factoryAddressFull = [v.factoryAddress, v.factoryCity, v.factoryState, v.factoryZipCode]
+            .map((p: string | null | undefined) => (p ?? "").trim())
+            .filter(Boolean)
+            .join(", ")
 
-            // Auto-start the inspection if it's still SCHEDULED.
-            // 400 = backend rejected because already started elsewhere — benign, proceed.
-            // Other codes (403/404/500) = real errors, surface to user.
-            if (inspection.status === "SCHEDULED") {
-              try {
-                await qcCheckerService.startInspection(inspection.id)
-              } catch (startErr: any) {
-                if (startErr?.status !== 400) {
-                  console.error("Auto-start failed:", startErr)
-                  showErrorToast(
-                    "Could not start inspection",
-                    startErr?.message || "Please refresh the page and try again."
-                  )
-                }
+          setFormData(prev => ({
+            ...prev,
+            vendorCode: prev.vendorCode || v.vendorCode || "",
+            categoryToInspect: prev.categoryToInspect || assignedCategories,
+            factoryName: prev.factoryName || v.companyName || "",
+            contactPersonName: prev.contactPersonName || v.ownerName || "",
+            contactPhoneNumber: prev.contactPhoneNumber || v.businessPhone || "",
+            factoryAddress: prev.factoryAddress || factoryAddressFull,
+            gstTaxId: prev.gstTaxId || v.gstNumber || "",
+            businessRegistrationNumber: prev.businessRegistrationNumber || v.businessRegistrationNumber || "",
+            factoryLicenseNumber: prev.factoryLicenseNumber || v.tradeLicenseNumber || "",
+          }))
+
+          // Mark prefill complete so subsequent effect re-runs short-circuit.
+          // Set before auto-start so the SCHEDULED → IN_PROGRESS request is also one-shot.
+          prefilledForVendorIdRef.current = vendorId
+
+          // Fire-and-forget: do not block first paint on the SCHEDULED → IN_PROGRESS transition.
+          // 400 = backend rejected because already started — benign. Other codes = surface to user.
+          if (inspection.status === "SCHEDULED") {
+            qcCheckerService.startInspection(inspection.id).catch((startErr: any) => {
+              if (cancelled) return
+              if (startErr?.status !== 400) {
+                console.error("Auto-start failed:", startErr)
+                showErrorToast(
+                  "Could not start inspection",
+                  startErr?.message || "Please refresh the page and try again."
+                )
               }
-            }
-
-            const assignedCategories = Array.isArray(inspection.itemsToInspect)
-              ? inspection.itemsToInspect.map((i: any) => i.itemName).join(', ')
-              : "";
-
-            setFormData(prev => ({
-              ...prev,
-              factoryName: inspection.factoryName || prev.factoryName,
-              categoryToInspect: assignedCategories || prev.categoryToInspect,
-              vendorCode: inspection.vendor?.vendorCode || prev.vendorCode,
-            }))
+            })
           }
         }
       } catch (err) {
-        console.error("Failed to load active inspection for form", err)
+        if (!cancelled) console.error("Failed to load active inspection for form", err)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
+
     loadActiveInspection()
+    return () => { cancelled = true }
   }, [vendorName, vendorId])
 
   const steps: { id: Step; label: string; description: string; pdfSection: string }[] = [
@@ -157,7 +179,20 @@ export default function InspectionForm({ vendorName, vendorId, onComplete }: Ins
   const getStepIndex = (step: Step) => steps.findIndex((s) => s.id === step)
   const currentStepIndex = getStepIndex(currentStep)
 
+  const validateCurrentStep = (): StepErrors => {
+    const stepErrors = validateStep(currentStep, formData)
+    setErrors(prev => ({ ...prev, [currentStep]: stepErrors }))
+    return stepErrors
+  }
+
   const goToNextStep = () => {
+    const stepErrors = validateCurrentStep()
+    if (hasErrors(stepErrors)) {
+      showErrorToast("Please fix the errors", "Some required fields are missing or invalid.")
+      // Scroll to top so the first error is visible.
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
+    }
     if (currentStepIndex < steps.length - 1) {
       setCurrentStep(steps[currentStepIndex + 1].id)
     }
@@ -169,22 +204,33 @@ export default function InspectionForm({ vendorName, vendorId, onComplete }: Ins
     }
   }
 
+  // Jump directly to a step via the circle. Validate the step being left so the
+  // user sees errors if they were skipping past required fields.
+  const goToStep = (target: Step) => {
+    if (target === currentStep) return
+    // Re-validate current step; don't block navigation, just surface errors.
+    setErrors(prev => ({ ...prev, [currentStep]: validateStep(currentStep, formData) }))
+    setCurrentStep(target)
+  }
+
+  const currentStepErrors = errors[currentStep]
+
   const renderStepContent = () => {
     switch (currentStep) {
       case "factoryDetails":
-        return <FactoryDetails formData={formData} setFormData={setFormData} />
+        return <FactoryDetails formData={formData} setFormData={setFormData} errors={currentStepErrors} />
       case "legalRegistration":
-        return <LegalRegistration formData={formData} setFormData={setFormData} />
+        return <LegalRegistration formData={formData} setFormData={setFormData} errors={currentStepErrors} />
       case "productionInfo":
-        return <ProductionInfo formData={formData} setFormData={setFormData} />
+        return <ProductionInfo formData={formData} setFormData={setFormData} errors={currentStepErrors} />
       case "basicInfrastructure":
         return <BasicInfrastructure formData={formData} setFormData={setFormData} />
       case "qualitySafety":
         return <QualitySafety formData={formData} setFormData={setFormData} />
       case "inspectionInfo":
-        return <InspectionInfo formData={formData} setFormData={setFormData} />
+        return <InspectionInfo formData={formData} setFormData={setFormData} errors={currentStepErrors} />
       case "basicEvidence":
-        return <BasicEvidence formData={formData} setFormData={setFormData} />
+        return <BasicEvidence formData={formData} setFormData={setFormData} errors={currentStepErrors} />
       default:
         return null
     }
@@ -195,6 +241,21 @@ export default function InspectionForm({ vendorName, vendorId, onComplete }: Ins
     if (!inspectionId) {
       showErrorToast("Cannot Submit", "No active inspection found. Please contact your administrator.")
       return;
+    }
+
+    // Run every step's validator. If anything fails, surface all errors and
+    // jump the user to the first invalid step so they can see what's wrong.
+    const all = validateAll(formData)
+    if (Object.keys(all).length > 0) {
+      setErrors(all)
+      const firstInvalid = steps.find(s => all[s.id])?.id
+      if (firstInvalid) setCurrentStep(firstInvalid)
+      showErrorToast(
+        "Cannot submit yet",
+        "Some required fields are missing or invalid. Please review highlighted steps."
+      )
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
     }
 
     try {
@@ -228,7 +289,18 @@ export default function InspectionForm({ vendorName, vendorId, onComplete }: Ins
       }
     } catch (err: any) {
       console.error("Error submitting inspection form:", err);
-      showErrorToast("Submission Error", err?.message || "An unexpected error occurred.");
+      // If the backend returned field-level validation errors, fan them out
+      // to the relevant steps so the checker can see what's wrong.
+      const fieldErrors: Record<string, string> | undefined = err?.fieldErrors || err?.response?.data?.fieldErrors;
+      if (fieldErrors && typeof fieldErrors === "object") {
+        const grouped = groupFieldErrors(fieldErrors)
+        setErrors(grouped)
+        const firstInvalid = steps.find(s => grouped[s.id])?.id
+        if (firstInvalid) setCurrentStep(firstInvalid)
+        showErrorToast("Server validation failed", "Please review highlighted fields.");
+      } else {
+        showErrorToast("Submission Error", err?.message || "An unexpected error occurred.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -266,32 +338,49 @@ export default function InspectionForm({ vendorName, vendorId, onComplete }: Ins
           {/* Progress Bar */}
           <div className="relative mb-8 min-w-[700px]">
             <div className="flex items-center justify-between">
-              {steps.map((step, index) => (
-                <div key={step.id} className="flex flex-col items-center relative z-10 flex-1">
-                  {/* Step Circle */}
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold transition-all duration-300 cursor-pointer text-sm border-2 ${index < currentStepIndex
-                      ? "bg-linear-to-r from-blue-600 to-blue-700 text-white border-blue-600 shadow-lg"
-                      : index === currentStepIndex
-                        ? "bg-linear-to-r from-blue-600 to-blue-700 text-white border-blue-600 shadow-lg ring-4 ring-blue-100"
-                        : "bg-white border-slate-300 text-slate-500 hover:border-slate-400"
-                      }`}
-                    onClick={() => setCurrentStep(step.id)}
-                  >
-                    {index < currentStepIndex ? <Check className="w-5 h-5" /> : index + 1}
-                  </div>
-
-                  {/* Step Label */}
-                  <div className="mt-3 text-center max-w-24">
-                    <p
-                      className={`text-xs font-medium leading-tight ${index <= currentStepIndex ? "text-slate-900" : "text-slate-500"
+              {steps.map((step, index) => {
+                const stepHasErrors = hasErrors(errors[step.id])
+                return (
+                  <div key={step.id} className="flex flex-col items-center relative z-10 flex-1">
+                    {/* Step Circle */}
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center font-bold transition-all duration-300 cursor-pointer text-sm border-2 ${stepHasErrors
+                        ? "bg-red-50 border-red-500 text-red-600 ring-4 ring-red-100"
+                        : index < currentStepIndex
+                          ? "bg-linear-to-r from-blue-600 to-blue-700 text-white border-blue-600 shadow-lg"
+                          : index === currentStepIndex
+                            ? "bg-linear-to-r from-blue-600 to-blue-700 text-white border-blue-600 shadow-lg ring-4 ring-blue-100"
+                            : "bg-white border-slate-300 text-slate-500 hover:border-slate-400"
                         }`}
+                      onClick={() => goToStep(step.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          goToStep(step.id)
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-current={index === currentStepIndex ? "step" : undefined}
+                      aria-label={`Go to ${step.label}${stepHasErrors ? " (has errors)" : ""}`}
                     >
-                      {step.label}
-                    </p>
+                      {stepHasErrors ? "!" : index < currentStepIndex ? <Check className="w-5 h-5" /> : index + 1}
+                    </div>
+
+                    {/* Step Label */}
+                    <div className="mt-3 text-center max-w-24">
+                      <p
+                        className={`text-xs font-medium leading-tight ${stepHasErrors
+                          ? "text-red-600"
+                          : index <= currentStepIndex ? "text-slate-900" : "text-slate-500"
+                          }`}
+                      >
+                        {step.label}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {/* Progress Line */}

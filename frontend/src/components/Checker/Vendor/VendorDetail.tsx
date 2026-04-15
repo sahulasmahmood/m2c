@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   ArrowLeft,
   Calendar,
@@ -13,82 +13,87 @@ import {
   Play,
   TrendingUp,
   BarChart3,
-  ThumbsUp,
-  ThumbsDown,
   Globe,
   Briefcase,
   Package,
   Warehouse,
   Award,
   FileText,
-  Loader2
+  Loader2,
+  RotateCw,
 } from "lucide-react"
 import { Vendor } from "@/types/inspection"
 import qcCheckerService from "@/services/qcCheckerService"
-import { showSuccessToast, showErrorToast } from "@/lib/toast-utils"
 
 interface VendorDetailProps {
   vendor: Vendor
   onBack: () => void
+  onStartInspection?: (vendor: Vendor) => void
 }
 
 export default function VendorDetail({
   vendor,
   onBack,
+  onStartInspection,
 }: VendorDetailProps) {
   const [activeTab, setActiveTab] = useState('overview')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const currentStatus = (vendor.status || '').toUpperCase()
-  const isActionable = currentStatus === 'UNDER_REVIEW' || currentStatus === 'PENDING'
   const [inspections, setInspections] = useState<any[]>([])
   const [fullVendor, setFullVendor] = useState<any>(null)
   const [stats, setStats] = useState<any>(null)
   const [recentInspections, setRecentInspections] = useState<any[]>([])
+  const [historyMeta, setHistoryMeta] = useState<{ total: number; returned: number; hasMore: boolean } | null>(null)
+  const [historyLimit, setHistoryLimit] = useState(10)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function loadAll() {
-      setLoading(true)
-      setError(null)
-      try {
-        const [detailsRes, inspectionsRes] = await Promise.all([
-          qcCheckerService.getVendorDetails(vendor.id),
-          qcCheckerService.getInspections(),
-        ])
-        if (detailsRes.success) {
-          setFullVendor(detailsRes.data.vendor)
-          setStats(detailsRes.data.stats)
-          setRecentInspections(detailsRes.data.recentInspections || [])
+  const loadAll = useCallback(async (limitOverride?: number) => {
+    setLoading(true)
+    setError(null)
+    const limit = limitOverride ?? historyLimit
+    try {
+      const detailsRes = await qcCheckerService.getVendorDetails(vendor.id, limit)
+      if (detailsRes.success) {
+        setFullVendor(detailsRes.data.vendor)
+        setStats(detailsRes.data.stats)
+        setRecentInspections(detailsRes.data.recentInspections || [])
+        setInspections(detailsRes.data.upcomingInspections || [])
+        if (detailsRes.data.recentInspectionsMeta) {
+          setHistoryMeta(detailsRes.data.recentInspectionsMeta)
         }
-        if (inspectionsRes.success) {
-          setInspections(inspectionsRes.inspections.filter((i: any) => i.vendorId === vendor.id))
-        }
-      } catch (err: any) {
-        console.error("Failed to load vendor details", err)
-        setError(err?.message || "Failed to load vendor details")
-      } finally {
-        setLoading(false)
       }
+    } catch (err: any) {
+      console.error("Failed to load vendor details", err)
+      setError(err?.message || "Failed to load vendor details")
+    } finally {
+      setLoading(false)
     }
+  }, [vendor.id, historyLimit])
+
+  const handleLoadMoreHistory = () => {
+    const nextLimit = Math.min(historyLimit + 20, 50)
+    setHistoryLimit(nextLimit)
+    loadAll(nextLimit)
+  }
+
+  useEffect(() => {
     loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendor.id])
 
   const actualUpcomingInspections = inspections.filter(
     i => i.status === 'SCHEDULED' || i.status === 'IN_PROGRESS'
   )
 
-  const handleStartInspection = async (inspectionId: string) => {
-    setIsProcessing(true)
-    try {
-      await qcCheckerService.startInspection(inspectionId)
-      showSuccessToast("Inspection Started", "The inspection status is now In Progress")
-    } catch (error) {
-      showErrorToast("Error", "Failed to start inspection. Ensure it has not been completed.")
-    } finally {
-      setIsProcessing(false)
-    }
+  // Delegate to the parent, which mounts <InspectionForm />. InspectionForm
+  // handles the SCHEDULED → IN_PROGRESS transition itself, so we must NOT call
+  // the start API here (calling it on an already IN_PROGRESS inspection 400s).
+  const handleOpenInspection = () => {
+    if (!onStartInspection) return
+    onStartInspection(vendor)
   }
+
+  const firstUpcoming = actualUpcomingInspections[0]
+  const isContinuing = firstUpcoming?.status === 'IN_PROGRESS'
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -122,20 +127,17 @@ export default function VendorDetail({
 
   const companyName = fullVendor?.companyName || vendor.name
   const location = fullVendor
-    ? [fullVendor.factoryCity, fullVendor.factoryState].filter(Boolean).join(", ") || vendor.location
+    ? formatAddress(fullVendor.factoryCity, fullVendor.factoryState) || vendor.location
     : vendor.location
   const specializations: string[] = fullVendor?.specializations || []
   const productCategories: string[] = fullVendor?.productCategories || []
   const certifications: any[] = fullVendor?.certifications || []
   const paymentTerms: string[] = fullVendor?.paymentTerms || []
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-100">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-3 text-slate-600">Loading vendor details...</span>
-      </div>
-    )
+  // Only show full skeleton on initial load; later refreshes keep existing data visible
+  // to avoid jarring layout resets when clicking Refresh or Load More.
+  if (loading && !fullVendor) {
+    return <VendorDetailSkeleton />
   }
 
   if (error) {
@@ -144,8 +146,14 @@ export default function VendorDetail({
         <button onClick={onBack} className="mb-4 flex items-center gap-2 text-slate-600 hover:text-slate-900">
           <ArrowLeft className="w-5 h-5" /> Back
         </button>
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-6">
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-6 flex items-center justify-between gap-4 flex-wrap">
+          <span>{error}</span>
+          <button
+            onClick={() => loadAll()}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+          >
+            <RotateCw className="w-4 h-4" /> Retry
+          </button>
         </div>
       </div>
     )
@@ -177,55 +185,23 @@ export default function VendorDetail({
             <p className="text-slate-600">Comprehensive vendor information and inspection history</p>
           </div>
           <div className="flex gap-2">
-            {isActionable && (
-              <>
-                <button
-                  onClick={async () => {
-                    setIsProcessing(true)
-                    try {
-                      await qcCheckerService.approveVendor(vendor.id)
-                      showSuccessToast("Success", "Vendor Approved successfully")
-                      onBack()
-                    } catch (e) {
-                      showErrorToast("Error", "Failed to approve vendor")
-                    } finally { setIsProcessing(false) }
-                  }}
-                  disabled={isProcessing}
-                  className="flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50"
-                >
-                  <ThumbsUp className="w-4 h-4" />
-                  Approve
-                </button>
-                <button
-                  onClick={async () => {
-                    const reason = window.prompt("Enter Rejection Reason:")
-                    if (reason) {
-                      setIsProcessing(true)
-                      try {
-                        await qcCheckerService.rejectVendor(vendor.id, reason)
-                        showSuccessToast("Success", "Vendor Rejected successfully")
-                        onBack()
-                      } catch (e) {
-                        showErrorToast("Error", "Failed to reject vendor")
-                      } finally { setIsProcessing(false) }
-                    }
-                  }}
-                  disabled={isProcessing}
-                  className="flex items-center gap-2 px-4 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-all disabled:opacity-50"
-                >
-                  <ThumbsDown className="w-4 h-4" />
-                  Reject
-                </button>
-              </>
-            )}
-            {actualUpcomingInspections.length > 0 && (
+            <button
+              onClick={() => loadAll()}
+              disabled={loading}
+              title="Refresh"
+              aria-label="Refresh vendor details"
+              className="p-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors disabled:opacity-50"
+            >
+              <RotateCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
+            {firstUpcoming && onStartInspection && (
               <button
-                onClick={() => handleStartInspection(actualUpcomingInspections[0].id)}
-                disabled={isProcessing}
+                onClick={handleOpenInspection}
                 className="flex items-center gap-2 px-6 py-3 bg-linear-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50"
               >
                 <Play className="w-4 h-4" />
-                Start Now ({actualUpcomingInspections[0].poNumber})
+                {isContinuing ? 'Continue' : 'Start Now'}
+                {firstUpcoming.poNumber ? ` (${firstUpcoming.poNumber})` : ''}
               </button>
             )}
           </div>
@@ -260,20 +236,20 @@ export default function VendorDetail({
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-blue-100 text-sm">Last PO</p>
+              <p className="text-blue-100 text-sm">Last Inspection</p>
               <p className="font-semibold">
-                {stats?.lastPoDate ? new Date(stats.lastPoDate).toLocaleDateString() : "No PO yet"}
+                {stats?.lastInspectionDate ? formatDate(stats.lastInspectionDate) : "No inspections yet"}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg">
-              <TrendingUp className="w-5 h-5" />
+              <BarChart3 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-blue-100 text-sm">Pass Rate</p>
-              <p className="font-semibold">{stats?.passRate ?? 0}%</p>
+              <p className="text-blue-100 text-sm">Total Inspections</p>
+              <p className="font-semibold">{stats?.totalInspections ?? 0}</p>
             </div>
           </div>
         </div>
@@ -318,14 +294,20 @@ export default function VendorDetail({
                 {fullVendor?.website && (
                   <div>
                     <label className="text-sm font-medium text-slate-600">Website</label>
-                    <a
-                      href={fullVendor.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-blue-600 hover:underline mt-1"
-                    >
-                      <Globe className="w-4 h-4" /> {fullVendor.website}
-                    </a>
+                    {safeExternalUrl(fullVendor.website) ? (
+                      <a
+                        href={safeExternalUrl(fullVendor.website)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-600 hover:underline mt-1 break-all"
+                      >
+                        <Globe className="w-4 h-4 shrink-0" /> {fullVendor.website}
+                      </a>
+                    ) : (
+                      <p className="flex items-center gap-1 text-slate-700 text-sm mt-1 break-all">
+                        <Globe className="w-4 h-4 shrink-0 text-slate-400" /> {fullVendor.website}
+                      </p>
+                    )}
                   </div>
                 )}
                 {fullVendor?.companyDescription && (
@@ -365,12 +347,48 @@ export default function VendorDetail({
                   </div>
                 </div>
 
+                {fullVendor?.assignedQc && (
+                  <div className="border-t border-slate-100 pt-4">
+                    <label className="text-sm font-medium text-slate-600">Assigned QC Checker</label>
+                    <div className="mt-1">
+                      <p className="text-slate-900 font-medium">{fullVendor.assignedQc.name}</p>
+                      {fullVendor.assignedQc.checkerId && (
+                        <p className="text-xs text-slate-500">ID: {fullVendor.assignedQc.checkerId}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-600">
+                        {fullVendor.assignedQc.phone && (
+                          <a
+                            href={`tel:${fullVendor.assignedQc.phone}`}
+                            className="flex items-center gap-1 hover:text-blue-600"
+                          >
+                            <Phone className="w-4 h-4" />
+                            <span>{fullVendor.assignedQc.phone}</span>
+                          </a>
+                        )}
+                        {fullVendor.assignedQc.email && (
+                          <a
+                            href={`mailto:${fullVendor.assignedQc.email}`}
+                            className="flex items-center gap-1 hover:text-blue-600"
+                          >
+                            <Mail className="w-4 h-4" />
+                            <span>{fullVendor.assignedQc.email}</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {fullVendor?.businessAddress && (
                   <div>
                     <label className="text-sm font-medium text-slate-600">Business Address</label>
                     <p className="text-slate-700 text-sm mt-1">
-                      {[fullVendor.businessAddress, fullVendor.businessCity, fullVendor.businessState, fullVendor.businessZipCode]
-                        .filter(Boolean).join(", ")}
+                      {formatAddress(
+                        fullVendor.businessAddress,
+                        fullVendor.businessCity,
+                        fullVendor.businessState,
+                        fullVendor.businessZipCode
+                      )}
                     </p>
                   </div>
                 )}
@@ -381,8 +399,12 @@ export default function VendorDetail({
                       <Factory className="w-4 h-4" /> Factory
                     </label>
                     <p className="text-slate-700 text-sm mt-1">
-                      {[fullVendor.factoryAddress, fullVendor.factoryCity, fullVendor.factoryState, fullVendor.factoryZipCode]
-                        .filter(Boolean).join(", ")}
+                      {formatAddress(
+                        fullVendor.factoryAddress,
+                        fullVendor.factoryCity,
+                        fullVendor.factoryState,
+                        fullVendor.factoryZipCode
+                      )}
                     </p>
                     {fullVendor.factorySize && (
                       <p className="text-xs text-slate-500 mt-1">Size: {fullVendor.factorySize}</p>
@@ -396,8 +418,11 @@ export default function VendorDetail({
                       <Warehouse className="w-4 h-4" /> Warehouse
                     </label>
                     <p className="text-slate-700 text-sm mt-1">
-                      {[fullVendor.warehouseAddress, fullVendor.warehouseCity, fullVendor.warehouseState]
-                        .filter(Boolean).join(", ")}
+                      {formatAddress(
+                        fullVendor.warehouseAddress,
+                        fullVendor.warehouseCity,
+                        fullVendor.warehouseState
+                      )}
                     </p>
                   </div>
                 )}
@@ -471,9 +496,16 @@ export default function VendorDetail({
       {/* Inspection History */}
       {activeTab === 'history' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600" /> Recent Inspection History
-          </h3>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" /> Recent Inspection History
+            </h3>
+            {historyMeta && historyMeta.total > 0 && (
+              <span className="text-sm text-slate-500">
+                Showing {historyMeta.returned} of {historyMeta.total}
+              </span>
+            )}
+          </div>
           <div className="space-y-4">
             {recentInspections.length > 0 ? recentInspections.map((insp: any) => (
               <div key={insp.id} className="border border-slate-200 rounded-lg p-4">
@@ -493,7 +525,7 @@ export default function VendorDetail({
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-slate-600">
                   <span>Scheduled: {insp.scheduledDate}</span>
                   {insp.completedAt && (
-                    <span>Completed: {new Date(insp.completedAt).toLocaleDateString()}</span>
+                    <span>Completed: {formatDate(insp.completedAt)}</span>
                   )}
                   {typeof insp.score === 'number' && (
                     <span>Score: <span className="font-semibold text-slate-900">{insp.score}/10</span></span>
@@ -506,6 +538,18 @@ export default function VendorDetail({
               </p>
             )}
           </div>
+          {historyMeta?.hasMore && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={handleLoadMoreHistory}
+                disabled={loading || historyLimit >= 50}
+                className="flex items-center gap-2 px-5 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                {historyLimit >= 50 ? "Showing max 50" : "Load more"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -547,30 +591,30 @@ export default function VendorDetail({
 
       {/* Performance */}
       {activeTab === 'performance' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           <StatCard
-            icon={<BarChart3 className="w-6 h-6 text-blue-600" />}
+            icon={<Calendar className="w-6 h-6 text-blue-600" />}
             bg="bg-blue-100"
-            value={stats?.totalCompleted ?? 0}
-            label="Total Inspections"
+            value={stats?.scheduledCount ?? 0}
+            label="Scheduled"
           />
           <StatCard
-            icon={<CheckCircle className="w-6 h-6 text-green-600" />}
-            bg="bg-green-100"
+            icon={<Clock className="w-6 h-6 text-amber-600" />}
+            bg="bg-amber-100"
+            value={stats?.inProgressCount ?? 0}
+            label="In Progress"
+          />
+          <StatCard
+            icon={<CheckCircle className="w-6 h-6 text-emerald-600" />}
+            bg="bg-emerald-100"
+            value={stats?.completedCount ?? 0}
+            label="Completed"
+          />
+          <StatCard
+            icon={<TrendingUp className="w-6 h-6 text-purple-600" />}
+            bg="bg-purple-100"
             value={`${stats?.passRate ?? 0}%`}
             label="Pass Rate"
-          />
-          <StatCard
-            icon={<TrendingUp className="w-6 h-6 text-amber-600" />}
-            bg="bg-amber-100"
-            value={`${stats?.averageScore ?? 0}/10`}
-            label="Average Score"
-          />
-          <StatCard
-            icon={<Clock className="w-6 h-6 text-purple-600" />}
-            bg="bg-purple-100"
-            value={`${stats?.onTimeDelivery ?? 0}%`}
-            label="On-Time Delivery"
           />
         </div>
       )}
@@ -596,4 +640,56 @@ function StatCard({ icon, bg, value, label }: { icon: React.ReactNode; bg: strin
       <p className="text-sm text-slate-600">{label}</p>
     </div>
   )
+}
+
+function VendorDetailSkeleton() {
+  return (
+    <div className="p-8 font-sans animate-pulse">
+      <div className="mb-8 flex items-center gap-4">
+        <div className="h-10 w-10 bg-slate-200 rounded-lg" />
+        <div className="flex-1 space-y-3">
+          <div className="h-8 w-64 bg-slate-200 rounded" />
+          <div className="h-4 w-96 bg-slate-200 rounded" />
+        </div>
+      </div>
+      <div className="h-28 bg-slate-200 rounded-2xl mb-8" />
+      <div className="h-10 border-b border-slate-200 mb-6" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {[0, 1].map((i) => (
+          <div key={i} className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+            <div className="h-5 w-40 bg-slate-200 rounded" />
+            {[...Array(5)].map((_, j) => (
+              <div key={j} className="space-y-2">
+                <div className="h-3 w-24 bg-slate-200 rounded" />
+                <div className="h-4 w-full bg-slate-200 rounded" />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Only allow http(s) URLs to prevent javascript:/data: XSS injection via vendor-supplied links.
+function safeExternalUrl(url?: string | null): string | null {
+  if (!url) return null
+  const trimmed = url.trim()
+  return /^https?:\/\//i.test(trimmed) ? trimmed : null
+}
+
+function formatDate(input?: string | Date | null): string {
+  if (!input) return ""
+  const d = typeof input === "string" ? new Date(input) : input
+  if (isNaN(d.getTime())) return ""
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+}
+
+// Joins address parts with ", " while trimming and dropping empty/whitespace-only segments.
+// Prevents ugly strings like "Addr, , Zip" when intermediate fields are missing.
+function formatAddress(...parts: Array<string | null | undefined>): string {
+  return parts
+    .map((p) => (p ?? "").toString().trim())
+    .filter((p) => p.length > 0)
+    .join(", ")
 }

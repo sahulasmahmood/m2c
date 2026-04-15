@@ -28,14 +28,14 @@ export default function DashboardHome({ checkerID }: DashboardHomeProps) {
       try {
         const [productsRes, vendorsRes] = await Promise.all([
           qcCheckerService.getAssignedProducts(),
-          qcCheckerService.getAssignedVendors()
+          qcCheckerService.getAssignedVendors({ limit: 50 })
         ])
 
         if (productsRes.success) {
-          setAssignedProducts(productsRes.data)
+          setAssignedProducts(productsRes.data ?? [])
         }
         if (vendorsRes.success) {
-          setAssignedVendors(vendorsRes.data)
+          setAssignedVendors(vendorsRes.data?.vendors ?? [])
         }
       } catch (error: any) {
         console.error("Error fetching dashboard data:", error)

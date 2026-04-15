@@ -1,11 +1,30 @@
 "use client"
 
+import type { StepErrors } from "../validation"
+import {
+    READONLY_CLS,
+    ErrorText,
+    RequiredMark,
+    hasAutofillValue,
+    inputCls,
+} from "./fieldHelpers"
+
 interface StepProps {
     formData: any
     setFormData: (data: any) => void
+    errors?: StepErrors
 }
 
-export default function FactoryDetails({ formData, setFormData }: StepProps) {
+// Vendor Name / Vendor Code are always server-supplied and never editable.
+// The remaining fields lock only when the vendor provided a value, so the
+// checker can still fill in anything the vendor left blank from on-site
+// verification.
+export default function FactoryDetails({ formData, setFormData, errors = {} }: StepProps) {
+    const factoryNameLocked = hasAutofillValue(formData.factoryName)
+    const contactNameLocked = hasAutofillValue(formData.contactPersonName)
+    const contactPhoneLocked = hasAutofillValue(formData.contactPhoneNumber)
+    const addressLocked = hasAutofillValue(formData.factoryAddress)
+
     return (
         <div className="space-y-8">
             <div className="border-b border-slate-200 pb-6">
@@ -20,10 +39,10 @@ export default function FactoryDetails({ formData, setFormData }: StepProps) {
                     <label className="block text-slate-700 font-semibold mb-3 text-sm">Vendor Name:</label>
                     <input
                         type="text"
-                        value={formData.vendorName}
-                        onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.vendorName || ""}
                         readOnly
+                        aria-readonly="true"
+                        className={READONLY_CLS}
                     />
                 </div>
                 <div>
@@ -34,48 +53,114 @@ export default function FactoryDetails({ formData, setFormData }: StepProps) {
                         readOnly
                         aria-readonly="true"
                         placeholder="Loading..."
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl bg-slate-100 text-slate-700 font-mono cursor-not-allowed focus:outline-none"
+                        className={`${READONLY_CLS} text-slate-700 font-mono`}
                     />
                 </div>
                 <div>
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">Factory Name:</label>
-                    <input
-                        type="text"
-                        value={formData.factoryName}
-                        onChange={(e) => setFormData({ ...formData, factoryName: e.target.value })}
-                        placeholder="Enter factory name"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        Factory Name{!factoryNameLocked && <RequiredMark />}
+                    </label>
+                    {factoryNameLocked ? (
+                        <input
+                            type="text"
+                            value={formData.factoryName}
+                            readOnly
+                            aria-readonly="true"
+                            className={READONLY_CLS}
+                        />
+                    ) : (
+                        <>
+                            <input
+                                type="text"
+                                value={formData.factoryName || ""}
+                                onChange={(e) => setFormData({ ...formData, factoryName: e.target.value })}
+                                placeholder="Not provided by vendor — enter if verified on-site"
+                                aria-invalid={!!errors.factoryName}
+                                className={inputCls(!!errors.factoryName)}
+                            />
+                            <ErrorText msg={errors.factoryName} />
+                        </>
+                    )}
                 </div>
                 <div>
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">Contact Person Name:</label>
-                    <input
-                        type="text"
-                        value={formData.contactPersonName}
-                        onChange={(e) => setFormData({ ...formData, contactPersonName: e.target.value })}
-                        placeholder="Enter contact person name"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        Contact Person Name{!contactNameLocked && <RequiredMark />}
+                    </label>
+                    {contactNameLocked ? (
+                        <input
+                            type="text"
+                            value={formData.contactPersonName}
+                            readOnly
+                            aria-readonly="true"
+                            className={READONLY_CLS}
+                        />
+                    ) : (
+                        <>
+                            <input
+                                type="text"
+                                value={formData.contactPersonName || ""}
+                                onChange={(e) => setFormData({ ...formData, contactPersonName: e.target.value })}
+                                placeholder="Not provided by vendor — enter if verified on-site"
+                                aria-invalid={!!errors.contactPersonName}
+                                className={inputCls(!!errors.contactPersonName)}
+                            />
+                            <ErrorText msg={errors.contactPersonName} />
+                        </>
+                    )}
                 </div>
                 <div>
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">Contact Phone Number:</label>
-                    <input
-                        type="text"
-                        value={formData.contactPhoneNumber}
-                        onChange={(e) => setFormData({ ...formData, contactPhoneNumber: e.target.value })}
-                        placeholder="Enter contact phone number"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        Contact Phone Number{!contactPhoneLocked && <RequiredMark />}
+                    </label>
+                    {contactPhoneLocked ? (
+                        <input
+                            type="tel"
+                            inputMode="tel"
+                            value={formData.contactPhoneNumber}
+                            readOnly
+                            aria-readonly="true"
+                            className={READONLY_CLS}
+                        />
+                    ) : (
+                        <>
+                            <input
+                                type="tel"
+                                inputMode="tel"
+                                value={formData.contactPhoneNumber || ""}
+                                onChange={(e) => setFormData({ ...formData, contactPhoneNumber: e.target.value })}
+                                placeholder="+91 98765 43210"
+                                aria-invalid={!!errors.contactPhoneNumber}
+                                className={inputCls(!!errors.contactPhoneNumber)}
+                            />
+                            <ErrorText msg={errors.contactPhoneNumber} />
+                        </>
+                    )}
                 </div>
                 <div className="md:col-span-2">
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">Factory Address:</label>
-                    <textarea
-                        value={formData.factoryAddress}
-                        onChange={(e) => setFormData({ ...formData, factoryAddress: e.target.value })}
-                        placeholder="Enter factory address"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        rows={3}
-                    />
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        Factory Address{!addressLocked && <RequiredMark />}
+                    </label>
+                    {addressLocked ? (
+                        <textarea
+                            value={formData.factoryAddress}
+                            readOnly
+                            aria-readonly="true"
+                            className={READONLY_CLS}
+                            rows={3}
+                        />
+                    ) : (
+                        <>
+                            <textarea
+                                value={formData.factoryAddress || ""}
+                                onChange={(e) => setFormData({ ...formData, factoryAddress: e.target.value })}
+                                placeholder="Not provided by vendor — enter if verified on-site"
+                                aria-invalid={!!errors.factoryAddress}
+                                className={inputCls(!!errors.factoryAddress)}
+                                rows={3}
+                            />
+                            <ErrorText msg={errors.factoryAddress} />
+                        </>
+                    )}
                 </div>
             </div>
         </div>

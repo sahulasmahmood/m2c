@@ -597,35 +597,84 @@ const getCheckerProfile = async (req, res) => {
 // ============================
 // QC Checker: Get assigned vendors
 // ============================
+const ALLOWED_VENDOR_STATUSES = ['PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED'];
+const ALLOWED_VENDOR_SORT_FIELDS = ['submittedAt', 'companyName', 'status'];
+
 const getAssignedVendors = async (req, res) => {
     try {
         const checkerId = req.user?.checkerId || req.userId;
 
-        const vendors = await prisma.vendor.findMany({
-            where: {
-                assignedQcId: checkerId,
-            },
-            select: {
-                id: true,
-                companyName: true,
-                ownerName: true,
-                businessEmail: true,
-                businessPhone: true,
-                status: true,
-                createdAt: true,
-                submittedAt: true,
-                factoryAddress: true,
-                factoryCity: true,
-                factoryState: true,
-            },
-            orderBy: {
-                submittedAt: 'desc'
-            }
-        });
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 12, 1), 50);
+        // Cap search length to bound DB scan cost — beyond this, regex/contains
+        // queries on text columns get expensive.
+        const search = (req.query.search || '').toString().trim().slice(0, 100);
+        const status = req.query.status ? req.query.status.toString().toUpperCase() : null;
+        const sortBy = ALLOWED_VENDOR_SORT_FIELDS.includes(req.query.sortBy)
+            ? req.query.sortBy
+            : 'submittedAt';
+        const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
+
+        if (status && !ALLOWED_VENDOR_STATUSES.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: `Invalid status. Must be one of: ${ALLOWED_VENDOR_STATUSES.join(', ')}`,
+            });
+        }
+
+        const where = { assignedQcId: checkerId };
+        if (status) where.status = status;
+        if (search) {
+            where.OR = [
+                { companyName: { contains: search, mode: 'insensitive' } },
+                { factoryCity: { contains: search, mode: 'insensitive' } },
+                { factoryState: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
+        const [total, vendors] = await Promise.all([
+            prisma.vendor.count({ where }),
+            prisma.vendor.findMany({
+                where,
+                select: {
+                    id: true,
+                    companyName: true,
+                    ownerName: true,
+                    businessEmail: true,
+                    businessPhone: true,
+                    status: true,
+                    createdAt: true,
+                    submittedAt: true,
+                    factoryAddress: true,
+                    factoryCity: true,
+                    factoryState: true,
+                    // Return up to 5 most recent inspections; the frontend
+                    // picks an actionable one (SCHEDULED/IN_PROGRESS) over a
+                    // terminal one so the card button reflects what the checker
+                    // can actually do.
+                    inspections: {
+                        select: { status: true },
+                        orderBy: { createdAt: 'desc' },
+                        take: 5,
+                    },
+                },
+                orderBy: { [sortBy]: sortOrder },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+        ]);
 
         res.json({
             success: true,
-            data: vendors,
+            data: {
+                vendors,
+                pagination: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                },
+            },
         });
 
     } catch (error) {
@@ -645,11 +694,18 @@ const getVendorDetails = async (req, res) => {
         const { vendorId } = req.params;
         const checkerId = req.user?.checkerId || req.userId;
 
+        const historyLimit = Math.min(
+            Math.max(parseInt(req.query.historyLimit, 10) || 10, 1),
+            50
+        );
+
         const vendor = await prisma.vendor.findFirst({
             where: { id: vendorId, assignedQcId: checkerId },
             include: {
                 certifications: true,
-                assignedQc: { select: { name: true, checkerId: true } },
+                assignedQc: {
+                    select: { name: true, checkerId: true, email: true, phone: true },
+                },
             },
         });
 
@@ -663,28 +719,21 @@ const getVendorDetails = async (req, res) => {
         const completedWhere = { vendorId, status: 'COMPLETED' };
 
         const [
-            totalInspections,
-            totalCompleted,
+            statusBreakdown,
             passedCount,
-            scoreAgg,
-            completedForOnTime,
             recentCompleted,
+            upcomingInspections,
         ] = await Promise.all([
-            prisma.inspection.count({ where: { vendorId } }),
-            prisma.inspection.count({ where: completedWhere }),
+            prisma.inspection.groupBy({
+                by: ['status'],
+                where: { vendorId },
+                _count: { _all: true },
+            }),
             prisma.inspection.count({ where: { ...completedWhere, result: 'PASSED' } }),
-            prisma.inspection.aggregate({
-                where: { ...completedWhere, score: { not: null } },
-                _avg: { score: true },
-            }),
-            prisma.inspection.findMany({
-                where: completedWhere,
-                select: { scheduledDate: true, completedAt: true },
-            }),
             prisma.inspection.findMany({
                 where: completedWhere,
                 orderBy: { completedAt: 'desc' },
-                take: 10,
+                take: historyLimit,
                 select: {
                     id: true,
                     poNumber: true,
@@ -692,30 +741,36 @@ const getVendorDetails = async (req, res) => {
                     scheduledDate: true,
                     completedAt: true,
                     result: true,
-                    score: true,
                     itemsToInspect: true,
+                },
+            }),
+            prisma.inspection.findMany({
+                where: { vendorId, status: { in: ['SCHEDULED', 'IN_PROGRESS'] } },
+                orderBy: { scheduledDate: 'asc' },
+                select: {
+                    id: true,
+                    poNumber: true,
+                    clientName: true,
+                    scheduledDate: true,
+                    status: true,
+                    priority: true,
                 },
             }),
         ]);
 
-        const passRate = totalCompleted > 0 ? Math.round((passedCount / totalCompleted) * 100) : 0;
-        const averageScore = scoreAgg._avg.score != null
-            ? Number(scoreAgg._avg.score.toFixed(1))
-            : 0;
-
-        // Compare against IST end-of-day so result is stable across server timezones
-        const onTimeCount = completedForOnTime.filter(i => {
-            if (!i.completedAt || !i.scheduledDate) return false;
-            const istEndOfDay = new Date(`${i.scheduledDate}T23:59:59.999+05:30`);
-            if (isNaN(istEndOfDay.getTime())) return false;
-            return new Date(i.completedAt) <= istEndOfDay;
-        }).length;
-        const onTimeDelivery = totalCompleted > 0
-            ? Math.round((onTimeCount / totalCompleted) * 100)
-            : 0;
+        const countByStatus = statusBreakdown.reduce((acc, row) => {
+            acc[row.status] = row._count._all;
+            return acc;
+        }, {});
+        const scheduledCount = countByStatus.SCHEDULED ?? 0;
+        const inProgressCount = countByStatus.IN_PROGRESS ?? 0;
+        const completedCount = countByStatus.COMPLETED ?? 0;
+        const cancelledCount = countByStatus.CANCELLED ?? 0;
+        const totalInspections = scheduledCount + inProgressCount + completedCount + cancelledCount;
+        const passRate = completedCount > 0 ? Math.round((passedCount / completedCount) * 100) : 0;
 
         const latest = recentCompleted[0];
-        const lastPoDate = latest
+        const lastInspectionDate = latest
             ? (latest.completedAt ? latest.completedAt.toISOString() : latest.scheduledDate)
             : null;
 
@@ -725,13 +780,20 @@ const getVendorDetails = async (req, res) => {
                 vendor,
                 stats: {
                     totalInspections,
-                    totalCompleted,
+                    scheduledCount,
+                    inProgressCount,
+                    completedCount,
                     passRate,
-                    averageScore,
-                    onTimeDelivery,
-                    lastPoDate,
+                    lastInspectionDate,
                 },
                 recentInspections: recentCompleted,
+                upcomingInspections,
+                recentInspectionsMeta: {
+                    limit: historyLimit,
+                    returned: recentCompleted.length,
+                    total: completedCount,
+                    hasMore: completedCount > recentCompleted.length,
+                },
             },
         });
     } catch (error) {
@@ -739,6 +801,67 @@ const getVendorDetails = async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch vendor details',
+        });
+    }
+};
+
+// ============================
+// QC Checker: Get active inspection for a vendor (fast path for InspectionForm)
+// ============================
+const getActiveInspectionForVendor = async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        const checkerId = req.user?.checkerId || req.userId;
+
+        const vendor = await prisma.vendor.findFirst({
+            where: { id: vendorId, assignedQcId: checkerId },
+            select: { id: true },
+        });
+        if (!vendor) {
+            return res.status(403).json({
+                success: false,
+                error: 'Vendor not assigned to this checker',
+            });
+        }
+
+        const inspectionSelect = {
+            id: true,
+            status: true,
+            itemsToInspect: true,
+            scheduledDate: true,
+            vendor: {
+                select: {
+                    id: true,
+                    vendorCode: true,
+                    companyName: true,
+                    ownerName: true,
+                    businessPhone: true,
+                    gstNumber: true,
+                    factoryAddress: true,
+                    factoryCity: true,
+                    factoryState: true,
+                    factoryZipCode: true,
+                    businessRegistrationNumber: true,
+                    tradeLicenseNumber: true,
+                },
+            },
+        };
+
+        // Only return inspections the checker can act on. Falling back to
+        // COMPLETED/CANCELLED rows would leak a stale id into InspectionForm and
+        // corrupt the submit path (server would reject, but UX path is wrong).
+        const inspection = await prisma.inspection.findFirst({
+            where: { vendorId, checkerId, status: { in: ['SCHEDULED', 'IN_PROGRESS'] } },
+            orderBy: { scheduledDate: 'asc' },
+            select: inspectionSelect,
+        });
+
+        res.json({ success: true, inspection });
+    } catch (error) {
+        console.error('Get active inspection error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch active inspection',
         });
     }
 };
@@ -1062,6 +1185,7 @@ module.exports = {
     getCheckerProfile,
     getAssignedVendors,
     getVendorDetails,
+    getActiveInspectionForVendor,
     approveVendorByQc,
     rejectVendorByQc,
     getAssignedProducts,

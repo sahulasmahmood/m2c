@@ -154,20 +154,48 @@ class QCCheckerService {
     // Get current checker profile
     async getCheckerProfile(): Promise<{ success: boolean; data: QCCheckerData }> {
         try {
-            const response = await axios.get('/qc-checkers/me');
+            const token = this.getCheckerToken();
+            if (!token) {
+                throw new Error('Not authenticated as checker');
+            }
+            const response = await axios.get('/qc-checkers/me', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
             return response.data;
         } catch (error: any) {
-            throw new Error(error.message || 'Failed to fetch profile');
+            throw new Error(error?.message || 'Failed to fetch profile');
         }
     }
 
-    // Get assigned vendors
-    async getAssignedVendors(): Promise<{ success: boolean; data: any[] }> {
+    // Get assigned vendors (paginated + filtered)
+    async getAssignedVendors(params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: string;
+        sortBy?: string;
+        sortOrder?: 'asc' | 'desc';
+    } = {}): Promise<{
+        success: boolean;
+        data: {
+            vendors: any[];
+            pagination: { total: number; page: number; limit: number; totalPages: number };
+        };
+    }> {
         try {
+            const cleanParams: Record<string, string | number> = {};
+            if (params.page) cleanParams.page = params.page;
+            if (params.limit) cleanParams.limit = params.limit;
+            if (params.search) cleanParams.search = params.search;
+            if (params.status) cleanParams.status = params.status;
+            if (params.sortBy) cleanParams.sortBy = params.sortBy;
+            if (params.sortOrder) cleanParams.sortOrder = params.sortOrder;
+
             const response = await axios.get('/qc-checkers/vendors', {
                 headers: {
                     'Authorization': `Bearer ${this.getCheckerToken()}`
-                }
+                },
+                params: cleanParams,
             });
             return response.data;
         } catch (error: any) {
@@ -175,13 +203,45 @@ class QCCheckerService {
         }
     }
 
+    // Fast path: get the active (or latest) inspection for a vendor — used by InspectionForm
+    async getActiveInspectionForVendor(
+        vendorId: string
+    ): Promise<{ success: boolean; inspection: any | null }> {
+        try {
+            const token = this.getCheckerToken();
+            if (!token) {
+                throw new Error('Not authenticated as checker');
+            }
+            const response = await axios.get(
+                `/qc-checkers/vendors/${vendorId}/active-inspection`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error?.message || 'Failed to fetch active inspection');
+        }
+    }
+
     // Get vendor full details + inspection stats + recent completed inspections
-    async getVendorDetails(vendorId: string): Promise<{ success: boolean; data: { vendor: any; stats: any; recentInspections: any[] } }> {
+    async getVendorDetails(
+        vendorId: string,
+        historyLimit = 10
+    ): Promise<{
+        success: boolean;
+        data: {
+            vendor: any;
+            stats: any;
+            recentInspections: any[];
+            upcomingInspections?: any[];
+            recentInspectionsMeta?: { limit: number; returned: number; total: number; hasMore: boolean };
+        };
+    }> {
         try {
             const response = await axios.get(`/qc-checkers/vendors/${vendorId}/details`, {
                 headers: {
                     'Authorization': `Bearer ${this.getCheckerToken()}`
-                }
+                },
+                params: { historyLimit },
             });
             return response.data;
         } catch (error: any) {
