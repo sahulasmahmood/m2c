@@ -1,11 +1,28 @@
 "use client"
 
+import type { StepErrors } from "../validation"
+import {
+    READONLY_CLS,
+    ErrorText,
+    RequiredMark,
+    hasAutofillValue,
+    inputCls,
+} from "./fieldHelpers"
+
 interface StepProps {
     formData: any
     setFormData: (data: any) => void
+    errors?: StepErrors
 }
 
-export default function LegalRegistration({ formData, setFormData }: StepProps) {
+// Field lock rule: vendor-supplied values are authoritative and immutable for
+// the checker. When the vendor left a field blank, the checker fills it in
+// from on-site verification, so the field stays editable in that case.
+export default function LegalRegistration({ formData, setFormData, errors = {} }: StepProps) {
+    const bizRegLocked = hasAutofillValue(formData.businessRegistrationNumber)
+    const gstLocked = hasAutofillValue(formData.gstTaxId)
+    const licenseLocked = hasAutofillValue(formData.factoryLicenseNumber)
+
     return (
         <div className="space-y-8">
             <div className="border-b border-slate-200 pb-6">
@@ -17,34 +34,82 @@ export default function LegalRegistration({ formData, setFormData }: StepProps) 
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">Business Registration Number:</label>
-                    <input
-                        type="text"
-                        value={formData.businessRegistrationNumber}
-                        onChange={(e) => setFormData({ ...formData, businessRegistrationNumber: e.target.value })}
-                        placeholder="Enter business registration number"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        Business Registration Number{!bizRegLocked && <RequiredMark />}
+                    </label>
+                    {bizRegLocked ? (
+                        <input
+                            type="text"
+                            value={formData.businessRegistrationNumber}
+                            readOnly
+                            aria-readonly="true"
+                            className={READONLY_CLS}
+                        />
+                    ) : (
+                        <>
+                            <input
+                                type="text"
+                                value={formData.businessRegistrationNumber || ""}
+                                onChange={(e) => setFormData({ ...formData, businessRegistrationNumber: e.target.value })}
+                                placeholder="Not provided by vendor — enter if verified on-site"
+                                aria-invalid={!!errors.businessRegistrationNumber}
+                                className={inputCls(!!errors.businessRegistrationNumber)}
+                            />
+                            <ErrorText msg={errors.businessRegistrationNumber} />
+                        </>
+                    )}
                 </div>
                 <div>
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">GST / Tax ID:</label>
-                    <input
-                        type="text"
-                        value={formData.gstTaxId}
-                        onChange={(e) => setFormData({ ...formData, gstTaxId: e.target.value })}
-                        placeholder="Enter GST / Tax ID"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        GST / Tax ID{!gstLocked && <RequiredMark />}
+                    </label>
+                    {gstLocked ? (
+                        <input
+                            type="text"
+                            value={formData.gstTaxId}
+                            readOnly
+                            aria-readonly="true"
+                            className={`${READONLY_CLS} font-mono`}
+                        />
+                    ) : (
+                        <>
+                            <input
+                                type="text"
+                                value={formData.gstTaxId || ""}
+                                onChange={(e) => setFormData({ ...formData, gstTaxId: e.target.value })}
+                                placeholder="Not provided by vendor — enter if verified on-site"
+                                aria-invalid={!!errors.gstTaxId}
+                                className={`${inputCls(!!errors.gstTaxId)} font-mono`}
+                            />
+                            <ErrorText msg={errors.gstTaxId} />
+                        </>
+                    )}
                 </div>
                 <div className="md:col-span-2">
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">Factory License Number:</label>
-                    <input
-                        type="text"
-                        value={formData.factoryLicenseNumber}
-                        onChange={(e) => setFormData({ ...formData, factoryLicenseNumber: e.target.value })}
-                        placeholder="Enter factory license number"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        Factory License Number{!licenseLocked && <RequiredMark />}
+                    </label>
+                    {licenseLocked ? (
+                        <input
+                            type="text"
+                            value={formData.factoryLicenseNumber}
+                            readOnly
+                            aria-readonly="true"
+                            className={READONLY_CLS}
+                        />
+                    ) : (
+                        <>
+                            <input
+                                type="text"
+                                value={formData.factoryLicenseNumber || ""}
+                                onChange={(e) => setFormData({ ...formData, factoryLicenseNumber: e.target.value })}
+                                placeholder="Not provided by vendor — enter if verified on-site"
+                                aria-invalid={!!errors.factoryLicenseNumber}
+                                className={inputCls(!!errors.factoryLicenseNumber)}
+                            />
+                            <ErrorText msg={errors.factoryLicenseNumber} />
+                        </>
+                    )}
                 </div>
             </div>
         </div>

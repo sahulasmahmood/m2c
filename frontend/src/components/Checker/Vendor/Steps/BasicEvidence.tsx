@@ -1,10 +1,13 @@
 "use client"
 
 import { Upload, X, Image as ImageIcon, FileText, AlertCircle } from "lucide-react"
+import type { StepErrors } from "../validation"
+import { ErrorText, RequiredMark } from "./fieldHelpers"
 
 interface StepProps {
     formData: any
     setFormData: (data: any) => void
+    errors?: StepErrors
 }
 
 // Compress image before storing to keep payload manageable
@@ -35,7 +38,7 @@ const compressImage = (file: File, maxWidth = 1200, quality = 0.7): Promise<stri
     })
 }
 
-export default function BasicEvidence({ formData, setFormData }: StepProps) {
+export default function BasicEvidence({ formData, setFormData, errors = {} }: StepProps) {
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
         if (!e.target.files) return
@@ -91,9 +94,9 @@ export default function BasicEvidence({ formData, setFormData }: StepProps) {
                 {/* Factory Photos */}
                 <div>
                     <label className="block text-slate-700 font-semibold mb-3 text-sm">
-                        Factory Photos:
+                        Factory Photos<RequiredMark />
                     </label>
-                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-8 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
+                    <div className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer ${errors.factoryPhotos ? "border-red-400 bg-red-50/40" : "border-slate-300 bg-slate-50 hover:bg-slate-100"}`}>
                         <Upload className="w-8 h-8 text-slate-400 mb-3" />
                         <p className="text-sm text-slate-600 mb-4">Click to upload or drag and drop images</p>
                         <label className="cursor-pointer bg-white px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -107,6 +110,7 @@ export default function BasicEvidence({ formData, setFormData }: StepProps) {
                             />
                         </label>
                     </div>
+                    <ErrorText msg={errors.factoryPhotos} />
                     {formData.factoryPhotos?.length > 0 && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
                             {formData.factoryPhotos.map((photo: any, idx: number) => {

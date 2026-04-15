@@ -336,6 +336,9 @@ model Vendor {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
+  @@index([assignedQcId, status])
+  @@index([assignedQcId, submittedAt])
+  @@index([status])
   @@map("vendors")
 }
 
@@ -1312,6 +1315,10 @@ model Inspection {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  @@index([vendorId, status])
+  @@index([vendorId, status, result])
+  @@index([checkerId, status])
+  @@index([completedAt])
   @@map("inspections")
 }
 

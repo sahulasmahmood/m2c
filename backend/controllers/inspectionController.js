@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { resolveBase64InValue } = require('../config/cloudinary');
+const { validateInspectionPayload } = require('../utils/inspectionValidation');
 
 // Create an Inspection Assignment
 const createInspection = async (req, res) => {
@@ -202,7 +203,7 @@ const updateInspection = async (req, res) => {
 const completeInspection = async (req, res) => {
     try {
         const { id } = req.params;
-        const checkerId = req.user.id;
+        const checkerId = req.user?.checkerId || req.user?.id || req.userId;
         const formData = req.body;
 
         const inspection = await prisma.inspection.findUnique({ where: { id } });
@@ -223,6 +224,17 @@ const completeInspection = async (req, res) => {
             return res.status(400).json({ error: 'Cannot complete a cancelled inspection' });
         }
 
+        // Defence-in-depth: validate the payload server-side. The UI blocks this
+        // already, but direct API calls or stale frontends could bypass it.
+        const validationErrors = validateInspectionPayload(formData);
+        if (Object.keys(validationErrors).length > 0) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                message: 'Some required fields are missing or invalid.',
+                fieldErrors: validationErrors,
+            });
+        }
+
         const mapStatusToResult = (formStatus) => {
             switch (formStatus) {
                 case 'Approved': return 'PASSED';
@@ -233,6 +245,12 @@ const completeInspection = async (req, res) => {
 
         const resultStatus = formData.inspectionStatus ? mapStatusToResult(formData.inspectionStatus) : 'PASSED';
 
+        // Convert any inline base64 data URLs (factory photos / docs) to Cloudinary
+        // URLs so the DB only ever stores hosted references — same pattern as
+        // createInspection. Without this, completed reports balloon to MBs of base64
+        // in Mongo and the admin viewer has to re-decode on every render.
+        const persistedFormData = await resolveBase64InValue(formData, { folder: 'inspections' });
+
         const updatedInspection = await prisma.inspection.update({
             where: { id },
             data: {
@@ -241,7 +259,7 @@ const completeInspection = async (req, res) => {
                 completedAt: new Date(),
                 result: resultStatus,
                 notes: formData.inspectorRemarks || '',
-                itemsToInspect: formData
+                itemsToInspect: persistedFormData
             },
             include: {
                 vendor: true

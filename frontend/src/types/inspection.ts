@@ -4,23 +4,24 @@ export interface Vendor {
   id: string
   name: string
   location: string
-  recentPO: string
+  submittedDate?: string
+  recentPO?: string
   status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'
   inspectionStatus?: string | null
-  contactPerson: {
+  contactPerson?: {
     name: string
     designation: string
     phone: string
     email: string
   }
-  factory: {
+  factory?: {
     name: string
     address: string
     manager: string
     managerPhone: string
     workingHours: string
   }
-  performance: {
+  performance?: {
     totalInspections: number
     passRate: number
     averageScore: number

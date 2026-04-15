@@ -1,12 +1,17 @@
 "use client"
 
+import type { StepErrors } from "../validation"
+import { BASE_INPUT, OK_BORDER, inputCls, ErrorText, RequiredMark } from "./fieldHelpers"
+
 interface StepProps {
     formData: any
     setFormData: (data: any) => void
+    errors?: StepErrors
 }
 
-export default function InspectionInfo({ formData, setFormData }: StepProps) {
+export default function InspectionInfo({ formData, setFormData, errors = {} }: StepProps) {
     const statusOptions = ["Approved", "Rejected"]
+    const isRejected = formData.inspectionStatus === "Rejected"
 
     return (
         <div className="space-y-8">
@@ -19,13 +24,18 @@ export default function InspectionInfo({ formData, setFormData }: StepProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">Inspection Date:</label>
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        Inspection Date<RequiredMark />
+                    </label>
                     <input
                         type="date"
-                        value={formData.inspectionDate}
+                        value={formData.inspectionDate || ""}
                         onChange={(e) => setFormData({ ...formData, inspectionDate: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        max={new Date().toISOString().split("T")[0]}
+                        aria-invalid={!!errors.inspectionDate}
+                        className={inputCls(!!errors.inspectionDate)}
                     />
+                    <ErrorText msg={errors.inspectionDate} />
                 </div>
                 <div>
                     <label className="block text-slate-700 font-semibold mb-3 text-sm">Inspector Name:</label>
@@ -36,31 +46,42 @@ export default function InspectionInfo({ formData, setFormData }: StepProps) {
                         aria-readonly="true"
                         title="Auto-filled from your logged-in QC Checker profile"
                         placeholder="Loading inspector..."
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl bg-slate-100 text-slate-700 cursor-not-allowed focus:outline-none"
+                        className={`${BASE_INPUT} ${OK_BORDER} bg-slate-100 text-slate-700 cursor-not-allowed`}
                     />
-                    <p className="mt-2 text-xs text-slate-500">Auto-filled from your logged-in checker profile.</p>
+                    <ErrorText msg={errors.inspectorName} />
+                    {!errors.inspectorName && (
+                        <p className="mt-2 text-xs text-slate-500">Auto-filled from your logged-in checker profile.</p>
+                    )}
                 </div>
                 <div>
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">Inspection Status:</label>
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        Inspection Status<RequiredMark />
+                    </label>
                     <select
-                        value={formData.inspectionStatus}
+                        value={formData.inspectionStatus || "Approved"}
                         onChange={(e) => setFormData({ ...formData, inspectionStatus: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        aria-invalid={!!errors.inspectionStatus}
+                        className={inputCls(!!errors.inspectionStatus, "bg-white")}
                     >
                         {statusOptions.map((opt) => (
                             <option key={opt} value={opt}>{opt}</option>
                         ))}
                     </select>
+                    <ErrorText msg={errors.inspectionStatus} />
                 </div>
                 <div className="md:col-span-2">
-                    <label className="block text-slate-700 font-semibold mb-3 text-sm">Inspector Remarks:</label>
+                    <label className="block text-slate-700 font-semibold mb-3 text-sm">
+                        Inspector Remarks{isRejected && <RequiredMark />}
+                    </label>
                     <textarea
-                        value={formData.inspectorRemarks}
+                        value={formData.inspectorRemarks || ""}
                         onChange={(e) => setFormData({ ...formData, inspectorRemarks: e.target.value })}
-                        placeholder="Enter any additional remarks"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder={isRejected ? "Required — reason for rejection" : "Enter any additional remarks (optional)"}
+                        aria-invalid={!!errors.inspectorRemarks}
+                        className={inputCls(!!errors.inspectorRemarks)}
                         rows={4}
                     />
+                    <ErrorText msg={errors.inspectorRemarks} />
                 </div>
             </div>
         </div>

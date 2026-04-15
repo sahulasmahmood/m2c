@@ -10,9 +10,11 @@ const {
     getCheckerProfile,
     getAssignedVendors,
     getVendorDetails,
+    getActiveInspectionForVendor,
     approveVendorByQc,
     rejectVendorByQc,
     getAssignedProducts,
+    getProductDetails,
     approveProductByQc,
     rejectProductByQc
 } = require('../controllers/qcCheckerController');
@@ -32,11 +34,13 @@ router.post('/login', qcCheckerLogin);
 router.get('/me', authenticateToken, getCheckerProfile);
 router.get('/vendors', authenticateToken, getAssignedVendors);
 router.get('/vendors/:vendorId/details', authenticateToken, getVendorDetails);
+router.get('/vendors/:vendorId/active-inspection', authenticateToken, getActiveInspectionForVendor);
 router.post('/vendors/:vendorId/approve', authenticateToken, approveVendorByQc);
 router.post('/vendors/:vendorId/reject', authenticateToken, rejectVendorByQc);
 
 // QC Products
 router.get('/products', authenticateToken, getAssignedProducts);
+router.get('/products/:productId/details', authenticateToken, getProductDetails);
 router.post('/products/:productId/approve', authenticateToken, approveProductByQc);
 router.post('/products/:productId/reject', authenticateToken, rejectProductByQc);
 

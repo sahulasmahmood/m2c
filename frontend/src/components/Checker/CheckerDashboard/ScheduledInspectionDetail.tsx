@@ -183,17 +183,21 @@ export default function ScheduledInspectionDetail({
               <div>
                 <label className="text-sm font-medium text-slate-600">Contact Person</label>
                 <div className="mt-1">
-                  <p className="text-slate-900 font-medium">{inspection.vendor.contactPerson.name}</p>
-                  <p className="text-sm text-slate-600">{inspection.vendor.contactPerson.designation}</p>
+                  <p className="text-slate-900 font-medium">{inspection.vendor.contactPerson?.name ?? "—"}</p>
+                  <p className="text-sm text-slate-600">{inspection.vendor.contactPerson?.designation ?? "—"}</p>
                   <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
-                    <div className="flex items-center gap-1">
-                      <Phone className="w-4 h-4" />
-                      <span>{inspection.vendor.contactPerson.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Mail className="w-4 h-4" />
-                      <span>{inspection.vendor.contactPerson.email}</span>
-                    </div>
+                    {inspection.vendor.contactPerson?.phone && (
+                      <div className="flex items-center gap-1">
+                        <Phone className="w-4 h-4" />
+                        <span>{inspection.vendor.contactPerson.phone}</span>
+                      </div>
+                    )}
+                    {inspection.vendor.contactPerson?.email && (
+                      <div className="flex items-center gap-1">
+                        <Mail className="w-4 h-4" />
+                        <span>{inspection.vendor.contactPerson.email}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -206,25 +210,27 @@ export default function ScheduledInspectionDetail({
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-slate-600">Factory Name</label>
-                <p className="text-slate-900 font-medium">{inspection.vendor.factory.name}</p>
+                <p className="text-slate-900 font-medium">{inspection.vendor.factory?.name ?? "—"}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-600">Address</label>
-                <p className="text-slate-700">{inspection.vendor.factory.address}</p>
+                <p className="text-slate-700">{inspection.vendor.factory?.address ?? "—"}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-600">Factory Manager</label>
                 <div className="mt-1">
-                  <p className="text-slate-900 font-medium">{inspection.vendor.factory.manager}</p>
-                  <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
-                    <Phone className="w-4 h-4" />
-                    <span>{inspection.vendor.factory.managerPhone}</span>
-                  </div>
+                  <p className="text-slate-900 font-medium">{inspection.vendor.factory?.manager ?? "—"}</p>
+                  {inspection.vendor.factory?.managerPhone && (
+                    <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
+                      <Phone className="w-4 h-4" />
+                      <span>{inspection.vendor.factory.managerPhone}</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-600">Working Hours</label>
-                <p className="text-slate-700">{inspection.vendor.factory.workingHours}</p>
+                <p className="text-slate-700">{inspection.vendor.factory?.workingHours ?? "—"}</p>
               </div>
             </div>
           </div>
