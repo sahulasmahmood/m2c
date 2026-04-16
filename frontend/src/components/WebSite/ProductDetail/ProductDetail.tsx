@@ -135,9 +135,9 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
     }
   };
 
-  // Handle quantity increment
+  // Handle quantity increment — cap at available stock
   const handleIncrement = () => {
-    setQuantity(prev => prev + 1);
+    setQuantity(prev => (prev < availableStock ? prev + 1 : prev));
   };
 
   // Handle quantity decrement
@@ -214,6 +214,11 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
       />
     ));
   };
+
+  // Get available stock based on selected variant or total product stock
+  const availableStock = selectedVariant
+    ? selectedVariant.stock
+    : (product.totalStock ?? 0);
 
   // Get current price based on selected variant or admin fixed price or base price
   const currentPrice = selectedVariant?.adminFixedPrice || selectedVariant?.price || product.adminFixedPrice || product.basePrice;
@@ -404,6 +409,7 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
                               onClick={() => {
                                 setSelectedVariant(null);
                                 setSelectedImage(0);
+                                setQuantity(1);
                               }}
                               className={`p-3 border-2 rounded-lg transition-all duration-300 text-left transform hover:scale-105 ${!selectedVariant
                                 ? 'border-blue-500 shadow-lg ring-2 ring-blue-200'
@@ -442,8 +448,8 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
                                   </div>
                                   <div className="text-lg font-bold text-gray-900 mt-1">${(product.adminFixedPrice || product.basePrice).toFixed(2)}</div>
                                   <div className="text-xs text-gray-500">
-                                    {(product.inventory?.currentStock ?? (product.hasVariants ? 0 : product.totalStock)) > 0
-                                      ? `${product.inventory?.currentStock ?? (product.hasVariants ? 0 : product.totalStock)} in stock`
+                                    {(product.inventory?.baseStock ?? product.totalStock ?? 0) > 0
+                                      ? `${product.inventory?.baseStock ?? product.totalStock} in stock`
                                       : 'Out of stock'}
                                   </div>
                                 </div>
@@ -459,6 +465,7 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
                                     setSelectedVariant(variant);
                                   }
                                   setSelectedImage(0); // Reset to first image
+                                  setQuantity(1); // Reset quantity on variant change
                                 }}
                                 className={`p-3 border-2 rounded-lg transition-all duration-300 text-left transform hover:scale-105 ${selectedVariant?.id === variant.id
                                   ? 'border-blue-500 shadow-lg ring-2 ring-blue-200'
@@ -546,26 +553,18 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
                       <div className="bg-linear-to-br from-gray-50 to-white p-4 rounded-xl shadow-lg border border-gray-100">
                         {/* Stock Status */}
                         <div className="mb-3">
-                          {(() => {
-                            const currentStock = selectedVariant
-                              ? selectedVariant.stock
-                              : (product.inventory?.currentStock ?? (product.hasVariants ? 0 : product.totalStock) ?? 0);
-
-                            const isActuallyInStock = product.inStock && currentStock > 0;
-
-                            return isActuallyInStock ? (
-                              <div className="flex items-center space-x-2">
-                                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                                <span className="text-green-600 font-bold text-base">In stock</span>
-                                <span className="text-gray-600 text-sm">({currentStock} available)</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center space-x-2">
-                                <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                                <span className="text-red-500 font-bold text-base">Out of Stock</span>
-                              </div>
-                            );
-                          })()}
+                          {product.inStock && availableStock > 0 ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className="text-green-600 font-bold text-base">In stock</span>
+                              <span className="text-gray-600 text-sm">({availableStock} available)</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                              <span className="text-red-500 font-bold text-base">Out of Stock</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Dispatch Timeline */}
@@ -582,44 +581,38 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
                         )}
 
                         {/* Action Buttons */}
-                        {(() => {
-                          const currentStock = selectedVariant
-                            ? selectedVariant.stock
-                            : (product.inventory?.currentStock ?? (product.hasVariants ? 0 : product.totalStock) ?? 0);
-                          const isActuallyInStock = product.inStock && currentStock > 0;
+                        {product.inStock && availableStock > 0 && (
+                          <>
+                            {/* Quantity Selector */}
+                            <div className="flex items-center justify-center gap-3 mb-3">
+                              <span className="text-sm font-semibold text-gray-700">Quantity:</span>
+                              <button
+                                onClick={handleDecrement}
+                                disabled={quantity <= 1}
+                                className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <span className="text-xl font-semibold">−</span>
+                              </button>
+                              <span className="w-16 text-center font-bold text-lg">{quantity}</span>
+                              <button
+                                onClick={handleIncrement}
+                                disabled={quantity >= availableStock}
+                                className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <span className="text-xl font-semibold">+</span>
+                              </button>
+                            </div>
 
-                          return isActuallyInStock && (
-                            <>
-                              {/* Quantity Selector */}
-                              <div className="flex items-center justify-center gap-3 mb-3">
-                                <span className="text-sm font-semibold text-gray-700">Quantity:</span>
-                                <button
-                                  onClick={handleDecrement}
-                                  disabled={quantity <= 1}
-                                  className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <span className="text-xl font-semibold">−</span>
-                                </button>
-                                <span className="w-16 text-center font-bold text-lg">{quantity}</span>
-                                <button
-                                  onClick={handleIncrement}
-                                  className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
-                                >
-                                  <span className="text-xl font-semibold">+</span>
-                                </button>
-                              </div>
-
-                              <div className="mt-4 w-full">
-                                <button
-                                  onClick={handleAddToCart}
-                                  className="w-full flex justify-center mx-auto bg-gray-900 border border-gray-900 text-white hover:bg-white hover:text-gray-900 shadow-md py-3 px-6 rounded-lg font-bold uppercase transition duration-300 transform active:scale-95 text-xs tracking-[1.5px]"
-                                >
+                            <div className="mt-4 w-full">
+                              <button
+                                onClick={handleAddToCart}
+                                className="w-full flex justify-center mx-auto bg-gray-900 border border-gray-900 text-white hover:bg-white hover:text-gray-900 shadow-md py-3 px-6 rounded-lg font-bold uppercase transition duration-300 transform active:scale-95 text-xs tracking-[1.5px]"
+                              >
                                   Add to cart
                                 </button>
                               </div>
                             </>
-                          );
-                        })()}
+                          )}
                       </div>
                     </div>
                   </div>
