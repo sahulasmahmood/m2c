@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Product as ServiceProduct } from '@/services/productService';
+import { PublicProduct } from '@/services/publicProductService';
 import { Product as MockProduct } from '@/components/mockData/products';
 import { Star, ShoppingCart, Heart } from 'lucide-react';
 import { cartService } from '@/services/cartService';
@@ -12,7 +13,7 @@ import { userAuthService } from '@/services/userAuthService';
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils';
 
 interface ProductCardProps {
-  product: ServiceProduct | MockProduct;
+  product: ServiceProduct | PublicProduct | MockProduct;
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
@@ -71,11 +72,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
     }
   };
 
-  // Handle quantity increment
+  // Handle quantity increment — cap at available stock
   const handleIncrement = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setQuantity(prev => prev + 1);
+    setQuantity(prev => (prev < currentStock ? prev + 1 : prev));
   };
 
   // Handle quantity decrement
@@ -123,8 +124,8 @@ const ProductCard = ({ product }: ProductCardProps) => {
     }
   };
 
-  // Type guard to check if it's a ServiceProduct (from API)
-  const isServiceProduct = (p: any): p is ServiceProduct => {
+  // Type guard to check if it's a ServiceProduct or PublicProduct (from API)
+  const isServiceProduct = (p: any): p is ServiceProduct | PublicProduct => {
     return 'basePrice' in p || 'adminFixedPrice' in p;
   };
 
@@ -168,9 +169,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
     displayPrice = (product as any).price;
   }
 
-  // Derive actual stock considering inventory count
+  // Derive actual stock — use totalStock as the authoritative aggregate value
   const currentStock = isServiceProduct(product)
-    ? (product.inventory?.currentStock ?? (product.hasVariants ? 0 : product.totalStock) ?? 0)
+    ? (product.totalStock ?? 0)
     : (product as any).stock ?? 1; // Default to 1 for mock products without stock specified
 
   const isActuallyInStock = product.inStock && currentStock > 0;

@@ -13,6 +13,9 @@ export interface PublicProduct {
   gstPercentage?: number;
   rating?: number;
   reviews?: number;
+  singleUnitSize?: string;
+  singleUnitColor?: string;
+  singleUnitColorHex?: string;
   images: Array<{
     id: string;
     url: string;
@@ -31,11 +34,23 @@ export interface PublicProduct {
     colorHex?: string;
     sku: string;
     price: number;
+    originalPrice?: number;
+    discount?: number;
+    adminFixedPrice?: number;
     stock: number;
     images: string[];
   }>;
+  inventory?: {
+    id: string;
+    name: string;
+    sku: string;
+    currentStock: number;
+    baseStock: number;
+    category?: string;
+  };
   fabricType?: string;
   material?: string;
+  fabricSpecifications?: any;
   dimensions?: string;
   weight?: string;
   createdAt: string;
