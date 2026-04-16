@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import {
-  Eye, CheckCircle, XCircle,
+  Eye, CheckCircle, XCircle, Download,
   Factory, Package, Search, X, ChevronLeft, ChevronRight, RotateCw,
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -338,14 +338,23 @@ export default function ReportsPage() {
                         <TableCell className="text-slate-600 text-sm">{row.inspectionDate}</TableCell>
                         <TableCell>{getResultBadge(row.result)}</TableCell>
                         <TableCell>
-                          <button
-                            onClick={() => router.push(`/checker/dashboard/report/${insp.id}`)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-1"
-                            title="View Report"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            View Report
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => router.push(`/checker/dashboard/report/${insp.id}`)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-1"
+                              title="View Report"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              View Report
+                            </button>
+                            <button
+                              onClick={() => router.push(`/checker/dashboard/report/${insp.id}?download=true`)}
+                              className="flex items-center justify-center w-8 h-8 text-neutral-600 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-1"
+                              title="Download PDF"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )

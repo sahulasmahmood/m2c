@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import type { LucideIcon } from "lucide-react"
 import {
   ArrowLeft, CheckCircle, XCircle,
@@ -149,11 +150,14 @@ interface ProductReport {
 }
 
 export default function ProductReportDetail({ productId, onBack }: ProductReportDetailProps) {
+  const searchParams = useSearchParams()
+  const autoDownload = searchParams.get("download") === "true"
   const [product, setProduct] = useState<ProductReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
+  const autoDownloadTriggered = useRef(false)
 
   useEffect(() => {
     const load = async () => {
@@ -169,6 +173,30 @@ export default function ProductReportDetail({ productId, onBack }: ProductReport
     }
     load()
   }, [productId])
+
+  // Auto-trigger PDF download when navigated with ?download=true
+  useEffect(() => {
+    if (!autoDownload || autoDownloadTriggered.current || loading || !product || downloading) return
+    let cancelled = false
+    const tryDownload = () => {
+      if (cancelled) return
+      if (!reportRef.current) {
+        setTimeout(tryDownload, 300)
+        return
+      }
+      autoDownloadTriggered.current = true
+      downloadReportPdf({
+        element: reportRef.current,
+        title: "Product Inspection Report",
+        submittedDate: product.updatedAt
+          ? new Date(product.updatedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
+          : "—",
+        filename: `Product_Report_${product.name.replace(/\s+/g, "_")}_${product.baseSku || productId}.pdf`,
+      }).catch(() => { /* silent */ })
+    }
+    const timer = setTimeout(tryDownload, 500)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [autoDownload, loading, product, downloading, productId])
 
   if (loading) return (
     <div className="p-8 max-w-5xl mx-auto font-sans space-y-6 animate-pulse">

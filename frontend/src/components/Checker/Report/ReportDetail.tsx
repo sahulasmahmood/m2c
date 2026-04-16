@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import type { LucideIcon } from "lucide-react"
 import {
   ArrowLeft, FileText, CheckCircle, XCircle,
@@ -95,11 +96,14 @@ interface InspectionRecord {
 }
 
 export default function ReportDetail({ reportId, onBack }: ReportDetailProps) {
+  const searchParams = useSearchParams()
+  const autoDownload = searchParams.get("download") === "true"
   const [inspection, setInspection] = useState<InspectionRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
+  const autoDownloadTriggered = useRef(false)
 
   useEffect(() => {
     const load = async () => {
@@ -115,6 +119,33 @@ export default function ReportDetail({ reportId, onBack }: ReportDetailProps) {
     }
     load()
   }, [reportId])
+
+  // Auto-trigger PDF download when navigated with ?download=true
+  // Auto-trigger PDF download when navigated with ?download=true
+  useEffect(() => {
+    if (!autoDownload || autoDownloadTriggered.current || loading || !inspection || downloading) return
+    let cancelled = false
+    const tryDownload = () => {
+      if (cancelled) return
+      if (!reportRef.current) {
+        setTimeout(tryDownload, 300)
+        return
+      }
+      autoDownloadTriggered.current = true
+      const fd = inspection.itemsToInspect && !Array.isArray(inspection.itemsToInspect) ? inspection.itemsToInspect : {}
+      const vendorName = inspection.vendor?.companyName || (fd as Record<string, string>).vendorName || "Report"
+      downloadReportPdf({
+        element: reportRef.current,
+        title: "Factory Inspection Report",
+        submittedDate: inspection.completedAt
+          ? new Date(inspection.completedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
+          : "—",
+        filename: `Factory_Report_${vendorName.replace(/\s+/g, "_")}_${reportId.slice(-8).toUpperCase()}.pdf`,
+      }).catch(() => { /* silent */ })
+    }
+    const timer = setTimeout(tryDownload, 500)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [autoDownload, loading, inspection, downloading, reportId])
 
   if (loading) return (
     <div className="p-8 max-w-5xl mx-auto font-sans space-y-6 animate-pulse">
