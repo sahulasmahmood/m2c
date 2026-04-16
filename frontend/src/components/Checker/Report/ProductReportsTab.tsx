@@ -20,8 +20,6 @@ const DEFAULT_SORT = "updatedAt:desc"
 const SORT_OPTIONS = [
   { value: "updatedAt:desc", label: "Latest first" },
   { value: "updatedAt:asc", label: "Oldest first" },
-  { value: "name:asc", label: "Name A–Z" },
-  { value: "name:desc", label: "Name Z–A" },
 ]
 
 function getPageRange(current: number, total: number): Array<number | "…"> {
@@ -136,7 +134,7 @@ export default function ProductReportsTab() {
     switch (status) {
       case "QC_APPROVED":
       case "APPROVED":
-        return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 flex items-center gap-1"><CheckCircle className="w-3 h-3" />{status === "QC_APPROVED" ? "QC Approved" : "Approved"}</Badge>
+        return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 flex items-center gap-1"><CheckCircle className="w-3 h-3" />{status === "QC_APPROVED" ? "Approved by QC" : "Approved by Admin"}</Badge>
       case "REJECTED":
         return <Badge className="bg-red-100 text-red-800 border-red-200 flex items-center gap-1"><XCircle className="w-3 h-3" />Rejected</Badge>
       default:

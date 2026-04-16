@@ -29,8 +29,6 @@ const RESULT_OPTIONS = [
 const SORT_OPTIONS = [
   { value: "completedAt:desc", label: "Latest first" },
   { value: "completedAt:asc", label: "Oldest first" },
-  { value: "vendorName:asc", label: "Vendor A–Z" },
-  { value: "vendorName:desc", label: "Vendor Z–A" },
 ]
 
 function getPageRange(current: number, total: number): Array<number | "…"> {
@@ -155,11 +153,9 @@ export default function ReportsPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buildRow = (insp: Record<string, any>) => {
-    const fd = insp.itemsToInspect && !Array.isArray(insp.itemsToInspect) ? insp.itemsToInspect : {}
     return {
       id: insp.id,
-      vendor: insp.vendor?.companyName || fd.vendorName || "—",
-      factoryName: fd.factoryName || "—",
+      vendor: insp.vendor?.companyName || "—",
       inspectionDate: insp.completedAt
         ? new Date(insp.completedAt).toLocaleDateString("en-IN")
         : insp.scheduledDate || "—",
@@ -282,15 +278,14 @@ export default function ReportsPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
             {loading && inspections.length === 0 ? (
               <div className="animate-pulse">
-                <div className="grid grid-cols-6 gap-4 px-6 py-4 border-b border-slate-100">
-                  {Array.from({ length: 6 }).map((_, i) => (
+                <div className="grid grid-cols-5 gap-4 px-6 py-4 border-b border-slate-100">
+                  {Array.from({ length: 5 }).map((_, i) => (
                     <div key={i} className="h-4 bg-slate-200 rounded w-20" />
                   ))}
                 </div>
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="grid grid-cols-6 gap-4 px-6 py-5 border-b border-slate-50">
+                  <div key={i} className="grid grid-cols-5 gap-4 px-6 py-5 border-b border-slate-50">
                     <div className="h-4 bg-slate-200 rounded w-32" />
-                    <div className="h-4 bg-slate-100 rounded w-28" />
                     <div className="h-4 bg-slate-100 rounded w-24" />
                     <div className="h-4 bg-slate-100 rounded w-20" />
                     <div className="h-6 bg-slate-200 rounded-full w-16" />
@@ -325,7 +320,6 @@ export default function ReportsPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="font-semibold">Vendor</TableHead>
-                    <TableHead className="font-semibold">Factory</TableHead>
                     <TableHead className="font-semibold">Client</TableHead>
                     <TableHead className="font-semibold">Completed On</TableHead>
                     <TableHead className="font-semibold">Result</TableHead>
@@ -340,7 +334,6 @@ export default function ReportsPage() {
                         <TableCell>
                           <div className="font-medium text-slate-900">{row.vendor}</div>
                         </TableCell>
-                        <TableCell className="text-slate-600 text-sm">{row.factoryName}</TableCell>
                         <TableCell className="text-slate-600 text-sm">{row.clientName}</TableCell>
                         <TableCell className="text-slate-600 text-sm">{row.inspectionDate}</TableCell>
                         <TableCell>{getResultBadge(row.result)}</TableCell>
