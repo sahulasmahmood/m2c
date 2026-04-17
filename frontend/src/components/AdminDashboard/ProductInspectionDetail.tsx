@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
     ArrowLeft, Package, ShieldCheck, ClipboardList,
-    CheckCircle, XCircle, AlertTriangle, FileText,
-    Layers, Ruler, Truck, Zap, Camera, User
+    CheckCircle, XCircle, AlertTriangle,
+    Layers, Ruler, Truck, Zap, Camera, User, Download
 } from 'lucide-react'
 import { Badge } from '@/components/UI/Badge'
 import productService from '@/services/productService'
+import { downloadReportPdf } from '@/lib/reportPdfDownload'
+import { getStoredAuth } from '@/lib/auth'
 
 interface Props {
     productId: string
@@ -56,7 +58,7 @@ function Section({ title, icon: Icon, accent, children }: {
     )
 }
 
-function PhotoGallery({ photos, title }: { photos?: any[]; title: string }) {
+function PhotoGallery({ photos, title, onImageClick }: { photos?: any[]; title: string; onImageClick?: (src: string, alt: string) => void }) {
     if (!photos || photos.length === 0) return null;
     return (
         <div className="mb-6">
@@ -68,11 +70,11 @@ function PhotoGallery({ photos, title }: { photos?: any[]; title: string }) {
                 {photos.map((p: any, i: number) => {
                     const src = p?.data || p?.url || (typeof p === 'string' ? p : null)
                     return src ? (
-                        <div key={i} className="relative group aspect-square">
+                        <div key={i} className="relative group aspect-square cursor-pointer" onClick={() => { if (onImageClick) onImageClick(src, p.name || `Photo ${i + 1}`) }}>
                             <img
                                 src={src}
                                 alt={p.name || `Photo ${i + 1}`}
-                                className="w-full h-full object-cover rounded-xl border border-slate-200 shadow-sm"
+                                className="w-full h-full object-cover rounded-xl border border-slate-200 shadow-sm transition-transform group-hover:scale-[1.02]"
                             />
                             <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[10px] px-2 py-1 rounded-b-xl truncate opacity-0 group-hover:opacity-100 transition-opacity">
                                 {p.name || `Photo ${i + 1}`}
@@ -89,12 +91,27 @@ function PhotoGallery({ photos, title }: { photos?: any[]; title: string }) {
     )
 }
 
+const REMARK_LABELS: Record<string, string> = {
+    shipperCartonRemark: "Shipper Carton Packaging",
+    innerCartonRemark: "Inner Carton Packaging",
+    retailPackagingRemark: "Retail Packaging",
+    productTypeRemark: "Product Type (style, size, color, material, labeling)",
+    aqlWorkmanshipRemark: "AQL (Workmanship / Appearance / Function)",
+    onSiteTestsRemark: "On-site Tests"
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function ProductInspectionDetail({ productId }: Props) {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const autoDownload = searchParams.get('download') === 'true'
     const [product, setProduct] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [downloading, setDownloading] = useState(false)
+    const [selectedImage, setSelectedImage] = useState<{src: string, alt: string} | null>(null)
+    const reportRef = useRef<HTMLDivElement>(null)
+    const autoDownloadTriggered = useRef(false)
 
     useEffect(() => {
         const load = async () => {
@@ -113,6 +130,58 @@ export default function ProductInspectionDetail({ productId }: Props) {
         }
         load()
     }, [productId])
+
+    const handleDownloadPdf = async () => {
+        if (!reportRef.current) return
+        setDownloading(true)
+        try {
+            const productName = (product as any)?.name || 'Report'
+            const adminUser = getStoredAuth()?.user
+            const downloadedBy = adminUser ? `${adminUser.name || 'Admin'} <${adminUser.email}>` : undefined
+            await downloadReportPdf({
+                element: reportRef.current,
+                title: 'Product Quality Report',
+                submittedDate: (product as any)?.updatedAt
+                    ? new Date((product as any).updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+                    : '—',
+                filename: `Product_Report_${String(productName).replace(/\s+/g, '_')}_${productId.slice(-8).toUpperCase()}_Internal.pdf`,
+                variant: 'internal',
+                downloadedBy,
+            })
+        } catch {
+            alert('Failed to generate PDF. Please try again.')
+        } finally {
+            setDownloading(false)
+        }
+    }
+
+    useEffect(() => {
+        if (!autoDownload || autoDownloadTriggered.current || loading || !product || downloading) return
+        let cancelled = false
+        const tryDownload = () => {
+            if (cancelled) return
+            if (!reportRef.current) {
+                setTimeout(tryDownload, 300)
+                return
+            }
+            autoDownloadTriggered.current = true
+            const productName = (product as any)?.name || 'Report'
+            const adminUser = getStoredAuth()?.user
+            const downloadedBy = adminUser ? `${adminUser.name || 'Admin'} <${adminUser.email}>` : undefined
+            downloadReportPdf({
+                element: reportRef.current,
+                title: 'Product Quality Report',
+                submittedDate: (product as any)?.updatedAt
+                    ? new Date((product as any).updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+                    : '—',
+                filename: `Product_Report_${String(productName).replace(/\s+/g, '_')}_${productId.slice(-8).toUpperCase()}_Internal.pdf`,
+                variant: 'internal',
+                downloadedBy,
+            }).catch(() => { /* silent */ })
+        }
+        const timer = setTimeout(tryDownload, 500)
+        return () => { cancelled = true; clearTimeout(timer) }
+    }, [autoDownload, loading, product, downloading, productId])
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -153,6 +222,14 @@ export default function ProductInspectionDetail({ productId }: Props) {
                         {product.name} &bull; SKU: {product.baseSku}
                     </p>
                 </div>
+                <button
+                    onClick={handleDownloadPdf}
+                    disabled={downloading}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#222222] rounded-lg hover:bg-[#333333] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-1"
+                >
+                    <Download className="w-4 h-4" />
+                    {downloading ? 'Generating...' : 'Download PDF'}
+                </button>
                 <div className="flex gap-2 flex-shrink-0">
                     <Badge className={statusColors[approvalStatus] || 'bg-gray-100 text-gray-700'}>
                         {approvalStatus}
@@ -160,25 +237,28 @@ export default function ProductInspectionDetail({ productId }: Props) {
                 </div>
             </div>
 
+            {/* PDF capture area */}
+            <div ref={reportRef} className="space-y-6">
+
             {/* General Info Banner */}
-            <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-6 text-white">
+            <div className="bg-gradient-to-r from-[#222222] to-[#333333] rounded-2xl p-6 text-white">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                     <div>
-                        <p className="text-slate-400 text-xs font-medium uppercase mb-1">Vendor</p>
+                        <p className="text-neutral-400 text-xs font-medium uppercase mb-1">Vendor</p>
                         <p className="font-semibold text-sm">{formData.vendor || product.vendor?.companyName || '—'}</p>
                     </div>
                     <div>
-                        <p className="text-slate-400 text-xs font-medium uppercase mb-1">Client</p>
+                        <p className="text-neutral-400 text-xs font-medium uppercase mb-1">Client</p>
                         <p className="font-semibold text-sm">{formData.client || '—'}</p>
                     </div>
                     <div>
-                        <p className="text-slate-400 text-xs font-medium uppercase mb-1">Service Type</p>
+                        <p className="text-neutral-400 text-xs font-medium uppercase mb-1">Service Type</p>
                         <p className="font-semibold text-sm">{formData.serviceType || '—'}</p>
                     </div>
                     <div>
-                        <p className="text-slate-400 text-xs font-medium uppercase mb-1">Location / Date</p>
+                        <p className="text-neutral-400 text-xs font-medium uppercase mb-1">Location / Date</p>
                         <p className="font-semibold text-sm">{formData.serviceLocation || '—'}</p>
-                        <p className="text-slate-400 text-xs mt-0.5">{formData.serviceStartDate}</p>
+                        <p className="text-neutral-400 text-xs mt-0.5">{formData.serviceStartDate}</p>
                     </div>
                 </div>
             </div>
@@ -208,7 +288,7 @@ export default function ProductInspectionDetail({ productId }: Props) {
                             </tbody>
                         </table>
                     </div>
-                    <PhotoGallery photos={formData.warehousePhotoEvidences} title="Warehouse Photo Evidence" />
+                    <PhotoGallery photos={formData.warehousePhotoEvidences} title="Warehouse Photo Evidence" onImageClick={(src, alt) => setSelectedImage({src, alt})} />
                 </Section>
 
                 {/* Section 2: Measurements */}
@@ -248,42 +328,29 @@ export default function ProductInspectionDetail({ productId }: Props) {
                             </tbody>
                         </table>
                     </div>
-                    <PhotoGallery photos={formData.measurementPhotos} title="Measurement Photos" />
+                    <PhotoGallery photos={formData.measurementPhotos} title="Measurement Photos" onImageClick={(src, alt) => setSelectedImage({src, alt})} />
                 </Section>
 
                 {/* Section 3: Packaging & Workmanship */}
-                <Section title="Packaging & Product Integrity" icon={Truck} accent="bg-amber-50 text-amber-800">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div className="space-y-3">
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Shipper Carton Remark</p>
-                                <p className="text-sm text-slate-800">{formData.shipperCartonRemark || 'No remarks provided'}</p>
-                            </div>
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Retail Packaging Remark</p>
-                                <p className="text-sm text-slate-800">{formData.retailPackagingRemark || 'No remarks provided'}</p>
-                            </div>
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Product Type/Finish Remark</p>
-                                <p className="text-sm text-slate-800">{formData.productTypeRemark || 'No remarks provided'}</p>
-                            </div>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Inner Carton Remark</p>
-                                <p className="text-sm text-slate-800">{formData.innerCartonRemark || 'No remarks provided'}</p>
-                            </div>
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Workmanship Remark</p>
-                                <p className="text-sm text-slate-800">{formData.aqlWorkmanshipRemark || 'No remarks provided'}</p>
-                            </div>
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">On-site Test Remark</p>
-                                <p className="text-sm text-slate-800">{formData.onSiteTestsRemark || 'No remarks provided'}</p>
-                            </div>
-                        </div>
+                <Section title="Packaging & Product Integrity" icon={Truck} accent="bg-teal-50 text-teal-800">
+                    <div className="space-y-3 mb-6">
+                        {Object.entries(REMARK_LABELS).map(([key, label]) => {
+                            const val = formData[key]
+                            return (
+                                <div key={key} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0">
+                                    <span className="text-sm text-slate-700">{label}</span>
+                                    <span className={`text-sm font-bold px-3 py-1 rounded-lg ${
+                                        val && Number(val) >= 8 ? "bg-emerald-50 text-emerald-700" :
+                                        val && Number(val) >= 6 ? "bg-amber-50 text-amber-700" :
+                                        val ? "bg-red-50 text-red-700" : "text-slate-400"
+                                    }`}>
+                                        {val ? `${val}/10` : "—"}
+                                    </span>
+                                </div>
+                            )
+                        })}
                     </div>
-                    <PhotoGallery photos={formData.packagingPhotos} title="Packaging Photos" />
+                    <PhotoGallery photos={formData.packagingPhotos} title="Packaging Photos" onImageClick={(src, alt) => setSelectedImage({src, alt})} />
                 </Section>
 
                 {/* Section 4: Defects & AQL */}
@@ -319,7 +386,7 @@ export default function ProductInspectionDetail({ productId }: Props) {
                             <p className="text-xs text-amber-600 italic">{formData.minorDefectDetails || 'No minor defects recorded'}</p>
                         </div>
                     </div>
-                    <PhotoGallery photos={formData.defectPhotos} title="Defect Photos" />
+                    <PhotoGallery photos={formData.defectPhotos} title="Defect Photos" onImageClick={(src, alt) => setSelectedImage({src, alt})} />
                 </Section>
 
                 {/* Section 5: On-site Functional Tests */}
@@ -338,18 +405,24 @@ export default function ProductInspectionDetail({ productId }: Props) {
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    {(test.rightPhotos || []).map((p: any, j: number) => (
-                                        <div key={`r-${j}`} className="aspect-square relative group">
-                                            <img src={p.url || p.data} alt="Right" className="w-full h-full object-cover rounded-lg border border-green-200" />
+                                    {(test.rightPhotos || []).map((p: any, j: number) => {
+                                        const src = p.url || p.data
+                                        return src ? (
+                                        <div key={`r-${j}`} className="aspect-square relative group cursor-pointer" onClick={() => setSelectedImage({src, alt: `Right ${j + 1}`})}>
+                                            <img src={src} alt="Right" className="w-full h-full object-cover rounded-lg border border-green-200 transition-transform group-hover:scale-[1.02]" />
                                             <div className="absolute top-1 left-1 bg-green-500/80 text-white text-[8px] px-1 rounded">RIGHT</div>
                                         </div>
-                                    ))}
-                                    {(test.wrongPhotos || []).map((p: any, j: number) => (
-                                        <div key={`w-${j}`} className="aspect-square relative group">
-                                            <img src={p.url || p.data} alt="Wrong" className="w-full h-full object-cover rounded-lg border border-red-200" />
+                                        ) : null
+                                    })}
+                                    {(test.wrongPhotos || []).map((p: any, j: number) => {
+                                        const src = p.url || p.data
+                                        return src ? (
+                                        <div key={`w-${j}`} className="aspect-square relative group cursor-pointer" onClick={() => setSelectedImage({src, alt: `Wrong ${j + 1}`})}>
+                                            <img src={src} alt="Wrong" className="w-full h-full object-cover rounded-lg border border-red-200 transition-transform group-hover:scale-[1.02]" />
                                             <div className="absolute top-1 left-1 bg-red-500/80 text-white text-[8px] px-1 rounded">WRONG</div>
                                         </div>
-                                    ))}
+                                        ) : null
+                                    })}
                                 </div>
                             </div>
                         ))}
@@ -357,7 +430,7 @@ export default function ProductInspectionDetail({ productId }: Props) {
                             <p className="text-sm text-slate-400 text-center py-4 bg-slate-50 rounded-xl">No specific on-site tests recorded.</p>
                         )}
                     </div>
-                    <PhotoGallery photos={formData.testingPhotos} title="General Testing Photos" />
+                    <PhotoGallery photos={formData.testingPhotos} title="General Testing Photos" onImageClick={(src, alt) => setSelectedImage({src, alt})} />
                 </Section>
 
                 {/* Section 6: Documentation & Identification */}
@@ -371,11 +444,11 @@ export default function ProductInspectionDetail({ productId }: Props) {
                                 </p>
                                 <p className="text-lg font-display italic font-semibold text-slate-900">{formData.inspectorSignature || '—'}</p>
                             </div>
-                            <PhotoGallery photos={formData.documentationPhotos} title="Documentation Photos" />
+                            <PhotoGallery photos={formData.documentationPhotos} title="Documentation Photos" onImageClick={(src, alt) => setSelectedImage({src, alt})} />
                         </div>
                         <div className="space-y-6">
-                            <PhotoGallery photos={formData.photocopyDocuments} title="Photocopy Documents" />
-                            <PhotoGallery photos={formData.companyIdCards} title="Company ID Cards" />
+                            <PhotoGallery photos={formData.photocopyDocuments} title="Photocopy Documents" onImageClick={(src, alt) => setSelectedImage({src, alt})} />
+                            <PhotoGallery photos={formData.companyIdCards} title="Company ID Cards" onImageClick={(src, alt) => setSelectedImage({src, alt})} />
                         </div>
                     </div>
                 </Section>
@@ -407,17 +480,45 @@ export default function ProductInspectionDetail({ productId }: Props) {
                     </div>
                 </div>
 
-                <div className="text-center py-6">
-                    <button
-                        onClick={() => window.print()}
-                        className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-semibold shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2 mx-auto"
-                    >
-                        <FileText className="w-4 h-4" />
-                        Download / Print Report
-                    </button>
-                    <p className="text-[10px] text-slate-400 mt-2 uppercase tracking-widest">Confidential Inspection Report &copy; {new Date().getFullYear()} M2C</p>
-                </div>
             </div>
+
+            </div>{/* end PDF capture area */}
+
+            <div className="text-center py-6">
+                <button
+                    onClick={handleDownloadPdf}
+                    disabled={downloading}
+                    className="px-6 py-2.5 bg-[#222222] text-white rounded-xl font-semibold shadow-lg hover:bg-[#333333] transition-all flex items-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <Download className="w-4 h-4" />
+                    {downloading ? 'Generating...' : 'Download PDF'}
+                </button>
+                <p className="text-[10px] text-slate-400 mt-2 uppercase tracking-widest">Confidential Inspection Report &copy; {new Date().getFullYear()} M2C</p>
+            </div>
+
+            {/* Fullscreen Image Modal */}
+            {selectedImage && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div className="relative max-w-5xl max-h-screen">
+                        <button 
+                            onClick={(e) => {e.stopPropagation(); setSelectedImage(null)}}
+                            className="absolute -top-10 -right-4 p-2 text-white hover:text-gray-300"
+                        >
+                            <XCircle className="w-8 h-8" />
+                        </button>
+                        <img 
+                            src={selectedImage.src} 
+                            alt={selectedImage.alt}
+                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <p className="text-center text-white mt-4 text-sm font-medium">{selectedImage.alt}</p>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
