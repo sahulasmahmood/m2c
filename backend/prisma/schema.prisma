@@ -1343,3 +1343,17 @@ model Counter {
 
   @@map("counters")
 }
+
+// FCM device tokens for push notifications (mobile + web)
+model DeviceToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  role      String   // ADMIN, VENDOR, QC_CHECKER, USER
+  token     String   @unique
+  platform  String   // android, ios, web
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, role])
+  @@map("device_tokens")
+}

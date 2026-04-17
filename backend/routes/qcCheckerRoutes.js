@@ -17,7 +17,8 @@ const {
     getProductReports,
     getProductDetails,
     approveProductByQc,
-    rejectProductByQc
+    rejectProductByQc,
+    updateCheckerProfile
 } = require('../controllers/qcCheckerController');
 
 const { authenticateToken, requireAdminRole } = require('../middleware/auth');
@@ -33,6 +34,7 @@ router.post('/login', qcCheckerLogin);
 // QC CHECKER SELF ROUTES (Authenticated QC Checker)
 // ============================================
 router.get('/me', authenticateToken, getCheckerProfile);
+router.put('/me', authenticateToken, updateCheckerProfile);
 router.get('/vendors', authenticateToken, getAssignedVendors);
 router.get('/vendors/:vendorId/details', authenticateToken, getVendorDetails);
 router.get('/vendors/:vendorId/active-inspection', authenticateToken, getActiveInspectionForVendor);

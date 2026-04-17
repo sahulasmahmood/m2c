@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
     ArrowLeft, Package, ShieldCheck, ClipboardList,
     CheckCircle, XCircle, AlertTriangle, FileText,
-    Layers, Ruler, Truck, Zap, Camera, User
+    Layers, Ruler, Truck, Zap, Camera, User, Clock
 } from 'lucide-react'
 import { Badge } from '@/components/UI/Badge'
 import productService from '@/services/productService'
@@ -379,6 +379,41 @@ export default function ProductInspectionDetail({ productId }: Props) {
                         </div>
                     </div>
                 </Section>
+
+                {/* Selfie Verification */}
+                {(formData.beforeSelfiePhoto || formData.afterSelfiePhoto) && (
+                    <Section title="Selfie Verification" icon={Camera} accent="bg-violet-50 text-violet-800">
+                        <div className="flex flex-wrap gap-6">
+                            {([
+                                { key: 'before', photo: formData.beforeSelfiePhoto, takenAt: formData.beforeSelfieTakenAt, label: 'Before Inspection' },
+                                { key: 'after',  photo: formData.afterSelfiePhoto,  takenAt: formData.afterSelfieTakenAt,  label: 'After Inspection'  },
+                            ] as const).map(({ key, photo, takenAt, label }) => {
+                                const src = photo?.data || photo?.url || (typeof photo === 'string' ? photo : null)
+                                if (!src) return null
+                                return (
+                                    <div key={key} className="flex flex-col items-center gap-2">
+                                        <div className="relative w-44 rounded-2xl overflow-hidden border-2 border-violet-200 shadow-md" style={{ aspectRatio: '0.8' }}>
+                                            <img
+                                                src={src}
+                                                alt={label}
+                                                className="w-full h-full object-cover"
+                                            />
+                                            <div className="absolute bottom-0 inset-x-0 bg-violet-900/70 text-white text-[10px] font-bold text-center py-1 px-2">
+                                                {label}
+                                            </div>
+                                        </div>
+                                        {takenAt && (
+                                            <div className="flex items-center gap-1 text-slate-400 text-xs">
+                                                <Clock className="w-3 h-3" />
+                                                <span>{new Date(takenAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </Section>
+                )}
 
                 {/* Section 7: Final Decision */}
                 <div className={`rounded-2xl border-2 p-8 ${formData.finalDecision === 'Approved' ? 'bg-green-50 border-green-200' : formData.finalDecision === 'Rejected' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>

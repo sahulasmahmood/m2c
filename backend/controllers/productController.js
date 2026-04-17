@@ -1224,6 +1224,10 @@ const assignQCCheckerToProduct = async (req, res) => {
       }
     });
 
+    // Notify the QC checker on mobile
+    const { notifications } = require('../utils/notificationService');
+    notifications.productAssigned(qcCheckerId, product.name).catch(console.error);
+
     res.json({
       success: true,
       message: product.assignedQcId ? 'QC Checker reassigned successfully' : 'QC Checker assigned successfully',

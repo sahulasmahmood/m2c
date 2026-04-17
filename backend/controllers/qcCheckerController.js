@@ -587,6 +587,90 @@ const getCheckerProfile = async (req, res) => {
 };
 
 // ============================
+// QC Checker: Update current profile
+// ============================
+const updateCheckerProfile = async (req, res) => {
+    try {
+        const checkerId = req.user?.checkerId || req.userId;
+        const {
+            name,
+            phone,
+            address,
+            city,
+            state,
+            zipCode,
+            country,
+            password
+        } = req.body;
+
+        const checker = await prisma.qCChecker.findUnique({
+            where: { id: checkerId },
+        });
+
+        if (!checker) {
+            return res.status(404).json({
+                success: false,
+                error: 'Checker profile not found',
+            });
+        }
+
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (phone) updateData.phone = phone;
+        if (address !== undefined) updateData.address = address || null;
+        if (city !== undefined) updateData.city = city || null;
+        if (state !== undefined) updateData.state = state || null;
+        if (zipCode !== undefined) updateData.zipCode = zipCode || null;
+        if (country !== undefined) updateData.country = country || 'India';
+        
+        if (password) {
+            updateData.password = await bcrypt.hash(password, 10);
+        }
+
+        const updated = await prisma.qCChecker.update({
+            where: { id: checkerId },
+            data: updateData,
+            select: {
+                id: true,
+                checkerId: true,
+                email: true,
+                name: true,
+                phone: true,
+                address: true,
+                city: true,
+                state: true,
+                zipCode: true,
+                country: true,
+                dateOfBirth: true,
+                joiningDate: true,
+                specialization: true,
+                experience: true,
+                certifications: true,
+                assignedHubId: true,
+                status: true,
+                isActive: true,
+                lastLoginAt: true,
+                assignedVendors: true,
+                completedInspections: true,
+                createdAt: true,
+            },
+        });
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: updated,
+        });
+    } catch (error) {
+        console.error('Update checker profile error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update profile',
+        });
+    }
+};
+
+// ============================
 // QC Checker: Get assigned vendors
 // ============================
 const ALLOWED_VENDOR_STATUSES = ['PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED'];
@@ -1398,4 +1482,5 @@ module.exports = {
     getProductDetails,
     approveProductByQc,
     rejectProductByQc,
+    updateCheckerProfile
 };

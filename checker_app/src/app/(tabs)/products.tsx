@@ -32,16 +32,14 @@ const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
   { value: 'PENDING', label: 'Pending' },
   { value: 'REINSPECTION', label: 'Reinspection' },
-  { value: 'QC_APPROVED', label: 'QC Approved' },
-  { value: 'APPROVED', label: 'Approved' },
+  { value: 'QC_APPROVED', label: 'Approved by QC' },
+  { value: 'APPROVED', label: 'Approved by Admin' },
   { value: 'REJECTED', label: 'Rejected' },
 ];
 
 const SORT_OPTIONS = [
   { value: 'createdAt:desc', label: 'Newest first' },
   { value: 'createdAt:asc', label: 'Oldest first' },
-  { value: 'name:asc', label: 'Name A–Z' },
-  { value: 'name:desc', label: 'Name Z–A' },
   { value: 'basePrice:asc', label: 'Price low–high' },
   { value: 'basePrice:desc', label: 'Price high–low' },
 ];
@@ -53,6 +51,18 @@ const APPROVAL_STYLE: Record<string, { bg: string; text: string }> = {
   APPROVED: { bg: 'bg-green-100', text: 'text-green-800' },
   REJECTED: { bg: 'bg-red-100', text: 'text-red-800' },
 };
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pending',
+  REINSPECTION: 'Reinspection',
+  QC_APPROVED: 'Approved by QC',
+  APPROVED: 'Approved by Admin',
+  REJECTED: 'Rejected',
+  UNDER_REVIEW: 'Under Review',
+};
+
+const formatStatus = (status: string) =>
+  STATUS_LABELS[status] || status.replace(/_/g, ' ');
 
 interface Product {
   id: string;
@@ -163,19 +173,9 @@ export default function ProductsTab() {
       }
     >
       {/* Header */}
-      <View className="mb-5 flex-row items-start justify-between">
-        <View className="flex-1 pr-3">
-          <Text className="text-2xl font-extrabold text-slate-900 mb-1">Assigned Products</Text>
-          <Text className="text-slate-600 text-sm">Review and inspect vendor products</Text>
-        </View>
-        <TouchableOpacity
-          onPress={loadProducts}
-          disabled={loading}
-          className="w-10 h-10 items-center justify-center rounded-xl bg-white border border-slate-200"
-          style={{ opacity: loading ? 0.5 : 1 }}
-        >
-          <RefreshCw size={16} color="#475569" />
-        </TouchableOpacity>
+      <View className="mb-5">
+        <Text className="text-2xl font-extrabold text-slate-900 mb-1">Assigned Products</Text>
+        <Text className="text-slate-600 text-sm">Review and inspect vendor products</Text>
       </View>
 
       {/* Search */}
@@ -217,7 +217,7 @@ export default function ProductsTab() {
       <View className="flex-row items-center justify-between mb-4">
         <Text className="text-xs text-slate-600">
           {loading && products.length === 0
-            ? 'Loading products...'
+            ? ''
             : pagination.total === 0
               ? '0 products'
               : `Showing ${rangeStart}–${rangeEnd} of ${pagination.total}`}
@@ -298,7 +298,7 @@ export default function ProductsTab() {
                   </View>
                   <View className={`px-2.5 py-1 rounded-full ${badge.bg}`}>
                     <Text className={`text-[10px] font-bold ${badge.text}`}>
-                      {p.approvalStatus.replace(/_/g, ' ')}
+                      {formatStatus(p.approvalStatus)}
                     </Text>
                   </View>
                 </View>
