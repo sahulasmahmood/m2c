@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react-native';
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils';
 import qcCheckerService from '@/services/qcCheckerService';
+import SelfieCaptureModal, { SelfieResult } from '@/components/General/SelfieCaptureModal';
+
+const DEFAULT_TESTS = [
+  { id: 'dropTestResult', label: 'Carton Drop Test', detail: 'Action and result views' },
+  { id: 'colorFastnessDry', label: 'Color Fastness (Dry)', detail: 'Dry cloth rubbing test' },
+  { id: 'colorFastnessWet', label: 'Color Fastness (Wet)', detail: 'Wet cloth rubbing test' },
+  { id: 'seamStrengthResult', label: 'Seam Strength Test', detail: 'Pull gauge testing' },
+  { id: 'smellCheck', label: 'Smell Check', detail: 'Unusual odor detection' },
+].map((t) => ({ ...t, pass: false, fail: false, photos: [], rightPhotos: [], wrongPhotos: [] }));
 
 import GeneralInformation from './Steps/GeneralInformation';
 import Preparation from './Steps/Preparation';
@@ -52,6 +61,12 @@ export default function ProductInspectionForm({
   const [currentStep, setCurrentStep] = useState<Step>('generalInformation');
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Selfie gates ─────────────────────────────
+  const [showBeforeSelfie, setShowBeforeSelfie] = useState(true);
+  const [beforeSelfie, setBeforeSelfie] = useState<SelfieResult | null>(null);
+  const [showAfterSelfie, setShowAfterSelfie] = useState(false);
+  const [afterSelfie, setAfterSelfie] = useState<SelfieResult | null>(null);
+
   const [formData, setFormData] = useState({
     // General Information
     client: 'M2C',
@@ -69,7 +84,6 @@ export default function ProductInspectionForm({
         itemDescription: 'Standard Product Assessment',
         totalQuantity: 0,
         inspectionQuantity: 0,
-        status: 'Pending',
       },
     ],
     warehousePhotoEvidences: [] as any[],
@@ -104,8 +118,8 @@ export default function ProductInspectionForm({
     minorDefectDetails: '',
     defectPhotos: [] as any[],
 
-    // Testing
-    tests: [] as any[],
+    // Testing — pre-seeded so the step renders on first open
+    tests: DEFAULT_TESTS as any[],
     testingPhotos: [] as any[],
 
     // Documentation
@@ -118,6 +132,53 @@ export default function ProductInspectionForm({
     finalDecision: 'Approved',
     reviewerRemarks: '',
   });
+
+  // Snapshot of which fields the server supplied — used by GeneralInformation
+  // to lock prefilled fields readonly so checkers can't accidentally overwrite.
+  const [autofillSnapshot, setAutofillSnapshot] = useState<Record<string, boolean>>({});
+  const prefilledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!productId || prefilledRef.current === productId) return;
+    let cancelled = false;
+
+    (async () => {
+      const cached = await qcCheckerService.getCheckerData();
+      if (cached?.name && !cancelled) {
+        setFormData((prev) => ({
+          ...prev,
+          inspectorSignature: prev.inspectorSignature || cached.name,
+        }));
+      }
+      try {
+        const res = await qcCheckerService.getProductDetails(productId);
+        if (cancelled || !res?.success) return;
+        const v = res.data.product?.vendor || {};
+        const factoryName = v.companyName || '';
+        const serviceLocation = [v.factoryCity, v.factoryState].filter(Boolean).join(', ');
+        const has = (s?: string | null) => typeof s === 'string' && s.trim() !== '';
+
+        setFormData((prev) => ({
+          ...prev,
+          factory: prev.factory || factoryName,
+          serviceLocation: prev.serviceLocation || serviceLocation,
+        }));
+
+        setAutofillSnapshot({
+          client: true,
+          vendor: has(vendorName),
+          factory: has(factoryName),
+          serviceLocation: has(serviceLocation),
+        });
+
+        prefilledRef.current = productId;
+      } catch (err) {
+        if (!cancelled) console.error('Autofill failed:', err);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [productId, vendorName]);
 
   const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
   const isLastStep = currentStepIndex === STEPS.length - 1;
@@ -162,15 +223,18 @@ export default function ProductInspectionForm({
         if (!Array.isArray(formData.items) || formData.items.length === 0) {
           errs.items = 'Add at least one item';
         } else {
-          formData.items.forEach((it: any, i: number) => {
-            reqStr(`items.${i}.itemName`, it.itemName, 'Item name is required');
-            reqStr(`items.${i}.itemDescription`, it.itemDescription, 'Description is required');
-            reqNum(`items.${i}.totalQuantity`, Number(it.totalQuantity), 'Must be greater than 0');
-            reqNum(`items.${i}.inspectionQuantity`, Number(it.inspectionQuantity), 'Must be greater than 0');
-            reqStr(`items.${i}.status`, it.status, 'Status is required');
-          });
+          for (const it of formData.items) {
+            if (!(typeof it?.itemName === 'string' && it.itemName.trim())) {
+              errs.itemName = 'Item name is required'; break;
+            }
+            const total = Number(it?.totalQuantity);
+            const inspection = Number(it?.inspectionQuantity);
+            if (!(total > 0)) { errs.totalQuantity = 'Total quantity must be greater than zero'; break; }
+            if (!(inspection > 0)) { errs.inspectionQuantity = 'Inspection quantity must be greater than zero'; break; }
+            if (inspection > total) { errs.inspectionQuantity = 'Inspection quantity cannot exceed total quantity'; break; }
+          }
         }
-        reqArr('warehousePhotoEvidences', formData.warehousePhotoEvidences, 'Add at least one photo');
+        reqArr('warehousePhotoEvidences', formData.warehousePhotoEvidences, 'Upload at least one warehouse photo');
         break;
 
       case 'measurements':
@@ -195,26 +259,28 @@ export default function ProductInspectionForm({
         break;
 
       case 'defects':
-        reqStr('inspectionLevel', formData.inspectionLevel, 'Select an inspection level');
-        reqNum('sampleSize', Number(formData.sampleSize), 'Sample size must be greater than 0');
-        if (Number(formData.criticalDefects) > 0)
-          reqStr('criticalDefectDetails', formData.criticalDefectDetails, 'Describe the critical defects');
-        if (Number(formData.majorDefects) > 0)
-          reqStr('majorDefectDetails', formData.majorDefectDetails, 'Describe the major defects');
-        if (Number(formData.minorDefects) > 0)
-          reqStr('minorDefectDetails', formData.minorDefectDetails, 'Describe the minor defects');
-        reqArr('defectPhotos', formData.defectPhotos, 'Add at least one photo');
+        // Intentionally lenient — zero-defect inspection is valid.
+        // Counts default to 0, so this step never blocks Next.
         break;
 
       case 'testing':
-        reqArr('tests', formData.tests, 'Add at least one test');
-        (formData.tests || []).forEach((t: any, i: number) => {
-          // Each seeded test needs Pass or Fail marked (exclusive, set via toggles)
-          if (!t.pass && !t.fail) {
-            errs[`tests.${i}.result`] = 'Mark Pass or Fail';
+        // Every test must be decided (Pass or Fail).
+        // Pass requires at least one rightPhoto; Fail requires at least one wrongPhoto.
+        for (const t of (formData.tests || [])) {
+          const decided = t?.pass === true || t?.fail === true;
+          if (!decided) {
+            errs.tests = `"${t?.label || 'Test'}" requires a Pass or Fail decision`;
+            break;
           }
-        });
-        reqArr('testingPhotos', formData.testingPhotos, 'Add at least one photo');
+          if (t.pass && (!Array.isArray(t.rightPhotos) || t.rightPhotos.length === 0)) {
+            errs.tests = `"${t.label}" passed — upload at least one Correct photo`;
+            break;
+          }
+          if (t.fail && (!Array.isArray(t.wrongPhotos) || t.wrongPhotos.length === 0)) {
+            errs.tests = `"${t.label}" failed — upload at least one Incorrect photo`;
+            break;
+          }
+        }
         break;
 
       case 'documentation':
@@ -275,9 +341,8 @@ export default function ProductInspectionForm({
     }));
   };
 
-  const handleSubmit = async () => {
-    // Full sweep before submission — reveal inline errors on every step that
-    // has any, and jump to the first one so the user can fix it.
+  const handleSubmit = async (afterSelfieOverride?: SelfieResult) => {
+    // Full sweep before submission
     const invalidSteps = STEPS.filter(
       (s) => Object.keys(validateStep(s.id)).length > 0,
     );
@@ -288,6 +353,13 @@ export default function ProductInspectionForm({
         return next;
       });
       setCurrentStep(invalidSteps[0].id);
+      return;
+    }
+
+    // Require after-selfie before showing confirm dialog
+    const resolvedAfterSelfie = afterSelfieOverride ?? afterSelfie;
+    if (!resolvedAfterSelfie) {
+      setShowAfterSelfie(true);
       return;
     }
 
@@ -317,6 +389,12 @@ export default function ProductInspectionForm({
                   rightPhotos: cleanPhotos(test.rightPhotos),
                   wrongPhotos: cleanPhotos(test.wrongPhotos),
                 })),
+                beforeSelfieTakenAt: beforeSelfie?.takenAt,
+                beforeSelfiePhoto: beforeSelfie
+                  ? { name: 'before-selfie.jpg', data: beforeSelfie.dataUri }
+                  : undefined,
+                afterSelfieTakenAt: resolvedAfterSelfie.takenAt,
+                afterSelfiePhoto: { name: 'after-selfie.jpg', data: resolvedAfterSelfie.dataUri },
               };
 
               if (formData.finalDecision === 'Approved') {
@@ -343,7 +421,7 @@ export default function ProductInspectionForm({
     const p = { formData, setFormData, errors: stepErrors } as any;
     switch (currentStep) {
       case 'generalInformation':
-        return <GeneralInformation {...p} />;
+        return <GeneralInformation {...p} autofillSnapshot={autofillSnapshot} />;
       case 'preparation':
         return <Preparation {...p} />;
       case 'measurements':
@@ -365,6 +443,30 @@ export default function ProductInspectionForm({
 
   return (
     <View className="flex-1 bg-white">
+      {/* Before-inspection selfie gate */}
+      <SelfieCaptureModal
+        visible={showBeforeSelfie}
+        title="Before Inspection Selfie"
+        description="Take a selfie to verify your presence before starting the product inspection. This is mandatory."
+        onConfirm={(result) => {
+          setBeforeSelfie(result);
+          setShowBeforeSelfie(false);
+        }}
+        onCancel={onCancel}
+      />
+
+      {/* After-inspection selfie gate */}
+      <SelfieCaptureModal
+        visible={showAfterSelfie}
+        title="After Inspection Selfie"
+        description="Great work! Take a final selfie to confirm you completed the product inspection on-site."
+        onConfirm={(result) => {
+          setAfterSelfie(result);
+          setShowAfterSelfie(false);
+          // Pass result directly to avoid stale closure on afterSelfie state
+          handleSubmit(result);
+        }}
+      />
       {/* Step Indicator */}
       <View className="px-4 pt-4 pb-2">
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -527,7 +629,7 @@ export default function ProductInspectionForm({
           {isLastStep ? (
             <TouchableOpacity
               className="flex-row items-center px-5 py-2.5 bg-blue-600 rounded-xl"
-              onPress={handleSubmit}
+              onPress={() => handleSubmit()}
               disabled={submitting}
             >
               {submitting ? (

@@ -163,6 +163,28 @@ class QCCheckerService {
     }
   }
 
+  // Update current checker profile
+  async updateProfile(data: Partial<{
+    name: string;
+    phone: string;
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+    password?: string;
+  }>): Promise<{ success: boolean; message: string; data: QCCheckerData }> {
+    try {
+      const token = await this.getCheckerToken();
+      const response = await axios.put('/qc-checkers/me', data, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || error.message || 'Failed to update profile');
+    }
+  }
+
   // Get assigned vendors
   async getAssignedVendors(params?: {
     page?: number;
@@ -289,6 +311,45 @@ class QCCheckerService {
     }
   }
 
+  // Get product reports (inspected products — QC_APPROVED / REJECTED)
+  async getProductReports(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{
+    success: boolean;
+    data: {
+      products: any[];
+      pagination: { total: number; page: number; limit: number; totalPages: number };
+    };
+  }> {
+    try {
+      const token = await this.getCheckerToken();
+      const response = await axios.get('/qc-checkers/products/reports', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        params,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch product reports');
+    }
+  }
+
+  // Get product details for QC checker view
+  async getProductDetails(productId: string): Promise<{ success: boolean; data: { product: any } }> {
+    try {
+      const token = await this.getCheckerToken();
+      const response = await axios.get(`/qc-checkers/products/${productId}/details`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch product details');
+    }
+  }
+
   // Approve Product
   async approveProduct(productId: string, formData?: any): Promise<{ success: boolean; message: string; data: any }> {
     try {
@@ -324,13 +385,23 @@ class QCCheckerService {
   // ============================
 
   // Get Assigned Inspections
-  async getInspections(): Promise<{ success: boolean; inspections: any[] }> {
+  async getInspections(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    result?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{
+    success: boolean;
+    inspections: any[];
+    pagination?: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     try {
       const token = await this.getCheckerToken();
       const response = await axios.get('/inspections', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` },
+        params,
       });
       return response.data;
     } catch (error: any) {

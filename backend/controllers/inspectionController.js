@@ -73,7 +73,12 @@ const createInspection = async (req, res) => {
             data: { assignedQcId: checkerId, status: 'UNDER_REVIEW' }
         });
 
-        // Optionally trigger an email to QC Checker / Vendor here
+        // Notify the QC checker on mobile
+        // Notify the QC checker on mobile
+        const { notifications } = require('../utils/notificationService');
+        const vendorRecord = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { companyName: true } });
+        const vendorName = vendorRecord?.companyName || 'Vendor';
+        notifications.inspectionScheduled(checkerId, vendorName, scheduledDate).catch(console.error);
 
         res.status(201).json({ success: true, message: 'Inspection assigned successfully', inspection: newInspection });
     } catch (error) {

@@ -31,8 +31,8 @@ const PAGE_SIZE = 12;
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
-  { value: 'UNDER_REVIEW', label: 'Under Review' },
-  { value: 'APPROVED', label: 'Approved' },
+  { value: 'UNDER_REVIEW', label: 'Under Review by Admin' },
+  { value: 'APPROVED', label: 'Approved by Admin' },
   { value: 'REJECTED', label: 'Rejected' },
   { value: 'SUSPENDED', label: 'Suspended' },
 ];
@@ -40,8 +40,8 @@ const STATUS_OPTIONS = [
 const SORT_OPTIONS = [
   { value: 'submittedAt:desc', label: 'Newest first' },
   { value: 'submittedAt:asc', label: 'Oldest first' },
-  { value: 'companyName:asc', label: 'Name A–Z' },
-  { value: 'companyName:desc', label: 'Name Z–A' },
+  { value: 'status:asc', label: 'Status A–Z' },
+  { value: 'status:desc', label: 'Status Z–A' },
 ];
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; border: string }> = {
@@ -51,6 +51,17 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; border: string }>
   REJECTED: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' },
   SUSPENDED: { bg: 'bg-slate-100', text: 'text-slate-800', border: 'border-slate-200' },
 };
+
+const STATUS_LABELS: Record<string, string> = {
+  APPROVED: 'Approved by Admin',
+  PENDING: 'Pending',
+  UNDER_REVIEW: 'Under Review by Admin',
+  REJECTED: 'Rejected',
+  SUSPENDED: 'Suspended',
+};
+
+const formatStatus = (status: string) =>
+  STATUS_LABELS[status] || status.replace(/_/g, ' ');
 
 const INSPECTION_PRIORITY = ['IN_PROGRESS', 'SCHEDULED', 'COMPLETED', 'CANCELLED'] as const;
 
@@ -96,8 +107,6 @@ const transformVendor = (v: any): Vendor => ({
   status: toVendorStatus(v.status),
   inspectionStatus: pickInspectionStatus(v.inspections),
 });
-
-const formatStatus = (s: string) => s.replace(/_/g, ' ').toLowerCase();
 
 export default function VendorsTab() {
   const [searchInput, setSearchInput] = useState('');
@@ -195,20 +204,9 @@ export default function VendorsTab() {
       }
     >
       {/* Header */}
-      <View className="mb-5 flex-row items-start justify-between">
-        <View className="flex-1 pr-3">
-          <Text className="text-2xl font-extrabold text-slate-900 mb-1">Vendor Management</Text>
-          <Text className="text-slate-600 text-sm">Select a vendor to start quality inspection</Text>
-        </View>
-        <TouchableOpacity
-          onPress={loadVendors}
-          disabled={loading}
-          accessibilityLabel="Refresh vendors"
-          className="w-10 h-10 items-center justify-center rounded-xl bg-white border border-slate-200"
-          style={{ opacity: loading ? 0.5 : 1 }}
-        >
-          <RefreshCw size={16} color="#475569" />
-        </TouchableOpacity>
+      <View className="mb-5">
+        <Text className="text-2xl font-extrabold text-slate-900 mb-1">Vendor Management</Text>
+        <Text className="text-slate-600 text-sm">Select a vendor to start quality inspection</Text>
       </View>
 
       {/* Search */}
@@ -250,7 +248,7 @@ export default function VendorsTab() {
       <View className="flex-row items-center justify-between mb-4">
         <Text className="text-xs text-slate-600">
           {loading && vendors.length === 0
-            ? 'Loading vendors...'
+            ? ''
             : pagination.total === 0
               ? '0 vendors'
               : `Showing ${rangeStart}–${rangeEnd} of ${pagination.total}`}

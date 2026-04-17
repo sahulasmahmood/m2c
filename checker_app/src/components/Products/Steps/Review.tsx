@@ -16,7 +16,6 @@ interface ReviewProps {
       itemDescription: string;
       totalQuantity: number;
       inspectionQuantity: number;
-      status: string;
     }>;
     shipperCartonRemark: string;
     innerCartonRemark: string;
@@ -64,16 +63,6 @@ export default function Review({ formData }: ReviewProps) {
     formData.criticalDefects <= formData.maxAllowedCritical &&
     formData.majorDefects <= formData.maxAllowedMajor &&
     formData.minorDefects <= formData.maxAllowedMinor;
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Pending': return { bg: 'bg-amber-100', text: 'text-amber-800' };
-      case 'Ready': return { bg: 'bg-emerald-100', text: 'text-emerald-800' };
-      case 'In Progress': return { bg: 'bg-blue-100', text: 'text-blue-800' };
-      case 'Completed': return { bg: 'bg-gray-100', text: 'text-gray-800' };
-      default: return { bg: 'bg-gray-100', text: 'text-gray-600' };
-    }
-  };
 
   const getResultColor = () => {
     if (remarkAnalysis.result === 'PASS') return { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' };
@@ -129,24 +118,16 @@ export default function Review({ formData }: ReviewProps) {
         <Text className="text-sm font-bold text-gray-900 mb-2">
           Order Items ({formData.items.length})
         </Text>
-        {formData.items.map((item, idx) => {
-          const sc = getStatusColor(item.status);
-          return (
-            <View key={item.id} className="border-b border-gray-200 py-2 last:border-b-0">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm text-gray-900 font-medium flex-1" numberOfLines={1}>
-                  {item.itemName}
-                </Text>
-                <View className={`px-2 py-0.5 rounded-full ${sc.bg}`}>
-                  <Text className={`text-[10px] font-bold ${sc.text}`}>{item.status}</Text>
-                </View>
-              </View>
-              <Text className="text-xs text-gray-500 mt-0.5">
-                Total: {item.totalQuantity} | Inspection: {item.inspectionQuantity}
-              </Text>
-            </View>
-          );
-        })}
+        {formData.items.map((item) => (
+          <View key={item.id} className="border-b border-gray-200 py-2 last:border-b-0">
+            <Text className="text-sm text-gray-900 font-medium" numberOfLines={1}>
+              {item.itemName}
+            </Text>
+            <Text className="text-xs text-gray-500 mt-0.5">
+              Total: {item.totalQuantity} | Inspection: {item.inspectionQuantity}
+            </Text>
+          </View>
+        ))}
       </View>
 
       {/* Remark Analysis */}

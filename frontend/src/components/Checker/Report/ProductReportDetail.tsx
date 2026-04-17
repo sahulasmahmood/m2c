@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react"
 import {
   ArrowLeft, CheckCircle, XCircle,
   AlertTriangle, Package, ClipboardList, Ruler,
-  Box, Bug, FlaskConical, Camera, Star, Download
+  Box, Bug, FlaskConical, Camera, Star, Download, Clock
 } from "lucide-react"
 import { Badge } from "@/components/UI/Badge"
 import qcCheckerService from "@/services/qcCheckerService"
@@ -553,6 +553,42 @@ export default function ProductReportDetail({ productId, onBack }: ProductReport
         <PhotoGrid photos={fd.photocopyDocuments} label="Photocopy Documents" />
         <PhotoGrid photos={fd.companyIdCards} label="Company ID Cards" />
       </Section>
+
+      {/* Selfie Verification */}
+      {(fd.beforeSelfiePhoto || fd.afterSelfiePhoto) && (
+        <Section title="Selfie Verification" icon={Camera} accent="bg-violet-50 text-violet-800">
+          <div className="flex flex-wrap gap-6">
+            {([
+              { key: 'before', photo: fd.beforeSelfiePhoto, takenAt: fd.beforeSelfieTakenAt, label: 'Before Inspection' },
+              { key: 'after',  photo: fd.afterSelfiePhoto,  takenAt: fd.afterSelfieTakenAt,  label: 'After Inspection'  },
+            ] as const).map(({ key, photo, takenAt, label }) => {
+              const src = (photo as any)?.data || (photo as any)?.url || (typeof photo === 'string' ? photo : null)
+              if (!src) return null
+              return (
+                <div key={key} className="flex flex-col items-center gap-2">
+                  <div className="relative w-44 rounded-2xl overflow-hidden border-2 border-violet-200 shadow-md" style={{ aspectRatio: '0.8' }}>
+                    <img
+                      src={src}
+                      alt={label}
+                      onError={(e) => { e.currentTarget.style.display = 'none' }}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute bottom-0 inset-x-0 bg-violet-900/70 text-white text-[10px] font-bold text-center py-1 px-2">
+                      {label}
+                    </div>
+                  </div>
+                  {takenAt && (
+                    <div className="flex items-center gap-1 text-slate-400 text-xs">
+                      <Clock className="w-3 h-3" />
+                      <span>{new Date(takenAt as string).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </Section>
+      )}
 
       {/* Section 8: Review & Decision */}
       <Section title="Section 8 — Review & Final Decision" icon={Star} accent="bg-amber-50 text-amber-800">

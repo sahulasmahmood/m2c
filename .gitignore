@@ -1,2 +1,6 @@
 # agents
 .agents
+*firebase-adminsdk*.json
+*-service-account*.json
+serviceAccountKey.json
+

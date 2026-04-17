@@ -195,13 +195,11 @@ export default function VendorDetailScreen() {
       <Header
         onBack={() => router.back()}
         insetsTop={insets.top}
-        onRefresh={() => loadAll()}
-        refreshing={loading}
       />
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" colors={['#2563eb']} />
@@ -320,14 +318,14 @@ export default function VendorDetailScreen() {
                       className="flex-row items-center"
                     >
                       <Globe size={14} color="#2563eb" />
-                      <Text className="text-sm text-blue-600 ml-1.5 underline" numberOfLines={1}>
+                      <Text className="text-sm text-blue-600 ml-1.5 underline" style={{ flexShrink: 1 }}>
                         {fullVendor.website}
                       </Text>
                     </TouchableOpacity>
                   ) : (
                     <View className="flex-row items-center">
                       <Globe size={14} color="#94a3b8" />
-                      <Text className="text-sm text-slate-700 ml-1.5" numberOfLines={1}>
+                      <Text className="text-sm text-slate-700 ml-1.5" style={{ flexShrink: 1 }}>
                         {fullVendor.website}
                       </Text>
                     </View>
@@ -337,7 +335,7 @@ export default function VendorDetailScreen() {
               {fullVendor?.companyDescription ? (
                 <View className="pb-3">
                   <Text className="text-xs font-medium text-slate-500 mb-1">Description</Text>
-                  <Text className="text-sm text-slate-900" style={{ lineHeight: 20 }}>
+                  <Text className="text-sm text-slate-900" style={{ lineHeight: 20 }} selectable>
                     {fullVendor.companyDescription}
                   </Text>
                 </View>
@@ -705,13 +703,9 @@ export default function VendorDetailScreen() {
 function Header({
   onBack,
   insetsTop,
-  onRefresh,
-  refreshing,
 }: {
   onBack: () => void;
   insetsTop: number;
-  onRefresh?: () => void;
-  refreshing?: boolean;
 }) {
   return (
     <View
@@ -727,20 +721,7 @@ function Header({
         <ArrowLeft size={20} color="#0f172a" />
       </TouchableOpacity>
       <Text className="text-base font-bold text-slate-900">Vendor Details</Text>
-      {onRefresh ? (
-        <TouchableOpacity
-          onPress={onRefresh}
-          hitSlop={10}
-          activeOpacity={0.7}
-          disabled={refreshing}
-          className="w-10 h-10 items-center justify-center rounded-full bg-slate-100"
-          style={{ opacity: refreshing ? 0.5 : 1 }}
-        >
-          <RefreshCw size={16} color="#475569" />
-        </TouchableOpacity>
-      ) : (
-        <View className="w-10" />
-      )}
+      <View className="w-10" />
     </View>
   );
 }
@@ -772,7 +753,9 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
   return (
     <View className="py-3 border-b border-slate-100">
       <Text className="text-xs font-medium text-slate-500 mb-1">{label}</Text>
-      <Text className="text-sm text-slate-900">{String(value)}</Text>
+      <Text className="text-sm text-slate-900" style={{ lineHeight: 20 }} selectable>
+        {String(value)}
+      </Text>
     </View>
   );
 }
