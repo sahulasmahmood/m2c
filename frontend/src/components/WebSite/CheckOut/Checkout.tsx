@@ -15,12 +15,14 @@ import {
 import ShippingForm from "./CheckoutProcess/ShippingForm"
 import PaymentForm from "./CheckoutProcess/PaymentForm"
 import ReviewOrder from "./CheckoutProcess/ReviewOrder"
+import AddressSelector from "./CheckoutProcess/AddressSelector"
 import cartService, { CartItem } from "@/services/cartService"
 import orderService from "@/services/orderService"
 import paymentService from "@/services/paymentService"
 import { userProfileService } from "@/services/userProfileService"
 import { userAuthService } from "@/services/userAuthService"
 import { paymentSettingsService, PublicPaymentSettings } from "@/services/paymentSettingsService"
+import { addressService, MAX_SAVED_ADDRESSES, type SavedAddress, type AddressPayload } from "@/services/addressService"
 
 // Declare Razorpay type for TypeScript
 declare global {
@@ -65,6 +67,12 @@ export default function Checkout() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [paymentSettings, setPaymentSettings] = useState<PublicPaymentSettings | null>(null)
+
+  // Saved addresses state
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([])
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+  const [useNewAddress, setUseNewAddress] = useState(false)
+  const [saveNewAddressToBook, setSaveNewAddressToBook] = useState(false)
 
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: "",
@@ -111,6 +119,7 @@ export default function Checkout() {
   useEffect(() => {
     fetchCart()
     fetchUserProfile()
+    fetchSavedAddresses()
     fetchPaymentSettings()
     loadRazorpayScript()
 
@@ -170,19 +179,14 @@ export default function Checkout() {
         const firstName = nameParts[0] || ''
         const lastName = nameParts.slice(1).join(' ') || ''
 
-        // Pre-fill form with user data
+        // Pre-fill personal info only. Shipping address is sourced from saved addresses
+        // (see fetchSavedAddresses) so it isn't overridden by legacy flat User.address fields.
         setFormData(prev => ({
           ...prev,
-          firstName,
-          lastName,
+          firstName: prev.firstName || firstName,
+          lastName: prev.lastName || lastName,
           email: userData.email,
-          phone: userData.phoneNumber || '',
-          address: userData.address || '',
-          addressLine2: (userData as any).addressLine2 || '',
-          city: userData.city || '',
-          state: userData.state || '',
-          zipCode: userData.zipCode || '',
-          country: userData.country || 'United States'
+          phone: prev.phone || userData.phoneNumber || '',
         }))
       }
     } catch (err: any) {
@@ -190,6 +194,109 @@ export default function Checkout() {
       // Don't show error to user, just log it
       // User can still manually enter address
     }
+  }
+
+  const fetchSavedAddresses = async () => {
+    try {
+      if (!userAuthService.isAuthenticated()) return
+      const list = await addressService.list()
+      setSavedAddresses(list)
+      // Auto-select default if user has addresses; otherwise go straight to new-address entry
+      const def = list.find((a) => a.isDefault) || list[0]
+      if (def) {
+        setSelectedAddressId(def.id)
+        setUseNewAddress(false)
+        applySavedAddressToForm(def)
+      } else {
+        setUseNewAddress(true)
+      }
+    } catch (err) {
+      console.error("Failed to load saved addresses:", err)
+      setUseNewAddress(true)
+    }
+  }
+
+  const applySavedAddressToForm = (addr: SavedAddress) => {
+    const nameParts = (addr.name || "").trim().split(/\s+/)
+    const firstName = nameParts[0] || ""
+    const lastName = nameParts.slice(1).join(" ") || ""
+    setFormData((prev) => ({
+      ...prev,
+      firstName,
+      lastName,
+      phone: addr.phone || prev.phone,
+      address: addr.address || "",
+      addressLine2: addr.addressLine2 || "",
+      city: addr.city || "",
+      state: addr.state || "",
+      zipCode: addr.zipCode || "",
+      country: addr.country || "United States",
+    }))
+  }
+
+  const handleSelectSavedAddress = (id: string) => {
+    const addr = savedAddresses.find((a) => a.id === id)
+    if (!addr) return
+    setSelectedAddressId(id)
+    setUseNewAddress(false)
+    setSaveNewAddressToBook(false)
+    applySavedAddressToForm(addr)
+  }
+
+  const handleChooseNewAddress = () => {
+    setUseNewAddress(true)
+    setSelectedAddressId(null)
+    // Clear shipping fields so the user enters fresh data; keep email so it's not lost
+    setFormData((prev) => ({
+      ...prev,
+      firstName: "",
+      lastName: "",
+      phone: "",
+      address: "",
+      addressLine2: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "United States",
+    }))
+  }
+
+  // True when Step 1 can proceed: either a saved address is selected, or the new-address form is valid.
+  const canAdvanceShipping = useNewAddress ? shippingValid : !!selectedAddressId
+
+  // If the user opted to save a new address to the address book, persist it before advancing.
+  // A save failure is surfaced but does NOT block checkout — the user should still be able to complete the order.
+  const handleShippingStepAdvance = async () => {
+    if (
+      useNewAddress &&
+      saveNewAddressToBook &&
+      userAuthService.isAuthenticated() &&
+      savedAddresses.length < MAX_SAVED_ADDRESSES
+    ) {
+      try {
+        const payload: AddressPayload = {
+          type: "home",
+          name: `${formData.firstName} ${formData.lastName}`.trim(),
+          phone: formData.phone,
+          address: formData.address,
+          addressLine2: formData.addressLine2 || undefined,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode,
+          country: "United States",
+          isDefault: savedAddresses.length === 0,
+        }
+        const created = await addressService.create(payload)
+        setSavedAddresses((prev) => [created, ...prev])
+        setSelectedAddressId(created.id)
+        setSaveNewAddressToBook(false)
+      } catch (err: any) {
+        console.error("Failed to save address to book:", err)
+        setError(err?.message || "Could not save address to your address book")
+        return
+      }
+    }
+    setCurrentStep((s) => s + 1)
   }
 
   const fetchPaymentSettings = async () => {
@@ -446,9 +553,62 @@ export default function Checkout() {
     </div>
   )
 
-  const renderShippingForm = () => (
-    <ShippingForm formData={formData} updateFormData={updateFormData} disabled={placingOrder} onValidityChange={setShippingValid} />
-  )
+  const renderShippingForm = () => {
+    const canSaveMore = savedAddresses.length < MAX_SAVED_ADDRESSES
+    const isAuthed = userAuthService.isAuthenticated()
+    return (
+      <div className="space-y-6">
+        {savedAddresses.length > 0 && (
+          <AddressSelector
+            addresses={savedAddresses}
+            selectedId={selectedAddressId}
+            useNewAddress={useNewAddress}
+            onSelect={handleSelectSavedAddress}
+            onChooseNew={handleChooseNewAddress}
+            disabled={placingOrder}
+          />
+        )}
+
+        {useNewAddress && (
+          <>
+            {savedAddresses.length > 0 && (
+              <div className="border-t border-slate-200 pt-6">
+                <h3 className="text-sm font-semibold text-slate-900 mb-4">Enter new shipping address</h3>
+              </div>
+            )}
+            <ShippingForm
+              formData={formData}
+              updateFormData={updateFormData}
+              disabled={placingOrder}
+              onValidityChange={setShippingValid}
+            />
+            {isAuthed && canSaveMore && (
+              <label className="flex items-center gap-3 cursor-pointer select-none pt-2">
+                <input
+                  type="checkbox"
+                  checked={saveNewAddressToBook}
+                  onChange={(e) => setSaveNewAddressToBook(e.target.checked)}
+                  disabled={placingOrder}
+                  className="w-4 h-4 accent-gray-800"
+                />
+                <span className="text-sm text-slate-700">
+                  Save this address to my address book
+                  <span className="text-slate-400 ml-1">
+                    ({savedAddresses.length}/{MAX_SAVED_ADDRESSES} used)
+                  </span>
+                </span>
+              </label>
+            )}
+            {isAuthed && !canSaveMore && (
+              <p className="text-xs text-slate-500 pt-2">
+                You&apos;ve reached the {MAX_SAVED_ADDRESSES}-address limit — this address won&apos;t be saved to your address book.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
 
   const renderPaymentForm = () => (
     <PaymentForm formData={formData} updateFormData={updateFormData} paymentSettings={paymentSettings} />
@@ -517,11 +677,15 @@ export default function Checkout() {
                   </button>
                   <button
                     onClick={() => {
-                      if (currentStep === 1 && !shippingValid) {
+                      if (currentStep === 1 && !canAdvanceShipping) {
                         return;
                       }
                       if (currentStep < 3) {
-                        setCurrentStep(currentStep + 1)
+                        if (currentStep === 1) {
+                          void handleShippingStepAdvance()
+                        } else {
+                          setCurrentStep(currentStep + 1)
+                        }
                       } else {
                         handlePlaceOrder()
                       }
@@ -532,7 +696,7 @@ export default function Checkout() {
                         item.product?.inStock === false ||
                         (item.product?.availableStock !== undefined && item.quantity > item.product?.availableStock)
                       ) ||
-                      (currentStep === 1 && !shippingValid)
+                      (currentStep === 1 && !canAdvanceShipping)
                     }
                     className="px-8 py-3 bg-linear-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
                   >
