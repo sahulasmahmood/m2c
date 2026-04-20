@@ -35,14 +35,6 @@ const Profile = () => {
     email: '',
     phone: '',
     gender: 'male',
-    address: {
-      addressLine1: '',
-      addressLine2: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      country: 'United States'
-    },
     joinDate: new Date().toISOString().split('T')[0],
     preferences: {
       newsletter: false,
@@ -78,14 +70,6 @@ const Profile = () => {
           email: userData.email,
           phone: userData.phoneNumber || '',
           gender: 'male', // Default, can be enhanced later
-          address: {
-            addressLine1: userData.address || '',
-            addressLine2: userData.addressLine2 || '',
-            city: userData.city || '',
-            state: userData.state || '',
-            zipCode: userData.zipCode || '',
-            country: userData.country || 'United States'
-          },
           joinDate: new Date(userData.createdAt).toISOString().split('T')[0],
           preferences: {
             newsletter: false,

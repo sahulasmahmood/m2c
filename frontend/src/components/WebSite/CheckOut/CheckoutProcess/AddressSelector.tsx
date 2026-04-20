@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { MapPin, Home, Briefcase, Star, Plus, Check } from "lucide-react";
 import type { SavedAddress } from "@/services/addressService";
 
@@ -26,25 +27,76 @@ export default function AddressSelector({
   onChooseNew,
   disabled,
 }: AddressSelectorProps) {
+  // Tab stops: each address card + the "Use a new address" tile. Arrow keys move focus between them.
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
   if (addresses.length === 0) return null;
+
+  const totalItems = addresses.length + 1; // +1 for "new address" tile
+
+  const focusItem = (index: number) => {
+    const clamped = (index + totalItems) % totalItems;
+    itemRefs.current[clamped]?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, currentIndex: number, onActivate: () => void) => {
+    switch (e.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        e.preventDefault();
+        focusItem(currentIndex + 1);
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        e.preventDefault();
+        focusItem(currentIndex - 1);
+        break;
+      case "Home":
+        e.preventDefault();
+        focusItem(0);
+        break;
+      case "End":
+        e.preventDefault();
+        focusItem(totalItems - 1);
+        break;
+      case " ":
+      case "Enter":
+        e.preventDefault();
+        onActivate();
+        break;
+    }
+  };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">Ship to a saved address</h3>
+        <h3 id="saved-address-heading" className="text-sm font-semibold text-slate-900">
+          Ship to a saved address
+        </h3>
         <span className="text-xs text-slate-500">{addresses.length} saved</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {addresses.map((addr) => {
+      <div
+        role="radiogroup"
+        aria-labelledby="saved-address-heading"
+        className="grid grid-cols-1 md:grid-cols-2 gap-3"
+      >
+        {addresses.map((addr, idx) => {
           const meta = TYPE_META[addr.type] || TYPE_META.other;
           const Icon = meta.icon;
           const selected = !useNewAddress && selectedId === addr.id;
+          // Only the currently selected card is in the tab order; arrow keys move between cards.
+          const tabIndex = selected || (!selectedId && idx === 0) ? 0 : -1;
           return (
             <button
               key={addr.id}
+              ref={(el) => { itemRefs.current[idx] = el; }}
+              role="radio"
+              aria-checked={selected}
+              tabIndex={disabled ? -1 : tabIndex}
               type="button"
               onClick={() => onSelect(addr.id)}
+              onKeyDown={(e) => handleKeyDown(e, idx, () => onSelect(addr.id))}
               disabled={disabled}
               className={`relative text-left border-2 rounded-xl p-4 transition-all focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-60 disabled:cursor-not-allowed ${
                 selected
@@ -80,8 +132,13 @@ export default function AddressSelector({
         })}
 
         <button
+          ref={(el) => { itemRefs.current[addresses.length] = el; }}
+          role="radio"
+          aria-checked={useNewAddress}
+          tabIndex={disabled ? -1 : useNewAddress ? 0 : -1}
           type="button"
           onClick={onChooseNew}
+          onKeyDown={(e) => handleKeyDown(e, addresses.length, onChooseNew)}
           disabled={disabled}
           className={`relative text-left border-2 border-dashed rounded-xl p-4 transition-all focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center justify-center gap-2 min-h-[140px] disabled:opacity-60 disabled:cursor-not-allowed ${
             useNewAddress

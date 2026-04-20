@@ -363,23 +363,36 @@ export default function AddressFormModal({
             </div>
 
             {/* Default toggle */}
-            {allowDefaultToggle && (
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={form.isDefault}
-                  onChange={(e) => setField("isDefault", e.target.checked)}
-                  disabled={submitting || hasNoAddressesYet}
-                  className="w-4 h-4 accent-gray-800"
-                />
-                <span className="text-sm text-slate-700">
-                  Set as default shipping address
+            {allowDefaultToggle && (() => {
+              const editingCurrentDefault = !!editing && editing.isDefault;
+              const lockedOn = hasNoAddressesYet || editingCurrentDefault;
+              return (
+                <div>
+                  <label className={`flex items-center gap-3 select-none ${lockedOn ? "cursor-not-allowed" : "cursor-pointer"}`}>
+                    <input
+                      type="checkbox"
+                      checked={lockedOn ? true : form.isDefault}
+                      onChange={(e) => setField("isDefault", e.target.checked)}
+                      disabled={submitting || lockedOn}
+                      className="w-4 h-4 accent-gray-800"
+                    />
+                    <span className="text-sm text-slate-700">
+                      Set as default shipping address
+                    </span>
+                  </label>
                   {hasNoAddressesYet && (
-                    <span className="text-slate-400 ml-1">(your first address is always default)</span>
+                    <p className="text-xs text-slate-500 mt-1.5 ml-7">
+                      Your first address is always the default.
+                    </p>
                   )}
-                </span>
-              </label>
-            )}
+                  {editingCurrentDefault && !hasNoAddressesYet && (
+                    <p className="text-xs text-slate-500 mt-1.5 ml-7">
+                      This is your current default. To change it, open another address in your Address Book and choose &ldquo;Set as default&rdquo;.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {submitError && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

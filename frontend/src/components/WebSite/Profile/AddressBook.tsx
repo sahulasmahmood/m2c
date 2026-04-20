@@ -69,12 +69,15 @@ export default function AddressBook() {
 
   const handleSetDefault = async (addr: SavedAddress) => {
     if (addr.isDefault) return;
+    // Optimistic: flip isDefault flags locally immediately, revert on failure.
+    const previous = addresses;
+    setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a.id === addr.id })));
     try {
       setBusyId(addr.id);
       await addressService.setDefault(addr.id);
       showSuccessToast("Default Updated", `${formatTypeLabel(addr)} is now your default.`);
-      await load();
     } catch (err: any) {
+      setAddresses(previous);
       showErrorToast("Failed", err?.message || "Could not set default");
     } finally {
       setBusyId(null);
@@ -82,13 +85,25 @@ export default function AddressBook() {
   };
 
   const handleDelete = async (id: string) => {
+    // Optimistic: remove from local state immediately. On failure, restore and toast.
+    const previous = addresses;
+    const removed = addresses.find((a) => a.id === id);
+    if (!removed) return;
+    // Promote next default locally if we're removing the current default (server does the same).
+    let next = addresses.filter((a) => a.id !== id);
+    if (removed.isDefault && next.length > 0 && !next.some((a) => a.isDefault)) {
+      next = next.map((a, i) => (i === 0 ? { ...a, isDefault: true } : a));
+    }
+    setAddresses(next);
+    setConfirmDeleteId(null);
     try {
       setBusyId(id);
       await addressService.remove(id);
       showSuccessToast("Address Deleted", "The address has been removed.");
-      setConfirmDeleteId(null);
+      // Re-sync with server to pick up any default-promotion tie-breaking differences.
       await load();
     } catch (err: any) {
+      setAddresses(previous);
       showErrorToast("Failed", err?.message || "Could not delete address");
     } finally {
       setBusyId(null);
