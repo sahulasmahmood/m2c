@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search, Eye } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Search, Eye, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -13,7 +13,10 @@ import {
 } from "@/components/UI/Table";
 import Dropdown from "@/components/UI/Dropdown";
 import { orderService, Order } from "@/services/orderService";
-import { showSuccessToast, showErrorToast } from "@/lib/toast-utils";
+import { showErrorToast } from "@/lib/toast-utils";
+
+// Polls every 30s while the tab is visible so admin sees vendor status updates without F5.
+const REFRESH_INTERVAL_MS = 30000;
 
 export default function VendorToHub() {
   const router = useRouter();
@@ -21,27 +24,69 @@ export default function VendorToHub() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // We are interested in orders that are primarily in these state categories for Vendor to Hub
   const statusOptions = ["All", "ORDER_CREATED", "VENDOR_PROCESSING", "PACKED_BY_VENDOR", "IN_TRANSIT_TO_ADMIN_HUB", "RECEIVED_AT_ADMIN_HUB"];
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  const isFetchingRef = useRef(false);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async (silent = false) => {
+    // Prevent overlapping fetches (e.g. timer fires while manual refresh is still in flight).
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
-      setIsLoading(true);
+      if (silent) setIsRefreshing(true);
+      else setIsLoading(true);
       const res = await orderService.getAdminOrders();
       if (res.success) {
         setOrders(res.data);
+        setLastUpdated(new Date());
       }
     } catch (error: any) {
-      showErrorToast(error.message || "Failed to fetch orders");
+      // Silent refreshes shouldn't spam the user with toasts; only surface failures on first load or manual refresh.
+      if (!silent) showErrorToast(error.message || "Failed to fetch orders");
+      else console.warn("Silent order refresh failed:", error.message || error);
     } finally {
+      isFetchingRef.current = false;
+      setIsRefreshing(false);
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+
+    // Visibility-aware polling: pause when tab is hidden, resume (and immediately refresh) on return.
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const startPolling = () => {
+      if (timer) return;
+      timer = setInterval(() => fetchOrders(true), REFRESH_INTERVAL_MS);
+    };
+    const stopPolling = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchOrders(true);
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+    startPolling();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [fetchOrders]);
+
+  const handleManualRefresh = () => fetchOrders(true);
 
   const filteredOrders = orders.filter((order) => {
     const mainItem = order.items?.[0] || {} as any;
@@ -118,7 +163,7 @@ export default function VendorToHub() {
 
       {/* Filters */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
@@ -137,7 +182,22 @@ export default function VendorToHub() {
               placeholder="Filter by Status"
             />
           </div>
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shrink-0"
+            title={lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString("en-IN")}` : "Refresh"}
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span className="text-sm font-medium">Refresh</span>
+          </button>
         </div>
+        {lastUpdated && (
+          <p className="text-xs text-gray-500 mt-3">
+            Auto-updates every 30s &middot; Last updated {lastUpdated.toLocaleTimeString("en-IN")}
+          </p>
+        )}
       </div>
 
       {/* Orders Table */}
@@ -177,8 +237,8 @@ export default function VendorToHub() {
                     </TableCell>
                     <TableCell>{sku}</TableCell>
                     <TableCell>{vendorName}</TableCell>
-                    <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>₹{order.totalAmount?.toLocaleString()}</TableCell>
+                    <TableCell>{new Date(order.createdAt).toLocaleDateString("en-IN")}</TableCell>
+                    <TableCell>₹{order.totalAmount?.toLocaleString("en-IN")}</TableCell>
                     <TableCell>
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
