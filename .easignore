@@ -21,12 +21,10 @@ Thumbs.db
 # Dependencies (EAS installs fresh inside checker_app)
 **/node_modules/
 
-# Native build outputs
-**/android/app/build/
-**/android/build/
-**/android/.gradle/
-**/ios/build/
-**/ios/Pods/
+# Native folders — EAS runs `expo prebuild` to regenerate fresh from app.json.
+# Never ship local android/ or ios/ (they drift from app.json and cause build failures).
+**/android/
+**/ios/
 
 # Dev caches
 **/.expo/

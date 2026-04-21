@@ -12,16 +12,33 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { User, Lock, LogIn, ShoppingBag, Eye, EyeOff } from 'lucide-react-native';
+import Constants from 'expo-constants';
 import { userAuthService } from '@/services/userAuthService';
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils';
-import {
-  GoogleSignin,
-  isSuccessResponse,
-  isErrorWithCode,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
+import { useCart } from '@/context/CartContext';
+import { useWishlist } from '@/context/WishlistContext';
 
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
+
+// Expo Go can't load native modules. Lazy-require so the app still boots there;
+// Google Sign-In is disabled in Expo Go and works only in dev-client / release builds.
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
+let GoogleSignin: any = null;
+let isSuccessResponse: ((r: any) => boolean) | null = null;
+let isErrorWithCode: ((e: any) => boolean) | null = null;
+let statusCodes: any = null;
+if (!IS_EXPO_GO) {
+  try {
+    const mod = require('@react-native-google-signin/google-signin');
+    GoogleSignin = mod.GoogleSignin;
+    isSuccessResponse = mod.isSuccessResponse;
+    isErrorWithCode = mod.isErrorWithCode;
+    statusCodes = mod.statusCodes;
+  } catch {
+    // Module not installed in this binary — Google Sign-In stays hidden.
+  }
+}
+const GOOGLE_SIGNIN_AVAILABLE = !!GoogleSignin;
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -32,20 +49,35 @@ export default function LoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const currentYear = new Date().getFullYear();
+  const { refreshCart } = useCart();
+  const { refreshWishlist } = useWishlist();
+
+  // Trigger context refresh after a successful login so guest cart/wishlist
+  // items migrate to the server copy before navigation.
+  const hydrateAfterLogin = async () => {
+    await Promise.all([refreshCart(), refreshWishlist()]);
+  };
 
   useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: GOOGLE_CLIENT_ID,
-    });
+    if (GOOGLE_SIGNIN_AVAILABLE) {
+      GoogleSignin.configure({ webClientId: GOOGLE_CLIENT_ID });
+    }
   }, []);
 
   const handleGoogleSignIn = async () => {
+    if (!GOOGLE_SIGNIN_AVAILABLE) {
+      showErrorToast(
+        'Unavailable in Expo Go',
+        'Google Sign-In needs a dev build. Use email/password or run with a dev client.',
+      );
+      return;
+    }
     setGoogleLoading(true);
     try {
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();
 
-      if (isSuccessResponse(response)) {
+      if (isSuccessResponse!(response)) {
         const { user } = response.data;
 
         const result = await userAuthService.googleLogin({
@@ -57,12 +89,13 @@ export default function LoginScreen() {
 
         if (result.success && result.data) {
           await userAuthService.storeAuthData(result.data.token, result.data.user, true);
+          await hydrateAfterLogin();
           showSuccessToast('Welcome!', `Signed in as ${result.data.user.name}`);
           router.replace('/(tabs)');
         }
       }
     } catch (error: any) {
-      if (isErrorWithCode(error)) {
+      if (isErrorWithCode!(error)) {
         if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
         if (error.code === statusCodes.IN_PROGRESS) return;
         if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
@@ -121,6 +154,7 @@ export default function LoginScreen() {
 
       if (response.success && response.data) {
         await userAuthService.storeAuthData(response.data.token, response.data.user, true);
+        await hydrateAfterLogin();
         showSuccessToast('Welcome Back!', `Logged in as ${response.data.user.name}`);
         router.replace('/(tabs)');
       }
@@ -254,33 +288,37 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View className="flex-row items-center my-5">
-              <View className="flex-1 h-px bg-gray-300" />
-              <Text className="mx-4 text-xs text-gray-500 font-medium">OR</Text>
-              <View className="flex-1 h-px bg-gray-300" />
-            </View>
+            {GOOGLE_SIGNIN_AVAILABLE ? (
+              <>
+                {/* Divider */}
+                <View className="flex-row items-center my-5">
+                  <View className="flex-1 h-px bg-gray-300" />
+                  <Text className="mx-4 text-xs text-gray-500 font-medium">OR</Text>
+                  <View className="flex-1 h-px bg-gray-300" />
+                </View>
 
-            {/* Google Sign-In Button */}
-            <TouchableOpacity
-              disabled={googleLoading}
-              onPress={handleGoogleSignIn}
-              className={`rounded-xl py-3.5 items-center justify-center flex-row border border-gray-300 ${
-                googleLoading ? 'bg-gray-100' : 'bg-white'
-              }`}
-            >
-              {googleLoading ? (
-                <ActivityIndicator size="small" color="#4285F4" />
-              ) : (
-                <Image
-                  source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                  style={{ width: 20, height: 20 }}
-                />
-              )}
-              <Text className="font-bold text-sm ml-3 text-gray-700">
-                {googleLoading ? 'Signing in...' : 'Continue with Google'}
-              </Text>
-            </TouchableOpacity>
+                {/* Google Sign-In Button */}
+                <TouchableOpacity
+                  disabled={googleLoading}
+                  onPress={handleGoogleSignIn}
+                  className={`rounded-xl py-3.5 items-center justify-center flex-row border border-gray-300 ${
+                    googleLoading ? 'bg-gray-100' : 'bg-white'
+                  }`}
+                >
+                  {googleLoading ? (
+                    <ActivityIndicator size="small" color="#4285F4" />
+                  ) : (
+                    <Image
+                      source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                      style={{ width: 20, height: 20 }}
+                    />
+                  )}
+                  <Text className="font-bold text-sm ml-3 text-gray-700">
+                    {googleLoading ? 'Signing in...' : 'Continue with Google'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
           </View>
 
           {/* Footer */}

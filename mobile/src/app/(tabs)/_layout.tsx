@@ -3,12 +3,15 @@ import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { useCart } from '@/context/CartContext';
+import { useWishlist } from '@/context/WishlistContext';
 import {
   Home,
   ShoppingCart,
   User,
   Grid2X2,
   Package,
+  Heart,
 } from 'lucide-react-native';
 
 
@@ -16,11 +19,14 @@ export default function TabLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const { itemCount } = useCart();
+  const { wishlistCount } = useWishlist();
 
   const allTabs = [
     { name: "index", label: "Home", icon: Home, title: "Home" },
     { name: "categories", label: "Category", icon: Grid2X2, title: "Categories" },
-    { name: "cart", label: "Cart", icon: ShoppingCart, title: "Cart" },
+    { name: "wishlist", label: "Wishlist", icon: Heart, title: "Wishlist", badge: wishlistCount },
+    { name: "cart", label: "Cart", icon: ShoppingCart, title: "Cart", badge: itemCount },
     { name: "orders", label: "Orders", icon: Package, title: "Orders" },
     { name: "profile", label: "Profile", icon: User, title: "Profile" },
   ];
@@ -83,13 +89,25 @@ export default function TabLayout() {
                 }}
               >
                 <View className="items-center">
-                  <tab.icon 
-                    color={isActive ? '#ffffff' : '#6b7280'} 
-                    size={22}
-                    strokeWidth={isActive ? 2.5 : 2}
-                  />
+                  <View className="relative">
+                    <tab.icon 
+                      color={isActive ? '#ffffff' : '#6b7280'} 
+                      size={20}
+                      strokeWidth={isActive ? 2.5 : 2}
+                    />
+                    {tab.badge !== undefined && tab.badge > 0 && (
+                      <View 
+                        className="absolute -top-2 -right-2 min-w-[16px] h-4 rounded-full items-center justify-center px-1 border border-white"
+                        style={{ backgroundColor: tab.name === 'cart' ? '#fbbf24' : '#ef4444' }}
+                      >
+                        <Text className="text-[9px] font-black text-white">
+                          {tab.badge > 99 ? '99+' : tab.badge}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text 
-                    className={`text-[10px] ${
+                    className={`mt-1 text-[10px] ${
                       isActive ? 'text-white font-bold' : 'text-gray-500 font-medium'
                     }`}
                   >
