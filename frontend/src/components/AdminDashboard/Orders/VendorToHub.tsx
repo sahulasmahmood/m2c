@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Eye, RefreshCw } from "lucide-react";
+import { Search, Eye, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -17,6 +17,19 @@ import { showErrorToast } from "@/lib/toast-utils";
 
 // Polls every 30s while the tab is visible so admin sees vendor status updates without F5.
 const REFRESH_INTERVAL_MS = 30000;
+const PAGE_SIZE = 10;
+
+function getPageRange(current: number, total: number): Array<number | '…'> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: Array<number | '…'> = [1];
+  if (current > 4) pages.push('…');
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let p = start; p <= end; p++) pages.push(p);
+  if (current < total - 3) pages.push('…');
+  pages.push(total);
+  return pages;
+}
 
 export default function VendorToHub() {
   const router = useRouter();
@@ -26,6 +39,7 @@ export default function VendorToHub() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // We are interested in orders that are primarily in these state categories for Vendor to Hub
   const statusOptions = ["All", "ORDER_CREATED", "VENDOR_PROCESSING", "PACKED_BY_VENDOR", "IN_TRANSIT_TO_ADMIN_HUB", "RECEIVED_AT_ADMIN_HUB"];
@@ -102,6 +116,17 @@ export default function VendorToHub() {
     const matchesStatus = statusFilter === "All" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE);
+  const paginatedOrders = filteredOrders.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const rangeStart = filteredOrders.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, filteredOrders.length);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -200,6 +225,15 @@ export default function VendorToHub() {
         )}
       </div>
 
+      {/* Results summary */}
+      <div className="flex items-center justify-between gap-4 flex-wrap text-sm text-slate-600">
+        <span>
+          {filteredOrders.length === 0
+            ? '0 orders'
+            : `Showing ${rangeStart}–${rangeEnd} of ${filteredOrders.length} order${filteredOrders.length === 1 ? '' : 's'}`}
+        </span>
+      </div>
+
       {/* Orders Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <Table>
@@ -216,14 +250,14 @@ export default function VendorToHub() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredOrders.length === 0 ? (
+            {paginatedOrders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                   No orders found
                 </TableCell>
               </TableRow>
             ) : (
-              filteredOrders.map((order) => {
+              paginatedOrders.map((order) => {
                 const mainItem = order.items?.[0] || {} as any;
                 const productName = mainItem.productName || "Unknown";
                 const sku = mainItem.sku || "N/A";
@@ -264,6 +298,44 @@ export default function VendorToHub() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-end gap-3 text-sm">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="p-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {getPageRange(currentPage, totalPages).map((p, i) =>
+              p === '…' ? (
+                <span key={`e-${i}`} className="px-2 text-slate-400">…</span>
+              ) : (
+                <button
+                  key={`p-${p}`}
+                  onClick={() => setCurrentPage(p as number)}
+                  aria-current={p === currentPage ? 'page' : undefined}
+                  className={`min-w-9 h-9 px-2 rounded-lg text-sm font-medium transition-colors ${p === currentPage ? 'bg-[#222222] text-white' : 'text-slate-700 hover:bg-slate-100'}`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="p-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Next page"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
