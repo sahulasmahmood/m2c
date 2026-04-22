@@ -5,7 +5,7 @@ import { ArrowLeft, Package, MapPin, Truck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { showSuccessToast, showErrorToast } from "@/lib/toast-utils";
 import Dropdown from "@/components/UI/Dropdown";
-import { orderService, Order } from "@/services/orderService";
+import { orderService, VendorShipment } from "@/services/orderService";
 
 interface OrderDetailProps {
   orderId: string;
@@ -25,7 +25,7 @@ const carriers = [
 
 export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
   const router = useRouter();
-  const [order, setOrder] = useState<Order | null>(null);
+  const [shipment, setShipment] = useState<VendorShipment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [showShippingModal, setShowShippingModal] = useState(false);
@@ -41,7 +41,7 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
       setIsLoading(true);
       const res = await orderService.getVendorOrderById(orderId);
       if (res.success) {
-        setOrder(res.data);
+        setShipment(res.data);
       }
     } catch (error: any) {
       showErrorToast(error.message || "Failed to load order details");
@@ -52,13 +52,14 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
 
   const handleUpdateStatus = async (
     newStatus: string,
-    shipment?: { carrier: string; trackingId: string }
+    shipmentDetails?: { carrier: string; trackingId: string }
   ) => {
+    if (!shipment) return;
     try {
-      const res = await orderService.updateVendorOrderStatus(orderId, newStatus, shipment);
+      const res = await orderService.updateVendorOrderStatus(shipment.id, newStatus, shipmentDetails);
       if (res.success) {
         showSuccessToast(`Order marked as ${newStatus.replace(/_/g, " ")}`);
-        setOrder(res.data);
+        setShipment(res.data);
       }
     } catch (error: any) {
       showErrorToast(error.message || "Failed to update status");
@@ -103,11 +104,11 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
     return <div className="p-6 text-center text-gray-500">Loading order details...</div>;
   }
 
-  if (!order) {
+  if (!shipment) {
     return <div className="p-6 text-center text-red-500">Order not found</div>;
   }
 
-  const status = order.status;
+  const status = shipment.status;
 
   return (
     <div className="space-y-6">
@@ -122,19 +123,19 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Order Details</h1>
-            <p className="text-sm text-gray-600 mt-1">Order ID: {order.orderId}</p>
+            <p className="text-sm text-gray-600 mt-1">Order ID: {shipment.order?.orderId || shipment.shipmentId}</p>
           </div>
         </div>
         <div className="flex gap-3">
           {(status === "ORDER_CREATED" || status === "VENDOR_PROCESSING") && (
             <button
               onClick={handleMarkAsPacked}
-              disabled={!order.assignedHubId}
-              className={`px-6 py-2 rounded-lg transition-colors font-medium ${order.assignedHubId
+              disabled={!shipment.assignedHubId}
+              className={`px-6 py-2 rounded-lg transition-colors font-medium ${shipment.assignedHubId
                   ? "bg-purple-600 text-white hover:bg-purple-700"
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
-              title={!order.assignedHubId ? "Wait for admin to assign a hub" : ""}
+              title={!shipment.assignedHubId ? "Wait for admin to assign a hub" : ""}
             >
               Mark as Packed
             </button>
@@ -142,12 +143,12 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
           {status === "PACKED_BY_VENDOR" && (
             <button
               onClick={handleOpenShippingModal}
-              disabled={!order.assignedHubId}
-              className={`px-6 py-2 rounded-lg transition-colors font-medium ${order.assignedHubId
+              disabled={!shipment.assignedHubId}
+              className={`px-6 py-2 rounded-lg transition-colors font-medium ${shipment.assignedHubId
                   ? "bg-gray-900 text-white hover:bg-gray-800"
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
-              title={!order.assignedHubId ? "Wait for admin to assign a hub" : ""}
+              title={!shipment.assignedHubId ? "Wait for admin to assign a hub" : ""}
             >
               Ship to Hub
             </button>
@@ -175,7 +176,7 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
           <div>
             <p className="text-sm text-gray-600">Order Date</p>
             <p className="text-base font-medium text-gray-900 mt-1">
-              {new Date(order.createdAt).toLocaleDateString("en-IN")}
+              {new Date(shipment.order?.createdAt || shipment.createdAt).toLocaleDateString("en-IN")}
             </p>
           </div>
           <div>
@@ -191,7 +192,7 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
           <div>
             <p className="text-sm text-gray-600">Total Amount</p>
             <p className="text-base font-medium text-gray-900 mt-1">
-              ₹{order.items.reduce((acc: number, item: any) => acc + item.totalPrice, 0).toLocaleString("en-IN")}
+              ₹{shipment.items.reduce((acc: number, item: any) => acc + item.totalPrice, 0).toLocaleString("en-IN")}
             </p>
           </div>
         </div>
@@ -201,7 +202,7 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Product Details</h2>
         <div className="space-y-4">
-          {order.items.map((item: any) => (
+          {shipment.items.map((item: any) => (
             <div key={item.id} className="flex gap-4 p-4 border border-gray-100 rounded-lg">
               <img
                 src={item.productImage || "/assets/images/placeholder.jpg"}
@@ -239,28 +240,28 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
           <h2 className="text-lg font-semibold text-gray-900">Delivery Hub</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {order.assignedHubId ? (
+          {shipment.assignedHubId ? (
             <>
               <div>
                 <p className="text-sm text-gray-600">Hub Name</p>
                 <p className="text-base font-medium text-gray-900 mt-1">
-                  {order.hub?.name || "Admin Central Hub"}
+                  {shipment.hub?.name || "Admin Central Hub"}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Contact</p>
                 <p className="text-base font-medium text-gray-900 mt-1">
-                  {order.hub?.phone || order.hub?.email || "System Generated"}
+                  {shipment.hub?.phone || shipment.hub?.email || "System Generated"}
                 </p>
               </div>
               <div className="md:col-span-2">
                 <p className="text-sm text-gray-600">Address</p>
                 <p className="text-base font-medium text-gray-900 mt-1 leading-relaxed">
-                  {order.hub ? (
+                  {shipment.hub ? (
                     <>
-                      {order.hub.address}
+                      {shipment.hub.address}
                       <br />
-                      {order.hub.city}, {order.hub.state} {order.hub.zipCode}
+                      {shipment.hub.city}, {shipment.hub.state} {shipment.hub.zipCode}
                     </>
                   ) : (
                     "Please ship to the designated M2C administrative hub."
@@ -280,7 +281,7 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
       </div>
 
       {/* Shipping Details — shown once vendor has shipped */}
-      {order.vendorCarrier && order.vendorTrackingId && (
+      {shipment.vendorCarrier && shipment.vendorTrackingId && (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-2 mb-4">
             <Truck className="h-5 w-5 text-gray-600" />
@@ -289,19 +290,19 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-gray-600">Carrier</p>
-              <p className="text-base font-medium text-gray-900 mt-1">{order.vendorCarrier}</p>
+              <p className="text-base font-medium text-gray-900 mt-1">{shipment.vendorCarrier}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Tracking ID</p>
               <p className="text-base font-mono font-medium text-gray-900 mt-1 break-all">
-                {order.vendorTrackingId}
+                {shipment.vendorTrackingId}
               </p>
             </div>
-            {order.vendorShippedAt && (
+            {shipment.vendorShippedAt && (
               <div>
                 <p className="text-sm text-gray-600">Shipped On</p>
                 <p className="text-base font-medium text-gray-900 mt-1">
-                  {new Date(order.vendorShippedAt).toLocaleString("en-IN")}
+                  {new Date(shipment.vendorShippedAt).toLocaleString("en-IN")}
                 </p>
               </div>
             )}
@@ -309,9 +310,9 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
         </div>
       )}
 
-      {/* Admin Review & Feedback — shown once the admin hub has reviewed the delivery */}
-      {order.adminReview && (
-        <div className={`rounded-lg shadow-sm border p-6 ${order.adminReview.approved ? "bg-white border-gray-200" : "bg-red-50 border-red-200"}`}>
+      {/* Admin Review & Feedback */}
+      {shipment.adminReview && (
+        <div className={`rounded-lg shadow-sm border p-6 ${shipment.adminReview.approved ? "bg-white border-gray-200" : "bg-red-50 border-red-200"}`}>
           <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
             <div className="flex items-center gap-2">
               <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -319,19 +320,19 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
               </svg>
               <h2 className="text-lg font-semibold text-gray-900">Admin Hub Feedback</h2>
             </div>
-            <span className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full ${order.adminReview.approved ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-              {order.adminReview.approved ? "Approved" : "Rejected"}
+            <span className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full ${shipment.adminReview.approved ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+              {shipment.adminReview.approved ? "Approved" : "Rejected"}
             </span>
           </div>
 
-          {typeof order.adminReview.rating === "number" && order.adminReview.rating > 0 && (
+          {typeof shipment.adminReview.rating === "number" && shipment.adminReview.rating > 0 && (
             <div className="mb-4">
               <p className="text-sm text-gray-600 mb-1">Rating</p>
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <svg
                     key={n}
-                    className={`h-5 w-5 ${n <= (order.adminReview?.rating ?? 0) ? "text-yellow-400" : "text-gray-300"}`}
+                    className={`h-5 w-5 ${n <= (shipment.adminReview?.rating ?? 0) ? "text-yellow-400" : "text-gray-300"}`}
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -339,39 +340,39 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
                   </svg>
                 ))}
                 <span className="ml-2 text-sm text-gray-700 font-medium">
-                  {order.adminReview.rating} out of 5
+                  {shipment.adminReview.rating} out of 5
                 </span>
               </div>
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {order.adminReview.reviewComments && (
+            {shipment.adminReview.reviewComments && (
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-1">Review</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.adminReview.reviewComments}</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{shipment.adminReview.reviewComments}</p>
               </div>
             )}
-            {order.adminReview.qualityCheckNotes && (
+            {shipment.adminReview.qualityCheckNotes && (
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-1">Quality Check Notes</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.adminReview.qualityCheckNotes}</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{shipment.adminReview.qualityCheckNotes}</p>
               </div>
             )}
-            {!order.adminReview.approved && order.adminReview.rejectionReason && (
+            {!shipment.adminReview.approved && shipment.adminReview.rejectionReason && (
               <div className="md:col-span-2">
                 <p className="text-sm font-semibold text-red-800 mb-1">Reason for Rejection</p>
-                <p className="text-sm text-red-800 whitespace-pre-wrap">{order.adminReview.rejectionReason}</p>
-                {order.adminReview.returnToVendor && (
+                <p className="text-sm text-red-800 whitespace-pre-wrap">{shipment.adminReview.rejectionReason}</p>
+                {shipment.adminReview.returnToVendor && (
                   <p className="text-xs text-red-700 mt-2 italic">This order will be returned to you.</p>
                 )}
               </div>
             )}
           </div>
 
-          {order.adminReview.reviewedAt && (
+          {shipment.adminReview.reviewedAt && (
             <p className="text-xs text-gray-500 mt-4">
-              Reviewed on {new Date(order.adminReview.reviewedAt).toLocaleString("en-IN")}
+              Reviewed on {new Date(shipment.adminReview.reviewedAt).toLocaleString("en-IN")}
             </p>
           )}
         </div>
@@ -419,7 +420,6 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Carrier Selection */}
               <div>
                 <Dropdown
                   label="Select Carrier"
@@ -429,8 +429,6 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
                   placeholder="Choose a carrier"
                 />
               </div>
-
-              {/* Tracking ID */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tracking ID

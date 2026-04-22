@@ -18,7 +18,6 @@ const recalculateVendorRating = async (tx, vendorId) => {
         return;
     }
     const sum = reviews.reduce((acc, r) => acc + (r.rating || 0), 0);
-    // Round to 1 decimal place for clean display (e.g., 4.5).
     const avg = Math.round((sum / reviews.length) * 10) / 10;
     await tx.vendor.update({
         where: { id: vendorId },
@@ -26,32 +25,24 @@ const recalculateVendorRating = async (tx, vendorId) => {
     });
 };
 
-// Best-effort lookup of the primary vendor for an order. Vendor-to-hub orders
-// are single-vendor by construction, so we take the first item's vendorId.
-const resolveOrderVendorId = (order) => {
-    if (!order || !order.items || order.items.length === 0) return null;
-    const withVendor = order.items.find((i) => i.vendorId);
-    return withVendor ? withVendor.vendorId : null;
-};
+// ============================================
+// SHIPMENT-BASED REVIEW (primary path for new orders)
+// ============================================
 
-// Admin: Create or update a review for an order (quality check after receiving products from vendor)
-const createOrUpdateAdminReview = async (req, res) => {
+// Admin: Create or update a review for a VendorShipment
+const createOrUpdateShipmentReview = async (req, res) => {
     try {
-        const adminId = req.user.id;
-        const { orderId } = req.params;
+        const adminId = req.userId || req.adminId;
+        const { shipmentId } = req.params;
         const { reviewComments, qualityCheckNotes, rating, approved, rejectionReason, returnToVendor } = req.body;
 
-        // Validate orderId
-        const isObjectId = /^[0-9a-fA-F]{24}$/.test(orderId);
-        const whereClause = isObjectId ? { id: orderId } : { orderId: orderId };
-
-        const order = await prisma.order.findUnique({
-            where: whereClause,
-            include: { items: true }
+        const shipment = await prisma.vendorShipment.findUnique({
+            where: { id: shipmentId },
+            include: { items: true },
         });
 
-        if (!order) {
-            return res.status(404).json({ success: false, message: 'Order not found' });
+        if (!shipment) {
+            return res.status(404).json({ success: false, message: 'Shipment not found' });
         }
 
         if (typeof approved !== 'boolean') {
@@ -67,16 +58,13 @@ const createOrUpdateAdminReview = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Rating must be an integer between 1 and 5' });
         }
 
-        const vendorId = resolveOrderVendorId(order);
+        const vendorId = shipment.vendorId;
 
-        // Check if a review already exists for this order
-        const existingReview = await prisma.adminReview.findUnique({
-            where: { orderId: order.id }
+        // Check existing review for this shipment
+        const existingReview = await prisma.adminReview.findFirst({
+            where: { shipmentId: shipment.id },
         });
 
-        // Review upsert + vendor aggregate recompute run in one transaction so
-        // the denormalized Vendor.rating never goes out of sync with the
-        // underlying review data.
         const result = await prisma.$transaction(async (tx) => {
             const basePayload = {
                 reviewComments: reviewComments || null,
@@ -93,17 +81,20 @@ const createOrUpdateAdminReview = async (req, res) => {
             let review;
             if (existingReview) {
                 review = await tx.adminReview.update({
-                    where: { orderId: order.id },
+                    where: { id: existingReview.id },
                     data: basePayload,
                 });
             } else {
                 review = await tx.adminReview.create({
-                    data: { orderId: order.id, ...basePayload },
+                    data: {
+                        shipmentId: shipment.id,
+                        orderId: shipment.orderId,
+                        ...basePayload,
+                    },
                 });
             }
 
-            // Recompute vendor aggregate. If the vendor association changed
-            // (unusual but possible), refresh both the old and new vendor.
+            // Recompute vendor aggregate rating
             const previousVendorId = existingReview ? existingReview.vendorId : null;
             const idsToRefresh = new Set();
             if (vendorId) idsToRefresh.add(vendorId);
@@ -118,7 +109,134 @@ const createOrUpdateAdminReview = async (req, res) => {
         res.status(existingReview ? 200 : 201).json({
             success: true,
             data: result,
-            message: existingReview ? 'Admin review updated successfully' : 'Admin review created successfully'
+            message: existingReview ? 'Admin review updated successfully' : 'Admin review created successfully',
+        });
+    } catch (error) {
+        console.error('Error creating/updating shipment review:', error);
+        res.status(500).json({ success: false, message: 'Error creating/updating admin review', error: error.message });
+    }
+};
+
+// Admin: Get review for a specific shipment
+const getAdminReviewByShipment = async (req, res) => {
+    try {
+        const { shipmentId } = req.params;
+
+        const review = await prisma.adminReview.findFirst({
+            where: { shipmentId },
+            include: {
+                shipment: {
+                    select: { id: true, shipmentId: true, vendorName: true, status: true },
+                },
+                order: {
+                    include: { items: true },
+                },
+            },
+        });
+
+        if (!review) {
+            return res.status(404).json({ success: false, message: 'No admin review found for this shipment' });
+        }
+
+        res.status(200).json({ success: true, data: review });
+    } catch (error) {
+        console.error('Error fetching shipment review:', error);
+        res.status(500).json({ success: false, message: 'Error fetching admin review', error: error.message });
+    }
+};
+
+// ============================================
+// ORDER-BASED REVIEW (backward compat for old orders)
+// ============================================
+
+// Admin: Create or update a review for an order (legacy path)
+const createOrUpdateAdminReview = async (req, res) => {
+    try {
+        const adminId = req.userId || req.adminId;
+        const { orderId } = req.params;
+        const { reviewComments, qualityCheckNotes, rating, approved, rejectionReason, returnToVendor } = req.body;
+
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(orderId);
+        const whereClause = isObjectId ? { id: orderId } : { orderId: orderId };
+
+        const order = await prisma.order.findUnique({
+            where: whereClause,
+            include: { items: true, shipments: { select: { id: true, vendorId: true } } },
+        });
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        // Multi-vendor orders should use the shipment-based review endpoint
+        const uniqueVendors = new Set((order.items || []).map(i => i.vendorId));
+        if (uniqueVendors.size > 1) {
+            return res.status(400).json({
+                success: false,
+                message: 'This order has multiple vendors. Use the shipment-based review endpoint (/admin-reviews/shipment/:shipmentId) instead.',
+            });
+        }
+
+        if (typeof approved !== 'boolean') {
+            return res.status(400).json({ success: false, message: 'approved field (boolean) is required' });
+        }
+
+        if (!approved && (!rejectionReason || rejectionReason.trim() === '')) {
+            return res.status(400).json({ success: false, message: 'Rejection reason is required when not approved' });
+        }
+
+        const parsedRating = rating ? parseInt(rating, 10) : null;
+        if (parsedRating !== null && (Number.isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5)) {
+            return res.status(400).json({ success: false, message: 'Rating must be an integer between 1 and 5' });
+        }
+
+        const vendorId = order.items?.[0]?.vendorId || null;
+
+        // For legacy: find by orderId (there may be multiple now, take first)
+        const existingReview = await prisma.adminReview.findFirst({
+            where: { orderId: order.id },
+        });
+
+        const result = await prisma.$transaction(async (tx) => {
+            const basePayload = {
+                reviewComments: reviewComments || null,
+                qualityCheckNotes: qualityCheckNotes || null,
+                rating: parsedRating,
+                approved,
+                rejectionReason: !approved ? (rejectionReason || null) : null,
+                returnToVendor: returnToVendor || false,
+                reviewedBy: adminId,
+                reviewedAt: new Date(),
+                vendorId: vendorId || null,
+            };
+
+            let review;
+            if (existingReview) {
+                review = await tx.adminReview.update({
+                    where: { id: existingReview.id },
+                    data: basePayload,
+                });
+            } else {
+                review = await tx.adminReview.create({
+                    data: { orderId: order.id, ...basePayload },
+                });
+            }
+
+            const previousVendorId = existingReview ? existingReview.vendorId : null;
+            const idsToRefresh = new Set();
+            if (vendorId) idsToRefresh.add(vendorId);
+            if (previousVendorId && previousVendorId !== vendorId) idsToRefresh.add(previousVendorId);
+            for (const id of idsToRefresh) {
+                await recalculateVendorRating(tx, id);
+            }
+
+            return review;
+        });
+
+        res.status(existingReview ? 200 : 201).json({
+            success: true,
+            data: result,
+            message: existingReview ? 'Admin review updated successfully' : 'Admin review created successfully',
         });
     } catch (error) {
         console.error('Error creating/updating admin review:', error);
@@ -132,7 +250,6 @@ const getAllAdminReviews = async (req, res) => {
         const { search, status, page = 1, limit = 50, vendorId } = req.query;
         const skip = (Number(page) - 1) * Number(limit);
 
-        // Build where clause for admin reviews
         const where = {};
 
         if (vendorId) {
@@ -147,7 +264,6 @@ const getAllAdminReviews = async (req, res) => {
             }
         }
 
-        // Search at the database level so results span all pages.
         if (search) {
             where.OR = [
                 { reviewComments: { contains: search, mode: 'insensitive' } },
@@ -174,20 +290,20 @@ const getAllAdminReviews = async (req, res) => {
             prisma.adminReview.findMany({
                 where,
                 include: {
-                    order: {
-                        include: { items: true }
-                    }
+                    order: { include: { items: true } },
+                    shipment: {
+                        select: { id: true, shipmentId: true, vendorName: true, status: true },
+                    },
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,
-                take: Number(limit)
+                take: Number(limit),
             }),
             prisma.adminReview.count({ where }),
             prisma.adminReview.count({ where: { ...where, approved: true } }),
             prisma.adminReview.count({ where: { ...where, approved: false } }),
         ]);
 
-        // When scoped to a vendor, compute star distribution for the rating chart.
         let ratingDistribution;
         if (vendorId) {
             const distCounts = await Promise.all(
@@ -207,12 +323,12 @@ const getAllAdminReviews = async (req, res) => {
                 total: totalCount,
                 page: Number(page),
                 limit: Number(limit),
-                totalPages: Math.ceil(totalCount / Number(limit))
+                totalPages: Math.ceil(totalCount / Number(limit)),
             },
             stats: {
                 total: totalCount,
                 approved: approvedCount,
-                rejected: rejectedCount
+                rejected: rejectedCount,
             },
             ...(ratingDistribution && { ratingDistribution }),
         });
@@ -222,7 +338,7 @@ const getAllAdminReviews = async (req, res) => {
     }
 };
 
-// Admin: Get admin review for a specific order
+// Admin: Get admin review for a specific order (returns array for multi-vendor)
 const getAdminReviewByOrder = async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -235,20 +351,22 @@ const getAdminReviewByOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        const review = await prisma.adminReview.findUnique({
+        const reviews = await prisma.adminReview.findMany({
             where: { orderId: order.id },
             include: {
-                order: {
-                    include: { items: true }
-                }
-            }
+                order: { include: { items: true } },
+                shipment: {
+                    select: { id: true, shipmentId: true, vendorName: true, status: true },
+                },
+            },
         });
 
-        if (!review) {
+        if (reviews.length === 0) {
             return res.status(404).json({ success: false, message: 'No admin review found for this order' });
         }
 
-        res.status(200).json({ success: true, data: review });
+        // Return first for backward compat (single-vendor orders), full array in `reviews` field
+        res.status(200).json({ success: true, data: reviews[0], reviews });
     } catch (error) {
         console.error('Error fetching admin review:', error);
         res.status(500).json({ success: false, message: 'Error fetching admin review', error: error.message });
@@ -282,8 +400,10 @@ const deleteAdminReview = async (req, res) => {
 };
 
 module.exports = {
+    createOrUpdateShipmentReview,
+    getAdminReviewByShipment,
     createOrUpdateAdminReview,
     getAllAdminReviews,
     getAdminReviewByOrder,
-    deleteAdminReview
+    deleteAdminReview,
 };

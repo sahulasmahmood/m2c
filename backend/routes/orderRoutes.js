@@ -12,7 +12,15 @@ const { prisma } = require('../config/database');
 router.use(authenticateToken);
 
 // ============================================
-// ADMIN ROUTES (/api/orders/admin/*)
+// ADMIN SHIPMENT ROUTES (/api/orders/admin/shipments/*)
+// These must come BEFORE /admin/:id so "shipments" isn't treated as an ID.
+// ============================================
+router.get('/admin/shipments', requireAdminRole, adminOrderController.getAllShipmentsAdmin);
+router.get('/admin/shipments/:id', requireAdminRole, adminOrderController.getShipmentByIdAdmin);
+router.put('/admin/shipments/:id/status', requireAdminRole, adminOrderController.updateShipmentStatusAdmin);
+
+// ============================================
+// ADMIN ORDER ROUTES (/api/orders/admin/*)
 // ============================================
 router.get('/admin', requireAdminRole, adminOrderController.getAllOrdersAdmin);
 router.get('/admin/:id', requireAdminRole, adminOrderController.getAdminOrderById);
@@ -53,6 +61,10 @@ router.get('/admin/:id/invoice', requireAdminRole, async (req, res) => {
 // ADMIN REVIEW ROUTES (/api/orders/admin-reviews/*)
 // ============================================
 router.get('/admin-reviews', requireAdminRole, adminReviewController.getAllAdminReviews);
+// Shipment-based review routes (primary path for new orders)
+router.get('/admin-reviews/shipment/:shipmentId', requireAdminRole, adminReviewController.getAdminReviewByShipment);
+router.post('/admin-reviews/shipment/:shipmentId', requireAdminRole, adminReviewController.createOrUpdateShipmentReview);
+// Order-based review routes (backward compat for legacy orders)
 router.get('/admin-reviews/order/:orderId', requireAdminRole, adminReviewController.getAdminReviewByOrder);
 router.post('/admin-reviews/order/:orderId', requireAdminRole, adminReviewController.createOrUpdateAdminReview);
 router.delete('/admin-reviews/:id', requireAdminRole, adminReviewController.deleteAdminReview);

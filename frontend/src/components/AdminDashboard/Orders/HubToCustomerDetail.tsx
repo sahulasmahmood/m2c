@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Package, CreditCard, User, MapPin, Truck, Star } from "lucide-react";
+import { ArrowLeft, Package, CreditCard, User, MapPin, Truck, Star, CheckCircle, XCircle, AlertTriangle, ShoppingBag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { showSuccessToast, showErrorToast } from "@/lib/toast-utils";
-import { orderService, Order } from "@/services/orderService";
+import { orderService, Order, VendorShipment } from "@/services/orderService";
 
 interface HubToCustomerDetailProps {
   orderId: string;
@@ -68,6 +68,16 @@ export default function HubToCustomerDetail({ orderId }: HubToCustomerDetailProp
 
   const { status } = order;
 
+  // Check shipment readiness for multi-vendor orders
+  const shipments = order.shipments || [];
+  const hasShipments = shipments.length > 0;
+  const terminalStatuses = new Set(['CANCELLED', 'RETURNED']);
+  const nonTerminalShipments = shipments.filter((s) => !terminalStatuses.has(s.status));
+  const nonCancelledShipments = nonTerminalShipments;
+  const allShipmentsApproved = hasShipments && nonTerminalShipments.every((s) => s.status === 'APPROVED_BY_ADMIN_HUB');
+  const hasRejectedShipment = nonCancelledShipments.some((s) => s.status === 'REJECTED_BY_ADMIN_HUB');
+  const canShipToCustomer = !hasShipments || allShipmentsApproved;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -88,7 +98,12 @@ export default function HubToCustomerDetail({ orderId }: HubToCustomerDetailProp
           {["RECEIVED_AT_ADMIN_HUB", "APPROVED_BY_ADMIN_HUB"].includes(status) && (
             <button
               onClick={handleMarkOutForDelivery}
-              className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+              disabled={!canShipToCustomer}
+              className={`px-6 py-2 rounded-lg transition-colors font-medium ${canShipToCustomer
+                ? "bg-orange-600 text-white hover:bg-orange-700"
+                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              }`}
+              title={!canShipToCustomer ? "All vendor shipments must be approved first" : ""}
             >
               Mark Out for Delivery
             </button>
@@ -134,7 +149,7 @@ export default function HubToCustomerDetail({ orderId }: HubToCustomerDetailProp
           <div>
             <p className="text-sm text-gray-600">Total Amount</p>
             <p className="text-base font-medium text-gray-900 mt-1">
-              ${order.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ₹{(order.totalAmount ?? 0).toLocaleString("en-IN")}
             </p>
           </div>
         </div>
@@ -165,7 +180,7 @@ export default function HubToCustomerDetail({ orderId }: HubToCustomerDetailProp
                   <div>
                     <p className="text-sm text-gray-600">Price</p>
                     <p className="text-base font-medium text-gray-900">
-                      ${item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₹{item.unitPrice.toLocaleString("en-IN")}
                     </p>
                   </div>
                 </div>
@@ -174,6 +189,24 @@ export default function HubToCustomerDetail({ orderId }: HubToCustomerDetailProp
           ))}
         </div>
       </div>
+
+      {/* Bag Add-on */}
+      {order.bagTypeName && order.bagTypePrice && order.bagTypePrice > 0 && (
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center gap-2 mb-4">
+            <ShoppingBag className="h-5 w-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Bag Add-on</h2>
+          </div>
+          <div className="flex items-center gap-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <ShoppingBag className="h-8 w-8 text-amber-600 shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-gray-900">{order.bagTypeName}</p>
+              <p className="text-sm text-gray-600 mt-0.5">Customer requested this bag with their order</p>
+            </div>
+            <p className="text-lg font-bold text-gray-900 shrink-0">₹{order.bagTypePrice.toFixed(2)}</p>
+          </div>
+        </div>
+      )}
 
       {/* Payment Method */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -244,6 +277,62 @@ export default function HubToCustomerDetail({ orderId }: HubToCustomerDetailProp
           </p>
         </div>
       </div>
+
+      {/* Vendor Shipments Summary */}
+      {hasShipments && (
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center gap-2 mb-4">
+            <Truck className="h-5 w-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Vendor Shipments</h2>
+            <span className="text-sm text-gray-500 ml-auto">
+              {nonCancelledShipments.filter((s) => s.status === 'APPROVED_BY_ADMIN_HUB').length}/{nonCancelledShipments.length} approved
+            </span>
+          </div>
+          {hasRejectedShipment && (
+            <div className="bg-red-50 border border-red-200 p-3 rounded-lg mb-4 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+              <p className="text-sm text-red-800">
+                One or more vendor shipments were rejected. Resolve before shipping to customer.
+              </p>
+            </div>
+          )}
+          <div className="space-y-3">
+            {shipments.map((s) => {
+              const reviewData = (s as VendorShipment & { adminReviews?: Array<{ approved?: boolean; rating?: number }> }).adminReviews?.[0];
+              return (
+                <div key={s.id} className="flex items-center gap-4 p-3 border border-gray-100 rounded-lg">
+                  {s.status === 'APPROVED_BY_ADMIN_HUB' ? (
+                    <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+                  ) : s.status === 'REJECTED_BY_ADMIN_HUB' ? (
+                    <XCircle className="h-5 w-5 text-red-500 shrink-0" />
+                  ) : s.status === 'CANCELLED' ? (
+                    <XCircle className="h-5 w-5 text-gray-400 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{s.vendorName}</p>
+                    <p className="text-xs text-gray-500">
+                      {s.items?.length || 0} item{(s.items?.length || 0) !== 1 ? 's' : ''} &middot; {s.status.replace(/_/g, ' ')}
+                    </p>
+                  </div>
+                  {s.vendorCarrier && (
+                    <p className="text-xs text-gray-500 shrink-0">
+                      {s.vendorCarrier}: {s.vendorTrackingId}
+                    </p>
+                  )}
+                  {reviewData?.approved && typeof reviewData.rating === 'number' && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                      <span className="text-xs font-medium text-gray-700">{reviewData.rating}/5</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Delivery Instructions */}
       {status !== "DELIVERED" && (

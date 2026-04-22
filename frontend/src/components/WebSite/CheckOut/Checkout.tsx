@@ -108,11 +108,16 @@ export default function Checkout() {
   const [freeShippingApplied, setFreeShippingApplied] = useState(false)
   const [freeShippingMessage, setFreeShippingMessage] = useState("")
 
+  const [selectedBagTypeId, setSelectedBagTypeId] = useState<string | null>(null)
+  const [bagTypeName, setBagTypeName] = useState("")
+  const [bagTypePrice, setBagTypePrice] = useState(0)
+
   const [orderSummary, setOrderSummary] = useState({
     subtotal: 0,
     shipping: 0,
     tax: 0,
     discount: 0,
+    bagCost: 0,
     total: 0
   })
 
@@ -136,11 +141,24 @@ export default function Checkout() {
         console.error("Failed to parse coupon", e)
       }
     }
+
+    // Load selected bag type
+    const savedBag = localStorage.getItem('selectedBagType')
+    if (savedBag) {
+      try {
+        const { id, name, price } = JSON.parse(savedBag)
+        setSelectedBagTypeId(id)
+        setBagTypeName(name)
+        setBagTypePrice(price)
+      } catch {
+        localStorage.removeItem('selectedBagType')
+      }
+    }
   }, [])
 
   useEffect(() => {
     calculateTotals()
-  }, [cartItems, formData.shippingMethod, discountAmount])
+  }, [cartItems, formData.shippingMethod, discountAmount, bagTypePrice])
 
   const fetchCart = async () => {
     try {
@@ -345,14 +363,15 @@ export default function Checkout() {
       const gstRate = item.product?.gstPercentage ? item.product.gstPercentage / 100 : 0
       return sum + (itemSubtotal * gstRate)
     }, 0)
-    // Calculate total with discount, ensure >= 0
-    const total = Math.max(0, subtotal + shipping + tax - discountAmount)
+    // Calculate total with discount + bag cost, ensure >= 0
+    const total = Math.max(0, subtotal + shipping + tax - discountAmount + bagTypePrice)
 
     setOrderSummary({
       subtotal,
       shipping,
       tax,
       discount: discountAmount,
+      bagCost: bagTypePrice,
       total
     })
   }
@@ -503,14 +522,17 @@ export default function Checkout() {
         shippingCost: orderSummary.shipping,
         tax: orderSummary.tax,
         discount: orderSummary.discount,
-        freeShipping: freeShippingApplied
+        freeShipping: freeShippingApplied,
+        bagTypeId: selectedBagTypeId || undefined
       })
 
       if (response.success && response.data) {
         localStorage.removeItem('appliedCoupon')
+        localStorage.removeItem('selectedBagType')
         router.push(`/order-confirmation?id=${response.data.id}`)
       } else {
         localStorage.removeItem('appliedCoupon')
+        localStorage.removeItem('selectedBagType')
         router.push("/order-confirmation")
       }
     } catch (error: any) {
@@ -809,6 +831,12 @@ export default function Checkout() {
                     <div className="flex justify-between text-green-600">
                       <span>Discount</span>
                       <span className="font-medium">-${orderSummary.discount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {orderSummary.bagCost > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Bag ({bagTypeName})</span>
+                      <span className="font-medium">${orderSummary.bagCost.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="border-t border-slate-200 pt-4">

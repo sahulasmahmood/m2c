@@ -1,0 +1,192 @@
+const { prisma } = require('../config/database');
+const { uploadDataUriIfBase64 } = require('../config/cloudinary');
+
+// Public: Get active bag types for cart page
+const getActiveBagTypes = async (req, res) => {
+    try {
+        const bagTypes = await prisma.bagType.findMany({
+            where: { isActive: true },
+            orderBy: { sortOrder: 'asc' },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                price: true,
+                image: true,
+            },
+        });
+
+        res.json({ success: true, data: bagTypes });
+    } catch (error) {
+        console.error('Get active bag types error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch bag types' });
+    }
+};
+
+// Admin: Get all bag types with pagination
+const getBagTypes = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, search, isActive } = req.query;
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
+
+        const where = {};
+
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
+        if (isActive === 'true') where.isActive = true;
+        if (isActive === 'false') where.isActive = false;
+
+        const [bagTypes, total] = await Promise.all([
+            prisma.bagType.findMany({
+                where,
+                orderBy: { sortOrder: 'asc' },
+                skip,
+                take: limitNum,
+            }),
+            prisma.bagType.count({ where }),
+        ]);
+
+        res.json({
+            success: true,
+            data: bagTypes,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                pages: Math.ceil(total / limitNum),
+            },
+        });
+    } catch (error) {
+        console.error('Get bag types error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch bag types' });
+    }
+};
+
+// Admin: Get single bag type
+const getBagType = async (req, res) => {
+    try {
+        const bagType = await prisma.bagType.findUnique({
+            where: { id: req.params.id },
+        });
+
+        if (!bagType) {
+            return res.status(404).json({ success: false, message: 'Bag type not found' });
+        }
+
+        res.json({ success: true, data: bagType });
+    } catch (error) {
+        console.error('Get bag type error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch bag type' });
+    }
+};
+
+// Admin: Create bag type
+const createBagType = async (req, res) => {
+    try {
+        const { name, description, price, image, isActive = true, sortOrder = 0 } = req.body;
+
+        if (!name || price === undefined || price === null) {
+            return res.status(400).json({ success: false, message: 'Name and price are required' });
+        }
+
+        if (typeof price !== 'number' || price < 0) {
+            return res.status(400).json({ success: false, message: 'Price must be a non-negative number' });
+        }
+
+        // Upload image if base64
+        let imageUrl = image || null;
+        if (image) {
+            imageUrl = await uploadDataUriIfBase64(image, { folder: 'bag-types' });
+        }
+
+        const bagType = await prisma.bagType.create({
+            data: {
+                name,
+                description: description || null,
+                price,
+                image: imageUrl,
+                isActive,
+                sortOrder: parseInt(sortOrder) || 0,
+            },
+        });
+
+        res.status(201).json({ success: true, data: bagType, message: 'Bag type created successfully' });
+    } catch (error) {
+        console.error('Create bag type error:', error);
+        res.status(500).json({ success: false, message: 'Failed to create bag type' });
+    }
+};
+
+// Admin: Update bag type
+const updateBagType = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, price, image, isActive, sortOrder } = req.body;
+
+        const existing = await prisma.bagType.findUnique({ where: { id } });
+        if (!existing) {
+            return res.status(404).json({ success: false, message: 'Bag type not found' });
+        }
+
+        if (price !== undefined && (typeof price !== 'number' || price < 0)) {
+            return res.status(400).json({ success: false, message: 'Price must be a non-negative number' });
+        }
+
+        const updateData = {};
+        if (name !== undefined) updateData.name = name;
+        if (description !== undefined) updateData.description = description;
+        if (price !== undefined) updateData.price = price;
+        if (isActive !== undefined) updateData.isActive = isActive;
+        if (sortOrder !== undefined) updateData.sortOrder = parseInt(sortOrder) || 0;
+
+        // Upload new image if base64, keep existing if not provided
+        if (image !== undefined) {
+            updateData.image = image ? await uploadDataUriIfBase64(image, { folder: 'bag-types' }) : null;
+        }
+
+        const bagType = await prisma.bagType.update({
+            where: { id },
+            data: updateData,
+        });
+
+        res.json({ success: true, data: bagType, message: 'Bag type updated successfully' });
+    } catch (error) {
+        console.error('Update bag type error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update bag type' });
+    }
+};
+
+// Admin: Delete bag type
+const deleteBagType = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const existing = await prisma.bagType.findUnique({ where: { id } });
+        if (!existing) {
+            return res.status(404).json({ success: false, message: 'Bag type not found' });
+        }
+
+        await prisma.bagType.delete({ where: { id } });
+
+        res.json({ success: true, message: 'Bag type deleted successfully' });
+    } catch (error) {
+        console.error('Delete bag type error:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete bag type' });
+    }
+};
+
+module.exports = {
+    getActiveBagTypes,
+    getBagTypes,
+    getBagType,
+    createBagType,
+    updateBagType,
+    deleteBagType,
+};

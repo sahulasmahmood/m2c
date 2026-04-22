@@ -381,6 +381,12 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
                       <span className="font-medium text-green-600">-₹{orderDetails.discount.toFixed(2)}</span>
                     </div>
                   )}
+                  {orderDetails.bagTypePrice && orderDetails.bagTypePrice > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Bag ({orderDetails.bagTypeName})</span>
+                      <span className="font-medium">₹{orderDetails.bagTypePrice.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="border-t border-slate-200 pt-4">
                     <div className="flex justify-between text-lg font-bold">
                       <span>Total</span>
