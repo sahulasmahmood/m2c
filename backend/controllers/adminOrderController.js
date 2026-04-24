@@ -1,5 +1,6 @@
 const { prisma } = require('../config/database');
 const { recomputeAndPersistOrderStatus } = require('../utils/computeOrderStatus');
+const { ACTIVE_ITEMS_FILTER } = require('../utils/activeItemsFilter');
 
 // Allowed OrderStatus values (mirrors the Prisma enum).
 const ALLOWED_ORDER_STATUSES = new Set([
@@ -299,7 +300,7 @@ const getAllOrdersAdmin = async (req, res) => {
     try {
         const orders = await prisma.order.findMany({
             include: {
-                items: true,
+                items: ACTIVE_ITEMS_FILTER,
                 statusHistory: {
                     orderBy: { timestamp: 'desc' },
                 },
@@ -333,7 +334,7 @@ const getAdminOrderById = async (req, res) => {
         const order = await prisma.order.findUnique({
             where: whereClause,
             include: {
-                items: true,
+                items: ACTIVE_ITEMS_FILTER,
                 statusHistory: {
                     orderBy: { timestamp: 'desc' },
                 },

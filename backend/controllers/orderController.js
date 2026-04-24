@@ -1,5 +1,6 @@
 const { prisma } = require('../config/database');
 const { generateInvoiceNo } = require('../utils/invoiceGenerator');
+const { ACTIVE_ITEMS_FILTER } = require('../utils/activeItemsFilter');
 
 // Create new order
 const createOrder = async (req, res) => {
@@ -429,7 +430,7 @@ const getUserOrders = async (req, res) => {
         const orders = await prisma.order.findMany({
             where: { customerId: userId },
             include: {
-                items: true
+                items: ACTIVE_ITEMS_FILTER,
             },
             orderBy: {
                 createdAt: 'desc'
@@ -465,7 +466,7 @@ const getOrderById = async (req, res) => {
             order = await prisma.order.findUnique({
                 where: { id },
                 include: {
-                    items: true,
+                    items: ACTIVE_ITEMS_FILTER,
                     statusHistory: true
                 }
             });
@@ -476,7 +477,7 @@ const getOrderById = async (req, res) => {
             order = await prisma.order.findUnique({
                 where: { orderId: id },
                 include: {
-                    items: true,
+                    items: ACTIVE_ITEMS_FILTER,
                     statusHistory: true
                 }
             });

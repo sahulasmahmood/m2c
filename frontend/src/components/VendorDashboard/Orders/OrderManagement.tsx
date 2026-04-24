@@ -27,7 +27,7 @@ export default function VendorOrderManagement() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const statusOptions = ["All", "ORDER_CREATED", "VENDOR_PROCESSING", "PACKED_BY_VENDOR", "IN_TRANSIT_TO_ADMIN_HUB", "CANCELLED"];
+  const statusOptions = ["All", "ORDER_CREATED", "VENDOR_PROCESSING", "PACKED_BY_VENDOR", "IN_TRANSIT_TO_ADMIN_HUB", "APPROVED_BY_ADMIN_HUB", "REJECTED_BY_ADMIN_HUB", "CANCELLED"];
 
   const isFetchingRef = useRef(false);
 
@@ -108,10 +108,16 @@ export default function VendorOrderManagement() {
         return "bg-purple-100 text-purple-800";
       case "IN_TRANSIT_TO_ADMIN_HUB":
         return "bg-indigo-100 text-indigo-800";
+      case "RECEIVED_AT_ADMIN_HUB":
+        return "bg-teal-100 text-teal-800";
+      case "APPROVED_BY_ADMIN_HUB":
+        return "bg-green-100 text-green-800";
+      case "REJECTED_BY_ADMIN_HUB":
+        return "bg-orange-100 text-orange-800";
       case "CANCELLED":
         return "bg-red-100 text-red-800";
       default:
-        return "bg-green-100 text-green-800";
+        return "bg-gray-100 text-gray-800";
     }
   };
 

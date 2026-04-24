@@ -121,8 +121,8 @@ const createBagType = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Name and price are required' });
         }
 
-        if (!Number.isFinite(price) || price < 0) {
-            return res.status(400).json({ success: false, message: 'Price must be a non-negative finite number' });
+        if (!Number.isFinite(price) || price <= 0) {
+            return res.status(400).json({ success: false, message: 'Price must be a positive number' });
         }
 
         // Validate and upload image if base64
@@ -182,8 +182,8 @@ const updateBagType = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Bag type not found' });
         }
 
-        if (price !== undefined && (!Number.isFinite(price) || price < 0)) {
-            return res.status(400).json({ success: false, message: 'Price must be a non-negative finite number' });
+        if (price !== undefined && (!Number.isFinite(price) || price <= 0)) {
+            return res.status(400).json({ success: false, message: 'Price must be a positive number' });
         }
 
         // Check for duplicate name (excluding self)

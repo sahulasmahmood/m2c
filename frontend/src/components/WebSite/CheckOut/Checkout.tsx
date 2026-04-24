@@ -74,6 +74,7 @@ export default function Checkout() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [useNewAddress, setUseNewAddress] = useState(false)
   const [saveNewAddressToBook, setSaveNewAddressToBook] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: "",
@@ -262,9 +263,20 @@ export default function Checkout() {
     applySavedAddressToForm(addr)
   }
 
+  const handleEditAddress = (id: string) => {
+    const addr = savedAddresses.find((a) => a.id === id)
+    if (!addr) return
+    setEditingAddressId(id)
+    setSelectedAddressId(id)
+    setUseNewAddress(true)
+    setSaveNewAddressToBook(false)
+    applySavedAddressToForm(addr)
+  }
+
   const handleChooseNewAddress = () => {
     setUseNewAddress(true)
     setSelectedAddressId(null)
+    setEditingAddressId(null)
     // Clear shipping fields so the user enters fresh data; keep email so it's not lost
     setFormData((prev) => ({
       ...prev,
@@ -286,10 +298,40 @@ export default function Checkout() {
   // If the user opted to save a new address to the address book, persist it before advancing.
   // A save failure is surfaced but does NOT block checkout — the user should still be able to complete the order.
   const handleShippingStepAdvance = async () => {
-    if (
+    const isAuthed = userAuthService.isAuthenticated()
+
+    // Editing an existing saved address — update it in the address book
+    if (useNewAddress && editingAddressId && isAuthed) {
+      try {
+        const existing = savedAddresses.find(a => a.id === editingAddressId)
+        const payload: AddressPayload = {
+          type: existing?.type || "home",
+          name: `${formData.firstName} ${formData.lastName}`.trim(),
+          phone: formData.phone,
+          address: formData.address,
+          addressLine2: formData.addressLine2 || undefined,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode,
+          country: "United States",
+          isDefault: existing?.isDefault || false,
+        }
+        const updated = await addressService.update(editingAddressId, payload)
+        setSavedAddresses((prev) => prev.map(a => a.id === editingAddressId ? updated : a))
+        setSelectedAddressId(editingAddressId)
+        setEditingAddressId(null)
+        setUseNewAddress(false)
+      } catch (err: any) {
+        console.error("Failed to update address:", err)
+        // Warn but do not block checkout — the form data is still valid for shipping
+        setError(err?.message || "Could not update address — your changes will still be used for this order")
+      }
+    }
+    // Saving a new address to the address book
+    else if (
       useNewAddress &&
       saveNewAddressToBook &&
-      userAuthService.isAuthenticated() &&
+      isAuthed &&
       savedAddresses.length < MAX_SAVED_ADDRESSES
     ) {
       try {
@@ -311,8 +353,8 @@ export default function Checkout() {
         setSaveNewAddressToBook(false)
       } catch (err: any) {
         console.error("Failed to save address to book:", err)
-        setError(err?.message || "Could not save address to your address book")
-        return
+        // Warn but do not block checkout — the form data is still valid for shipping
+        setError(err?.message || "Could not save address to your address book — your details will still be used for this order")
       }
     }
     setCurrentStep((s) => s + 1)
@@ -588,6 +630,7 @@ export default function Checkout() {
             useNewAddress={useNewAddress}
             onSelect={handleSelectSavedAddress}
             onChooseNew={handleChooseNewAddress}
+            onEdit={handleEditAddress}
             disabled={placingOrder}
           />
         )}
@@ -596,7 +639,27 @@ export default function Checkout() {
           <>
             {savedAddresses.length > 0 && (
               <div className="border-t border-slate-200 pt-6">
-                <h3 className="text-sm font-semibold text-slate-900 mb-4">Enter new shipping address</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {editingAddressId ? "Edit shipping address" : "Enter new shipping address"}
+                  </h3>
+                  {editingAddressId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAddressId(null)
+                        setUseNewAddress(false)
+                        if (selectedAddressId) {
+                          const addr = savedAddresses.find(a => a.id === selectedAddressId)
+                          if (addr) applySavedAddressToForm(addr)
+                        }
+                      }}
+                      className="px-4 py-1.5 text-sm font-medium text-slate-700 bg-slate-100 border border-slate-300 rounded-lg hover:bg-slate-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             <ShippingForm
@@ -605,7 +668,7 @@ export default function Checkout() {
               disabled={placingOrder}
               onValidityChange={setShippingValid}
             />
-            {isAuthed && canSaveMore && (
+            {isAuthed && !editingAddressId && canSaveMore && (
               <label className="flex items-center gap-3 cursor-pointer select-none pt-2">
                 <input
                   type="checkbox"

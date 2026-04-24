@@ -1,4 +1,5 @@
 const { prisma } = require('../config/database');
+const { ACTIVE_ITEMS_FILTER } = require('../utils/activeItemsFilter');
 
 // Recompute and persist the average rating + rating count for a vendor,
 // based on every APPROVED admin review that carries a numeric rating.
@@ -290,7 +291,11 @@ const getAllAdminReviews = async (req, res) => {
             prisma.adminReview.findMany({
                 where,
                 include: {
-                    order: { include: { items: true } },
+                    order: {
+                        include: {
+                            items: ACTIVE_ITEMS_FILTER,
+                        },
+                    },
                     shipment: {
                         select: { id: true, shipmentId: true, vendorName: true, status: true },
                     },

@@ -7,6 +7,7 @@ const adminReviewController = require('../controllers/adminReviewController');
 const { authenticateToken, requireAdminRole, requireVendorRole } = require('../middleware/auth');
 const { getOrderInvoiceHTML } = require('../utils/email/templates/orderInvoiceTemplate');
 const { prisma } = require('../config/database');
+const { ACTIVE_ITEMS_FILTER } = require('../utils/activeItemsFilter');
 
 // Apply base auth middleware to all routes
 router.use(authenticateToken);
@@ -33,7 +34,7 @@ router.get('/admin/:id/invoice', requireAdminRole, async (req, res) => {
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
         const where = isObjectId ? { id } : { orderId: id };
 
-        const order = await prisma.order.findUnique({ where, include: { items: true } });
+        const order = await prisma.order.findUnique({ where, include: { items: ACTIVE_ITEMS_FILTER } });
         if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
 
         // Fetch company info for invoice header (logo, name, GST, etc.)
@@ -78,6 +79,7 @@ router.get('/vendor', requireVendorRole, vendorOrderController.getVendorOrders);
 router.get('/vendor/reviews', requireVendorRole, vendorOrderController.getVendorReviews);
 router.get('/vendor/:id', requireVendorRole, vendorOrderController.getVendorOrderById);
 router.put('/vendor/:id/status', requireVendorRole, vendorOrderController.updateVendorOrderStatus);
+router.post('/vendor/:id/reship', requireVendorRole, vendorOrderController.reshipVendorOrder);
 
 // ============================================
 // CUSTOMER ROUTES (/api/orders/*)
@@ -94,7 +96,7 @@ router.get('/:id/invoice', async (req, res) => {
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
         const where = isObjectId ? { id } : { orderId: id };
 
-        const order = await prisma.order.findUnique({ where, include: { items: true } });
+        const order = await prisma.order.findUnique({ where, include: { items: ACTIVE_ITEMS_FILTER } });
         if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
         if (order.customerId !== userId) return res.status(403).json({ success: false, error: 'Unauthorized' });
 

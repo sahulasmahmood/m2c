@@ -31,7 +31,7 @@ export default function BagTypeModal({ isOpen, onClose, mode, bagType, onSubmit,
       setFormData({
         name: bagType?.name || '',
         description: bagType?.description || '',
-        price: bagType?.price || 0,
+        price: mode === 'create' ? bagType?.price || undefined : (bagType?.price ?? 0),
         image: bagType?.image || '',
         isActive: bagType?.isActive ?? true,
         sortOrder: mode === 'create' ? undefined : (bagType?.sortOrder ?? 0),
@@ -128,11 +128,12 @@ export default function BagTypeModal({ isOpen, onClose, mode, bagType, onSubmit,
             ) : (
               <input
                 type="number"
-                value={formData.price}
-                onChange={e => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                value={formData.price ?? ''}
+                onChange={e => setFormData(prev => ({ ...prev, price: e.target.value === '' ? undefined : parseFloat(e.target.value) }))}
                 required
-                min="0"
+                min="0.01"
                 step="0.01"
+                placeholder="Enter price"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#222222] focus:border-transparent"
               />
             )}
@@ -235,7 +236,7 @@ export default function BagTypeModal({ isOpen, onClose, mode, bagType, onSubmit,
               </button>
               <button
                 type="submit"
-                disabled={loading || !formData.name?.trim() || formData.price === undefined || formData.price < 0}
+                disabled={loading || !formData.name?.trim() || formData.price == null || formData.price <= 0}
                 className="px-5 py-2.5 bg-[#222222] text-white rounded-lg hover:bg-[#333333] disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
               >
                 {loading ? 'Saving...' : mode === 'create' ? 'Create' : 'Update'}

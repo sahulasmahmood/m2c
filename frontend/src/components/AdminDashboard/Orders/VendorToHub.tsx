@@ -40,10 +40,12 @@ interface OrderGroup {
   isMultiVendor: boolean;
 }
 
-/** Aggregate status label for a multi-vendor group. */
+/** Aggregate status label for a multi-vendor group (ignores cancelled/returned). */
 function getGroupStatus(shipments: VendorShipment[]): string {
-  const statuses = new Set(shipments.map(s => s.status));
-  if (statuses.size === 1) return shipments[0].status;
+  const active = shipments.filter(s => s.status !== 'CANCELLED' && s.status !== 'RETURNED');
+  if (active.length === 0) return shipments[0].status; // all terminal — show first
+  const statuses = new Set(active.map(s => s.status));
+  if (statuses.size === 1) return active[0].status;
   return "MIXED";
 }
 
@@ -132,7 +134,7 @@ export default function VendorToHub() {
       }
       map.get(key)!.shipments.push(s);
     }
-    // Mark multi-vendor groups
+    // Mark groups that need expandable rows (multiple shipments OR multiple vendors)
     for (const group of map.values()) {
       group.isMultiVendor = group.shipments.length > 1;
     }
@@ -355,8 +357,10 @@ export default function VendorToHub() {
 
                 // Multi-vendor order — render parent row + expandable children
                 const groupStatus = getGroupStatus(group.shipments);
-                const totalItems = group.shipments.reduce((acc, s) => acc + (s.items?.length || 0), 0);
-                const totalAmount = group.shipments.reduce((acc, s) =>
+                const activeShipments = group.shipments.filter(s => s.status !== 'CANCELLED' && s.status !== 'RETURNED');
+                const vendorCount = new Set(group.shipments.map(s => s.vendorId)).size;
+                const totalItems = activeShipments.reduce((acc, s) => acc + (s.items?.length || 0), 0);
+                const totalAmount = activeShipments.reduce((acc, s) =>
                   acc + (s.items?.reduce((a: number, i: any) => a + i.totalPrice, 0) || 0), 0);
 
                 return (
@@ -381,7 +385,7 @@ export default function VendorToHub() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm font-medium text-gray-900">
-                          {group.shipments.length} vendor{group.shipments.length !== 1 ? 's' : ''}
+                          {vendorCount} vendor{vendorCount !== 1 ? 's' : ''}
                         </span>
                       </TableCell>
                       <TableCell>{new Date(group.orderDate).toLocaleDateString("en-IN")}</TableCell>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Package, MapPin, Truck, X } from "lucide-react";
+import { ArrowLeft, Package, MapPin, Truck, X, RefreshCw, XCircle, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { showSuccessToast, showErrorToast } from "@/lib/toast-utils";
 import Dropdown from "@/components/UI/Dropdown";
@@ -31,6 +31,9 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
   const [showShippingModal, setShowShippingModal] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState("");
   const [trackingId, setTrackingId] = useState("");
+  const [showReshipModal, setShowReshipModal] = useState(false);
+  const [reshipLoading, setReshipLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   useEffect(() => {
     fetchOrderDetails();
@@ -69,6 +72,40 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
 
   const handleMarkAsPacked = () => {
     handleUpdateStatus("PACKED_BY_VENDOR");
+  };
+
+  const handleReship = async () => {
+    if (!shipment) return;
+    try {
+      setReshipLoading(true);
+      const res = await orderService.reshipVendorOrder(shipment.id);
+      if (res.success) {
+        showSuccessToast("Reship created successfully", "Pack and ship the replacement to the hub.");
+        setShowReshipModal(false);
+        // Navigate to the new shipment's detail page
+        router.push(`/vendor/dashboard/orders/view/${res.data.id}`);
+      }
+    } catch (error: any) {
+      showErrorToast(error.message || "Failed to create reship");
+    } finally {
+      setReshipLoading(false);
+    }
+  };
+
+  const handleCancelRejected = async () => {
+    if (!shipment || cancelLoading) return;
+    try {
+      setCancelLoading(true);
+      const res = await orderService.updateVendorOrderStatus(shipment.id, "CANCELLED");
+      if (res.success) {
+        showSuccessToast("Shipment cancelled");
+        setShipment(res.data);
+      }
+    } catch (error: any) {
+      showErrorToast(error.message || "Failed to cancel shipment");
+    } finally {
+      setCancelLoading(false);
+    }
   };
 
   const handleOpenShippingModal = () => {
@@ -163,6 +200,31 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
               Handled by Admin Hub ({status.replace(/_/g, " ")})
             </div>
           )}
+          {status === "REJECTED_BY_ADMIN_HUB" && (
+            <>
+              <button
+                onClick={() => setShowReshipModal(true)}
+                disabled={cancelLoading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Reship
+              </button>
+              <button
+                onClick={handleCancelRejected}
+                disabled={cancelLoading || reshipLoading}
+                className="px-6 py-2 bg-white text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <XCircle className="h-4 w-4" />
+                {cancelLoading ? "Cancelling..." : "Accept & Cancel"}
+              </button>
+            </>
+          )}
+          {status === "CANCELLED" && (
+            <div className="px-6 py-2 bg-red-100 text-red-800 rounded-lg font-medium border border-red-300">
+              Cancelled
+            </div>
+          )}
         </div>
       </div>
 
@@ -184,7 +246,9 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
             <p className={`text-base font-medium mt-1 ${status === "VENDOR_PROCESSING" ? "text-blue-600" :
               status === "PACKED_BY_VENDOR" ? "text-purple-600" :
                 status === "IN_TRANSIT_TO_ADMIN_HUB" ? "text-indigo-600" :
-                  "text-green-600"
+                  status === "REJECTED_BY_ADMIN_HUB" ? "text-red-600" :
+                    status === "CANCELLED" ? "text-red-600" :
+                      "text-green-600"
               }`}>
               {status.replace(/_/g, " ")}
             </p>
@@ -458,6 +522,75 @@ export default function VendorOrderDetail({ orderId }: OrderDetailProps) {
                 className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
               >
                 Confirm Shipping
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reship Confirmation Modal */}
+      {showReshipModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <RefreshCw className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Reship Order</h2>
+                  <p className="text-sm text-gray-600">Create a replacement shipment</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-medium mb-1">This will:</p>
+                    <ul className="list-disc list-inside space-y-1 text-amber-700">
+                      <li>Cancel the rejected shipment</li>
+                      <li>Create a new shipment with the same items</li>
+                      <li>You&apos;ll need to pack and ship the replacement</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {shipment?.adminReview?.rejectionReason && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
+                  <p className="text-sm text-red-700">{shipment.adminReview.rejectionReason}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowReshipModal(false)}
+                disabled={reshipLoading}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReship}
+                disabled={reshipLoading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50"
+              >
+                {reshipLoading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Confirm Reship
+                  </>
+                )}
               </button>
             </div>
           </div>

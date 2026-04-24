@@ -222,7 +222,7 @@ export default function VendorReviewsPage() {
                   </div>
 
                   <Link
-                    href={`/vendor/dashboard/orders/view/${r.order.id}`}
+                    href={`/vendor/dashboard/orders/view/${r.shipment?.id ?? r.order.id}`}
                     className="text-sm text-gray-700 hover:underline flex items-center gap-1.5 mb-2"
                   >
                     <Package className="h-4 w-4 text-gray-500" />

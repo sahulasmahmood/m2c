@@ -103,7 +103,7 @@ const getVendorOrderById = async (req, res) => {
             });
         }
 
-        // Fallback: try as orderId (human-readable) — find this vendor's shipment for that order
+        // Fallback: try as orderId (human-readable) — find this vendor's latest shipment for that order
         if (!shipment) {
             const order = await prisma.order.findUnique({
                 where: { orderId: id },
@@ -113,6 +113,7 @@ const getVendorOrderById = async (req, res) => {
                 shipment = await prisma.vendorShipment.findFirst({
                     where: { orderId: order.id, vendorId },
                     include: SHIPMENT_INCLUDE,
+                    orderBy: { createdAt: 'desc' },
                 });
             }
         }
@@ -144,7 +145,7 @@ const updateVendorOrderStatus = async (req, res) => {
         const { id } = req.params;
         const { status, carrier, trackingId } = req.body;
 
-        const validStatuses = ['VENDOR_PROCESSING', 'PACKED_BY_VENDOR', 'IN_TRANSIT_TO_ADMIN_HUB'];
+        const validStatuses = ['VENDOR_PROCESSING', 'PACKED_BY_VENDOR', 'IN_TRANSIT_TO_ADMIN_HUB', 'CANCELLED'];
 
         if (!validStatuses.includes(status)) {
             return res.status(400).json({
@@ -204,6 +205,14 @@ const updateVendorOrderStatus = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 error: 'Order not found',
+            });
+        }
+
+        // Vendor can only cancel a rejected shipment
+        if (status === 'CANCELLED' && shipment.status !== 'REJECTED_BY_ADMIN_HUB') {
+            return res.status(400).json({
+                success: false,
+                error: 'Vendors can only cancel shipments that were rejected by admin hub.',
             });
         }
 
@@ -355,9 +364,143 @@ const getVendorReviews = async (req, res) => {
     }
 };
 
+// Vendor: Reship a rejected shipment — creates a NEW shipment under the same order
+const reshipVendorOrder = async (req, res) => {
+    try {
+        const vendorId = req.vendorId || req.userId;
+        const { id } = req.params;
+
+        // Find the rejected shipment
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+        let shipment;
+
+        if (isObjectId) {
+            shipment = await prisma.vendorShipment.findFirst({
+                where: { id, vendorId },
+                include: { items: true, order: { select: { id: true, orderId: true } } },
+            });
+        }
+        if (!shipment) {
+            shipment = await prisma.vendorShipment.findFirst({
+                where: { shipmentId: id, vendorId },
+                include: { items: true, order: { select: { id: true, orderId: true } } },
+            });
+        }
+
+        if (!shipment) {
+            return res.status(404).json({ success: false, error: 'Shipment not found' });
+        }
+
+        if (shipment.status !== 'REJECTED_BY_ADMIN_HUB') {
+            return res.status(400).json({
+                success: false,
+                error: 'Only rejected shipments can be reshipped',
+            });
+        }
+
+        // Create new shipment + cancel old one in a transaction
+        // The duplicate check is inside the transaction to prevent race conditions
+        const newShipment = await prisma.$transaction(async (tx) => {
+            // Re-check no active reship exists (inside tx to prevent concurrent duplicates)
+            const existingReship = await tx.vendorShipment.findFirst({
+                where: {
+                    orderId: shipment.orderId,
+                    vendorId,
+                    status: { notIn: ['CANCELLED', 'RETURNED', 'REJECTED_BY_ADMIN_HUB'] },
+                },
+            });
+            if (existingReship) {
+                throw new Error('DUPLICATE_RESHIP');
+            }
+
+            // Generate new shipment ID: ORD-YYYY-XXXXXXXXX-R{attempt}
+            const existingCount = await tx.vendorShipment.count({
+                where: { orderId: shipment.orderId, vendorId },
+            });
+            const baseOrderId = shipment.order.orderId;
+            const newShipmentId = `${baseOrderId}-R${existingCount}`;
+
+            // Mark old shipment as CANCELLED with history
+            await tx.vendorShipment.update({
+                where: { id: shipment.id },
+                data: {
+                    status: 'CANCELLED',
+                    statusHistory: {
+                        create: {
+                            status: 'CANCELLED',
+                            updatedBy: vendorId,
+                            updatedByType: 'vendor',
+                            comment: `Cancelled for reship — replaced by ${newShipmentId}`,
+                        },
+                    },
+                },
+            });
+
+            // Create new shipment with copied items
+            const created = await tx.vendorShipment.create({
+                data: {
+                    shipmentId: newShipmentId,
+                    orderId: shipment.orderId,
+                    vendorId,
+                    vendorName: shipment.vendorName,
+                    status: 'ORDER_CREATED',
+                    assignedHubId: shipment.assignedHubId,
+                    items: {
+                        create: shipment.items.map(item => ({
+                            orderId: shipment.orderId,
+                            productId: item.productId,
+                            vendorId: item.vendorId,
+                            vendorName: item.vendorName,
+                            productName: item.productName,
+                            productImage: item.productImage,
+                            sku: item.sku,
+                            variantId: item.variantId || undefined,
+                            size: item.size || undefined,
+                            color: item.color || undefined,
+                            quantity: item.quantity,
+                            unitPrice: item.unitPrice,
+                            totalPrice: item.totalPrice,
+                        })),
+                    },
+                    statusHistory: {
+                        create: {
+                            status: 'ORDER_CREATED',
+                            updatedBy: vendorId,
+                            updatedByType: 'vendor',
+                            comment: `Reship created — replacing rejected shipment ${shipment.shipmentId}`,
+                        },
+                    },
+                },
+                include: SHIPMENT_INCLUDE,
+            });
+
+            // Recompute parent order status
+            await recomputeAndPersistOrderStatus(tx, shipment.orderId);
+
+            return created;
+        });
+
+        res.json({
+            success: true,
+            data: normalizeShipment(newShipment),
+            message: 'Reship created successfully. Pack and ship the replacement.',
+        });
+    } catch (error) {
+        if (error.message === 'DUPLICATE_RESHIP') {
+            return res.status(400).json({
+                success: false,
+                error: 'An active shipment already exists for this order. Cancel it first before reshipping.',
+            });
+        }
+        console.error('Reship vendor order error:', error);
+        res.status(500).json({ success: false, error: 'Failed to create reship' });
+    }
+};
+
 module.exports = {
     getVendorOrders,
     getVendorOrderById,
     updateVendorOrderStatus,
     getVendorReviews,
+    reshipVendorOrder,
 };

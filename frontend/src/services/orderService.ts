@@ -252,6 +252,15 @@ class OrderService {
         }
     }
 
+    async reshipVendorOrder(id: string): Promise<{ success: boolean; data: VendorShipment; message?: string }> {
+        try {
+            const response = await axios.post(`/orders/vendor/${id}/reship`, {});
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.response?.data?.error || error.response?.data?.message || 'Failed to create reship');
+        }
+    }
+
     // ============================================
     // ADMIN ACTIONS — Orders (hub-to-customer)
     // ============================================

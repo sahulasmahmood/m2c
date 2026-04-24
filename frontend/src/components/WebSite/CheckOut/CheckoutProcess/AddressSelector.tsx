@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { MapPin, Home, Briefcase, Star, Plus, Check } from "lucide-react";
+import { MapPin, Home, Briefcase, Star, Plus, Check, Pencil } from "lucide-react";
 import type { SavedAddress } from "@/services/addressService";
 
 interface AddressSelectorProps {
@@ -10,6 +10,7 @@ interface AddressSelectorProps {
   useNewAddress: boolean;
   onSelect: (id: string) => void;
   onChooseNew: () => void;
+  onEdit?: (id: string) => void;
   disabled?: boolean;
 }
 
@@ -25,6 +26,7 @@ export default function AddressSelector({
   useNewAddress,
   onSelect,
   onChooseNew,
+  onEdit,
   disabled,
 }: AddressSelectorProps) {
   // Tab stops: each address card + the "Use a new address" tile. Arrow keys move focus between them.
@@ -104,11 +106,23 @@ export default function AddressSelector({
                   : "border-slate-200 bg-white hover:border-slate-400"
               }`}
             >
-              {selected && (
-                <span className="absolute top-3 right-3 w-5 h-5 bg-gray-800 text-white rounded-full flex items-center justify-center">
-                  <Check className="w-3 h-3" />
-                </span>
-              )}
+              <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onEdit(addr.id); }}
+                    className="w-6 h-6 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full flex items-center justify-center transition-colors cursor-pointer"
+                    title="Edit address"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                )}
+                {selected && (
+                  <span className="w-5 h-5 bg-gray-800 text-white rounded-full flex items-center justify-center">
+                    <Check className="w-3 h-3" />
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold border border-slate-200 bg-slate-50 text-slate-700 rounded-full">
                   <Icon className="w-3 h-3" />
