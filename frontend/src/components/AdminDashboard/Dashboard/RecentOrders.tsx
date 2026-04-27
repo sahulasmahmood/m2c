@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/Card'
 import { Badge } from '@/components/UI/Badge'
 import { useRouter } from 'next/navigation'
 import { Eye } from 'lucide-react'
+import { hasPermission } from '@/lib/auth'
 
 const getStatusBadge = (status: string) => {
   const s = status?.toUpperCase().replace(/ /g, '_') || ''
@@ -30,6 +31,7 @@ const getStatusBadge = (status: string) => {
 
 export default function RecentOrders({ orders }: { orders: any[] }) {
   const router = useRouter()
+  const canViewOrders = hasPermission('view_orders')
 
   return (
     <Card>
@@ -65,7 +67,8 @@ export default function RecentOrders({ orders }: { orders: any[] }) {
               {orders && orders.map((order) => (
                 <tr
                   key={order.id}
-                  className="hover:bg-gray-50"
+                  className={`hover:bg-gray-50 ${canViewOrders ? 'cursor-pointer' : ''}`}
+                  onClick={canViewOrders ? () => router.push(`/admin/dashboard/orders/view/${order.id}`) : undefined}
                 >
                   <td className="px-4 py-4 text-sm font-medium text-blue-600 whitespace-nowrap">
                     #{order.orderId}

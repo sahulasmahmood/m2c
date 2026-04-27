@@ -1,5 +1,13 @@
 const { prisma } = require('../config/database');
 const { recomputeAndPersistOrderStatus } = require('../utils/computeOrderStatus');
+const { notifications } = require('../utils/notificationService');
+
+// Maps vendor status → customer notification
+const VENDOR_STATUS_NOTIFY = {
+  'VENDOR_PROCESSING': 'orderProcessing',
+  'PACKED_BY_VENDOR': null,                   // no customer notification for packing
+  'IN_TRANSIT_TO_ADMIN_HUB': 'orderShipped',  // shipped from vendor
+};
 
 // Shared include for shipment queries — keeps response shape consistent.
 const SHIPMENT_INCLUDE = {
@@ -255,6 +263,14 @@ const updateVendorOrderStatus = async (req, res) => {
 
             return updated;
         });
+
+        // Notify customer about status change (fire-and-forget)
+        if (updatedShipment.order?.customerId) {
+            const notifHelper = VENDOR_STATUS_NOTIFY[status];
+            if (notifHelper && notifications[notifHelper]) {
+                notifications[notifHelper](updatedShipment.order.customerId, updatedShipment.order.orderId).catch(() => {});
+            }
+        }
 
         res.json({
             success: true,

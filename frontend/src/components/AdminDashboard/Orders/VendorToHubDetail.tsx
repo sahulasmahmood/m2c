@@ -7,6 +7,7 @@ import Dropdown from "@/components/UI/Dropdown";
 import { showSuccessToast, showErrorToast } from "@/lib/toast-utils";
 import { orderService, VendorShipment } from "@/services/orderService";
 import adminReviewService from "@/services/adminReviewService";
+import { hasPermission } from "@/lib/auth";
 
 interface VendorToHubDetailProps {
   orderId: string;
@@ -170,7 +171,7 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
           </div>
         </div>
         <div className="flex gap-3">
-          {shipment.status === "ORDER_CREATED" && (
+          {shipment.status === "ORDER_CREATED" && hasPermission('edit_orders') && (
             <button
               onClick={handleProceed}
               className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
@@ -178,7 +179,7 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
               Assign Hub / Proceed
             </button>
           )}
-          {shipment.status === "IN_TRANSIT_TO_ADMIN_HUB" && (
+          {shipment.status === "IN_TRANSIT_TO_ADMIN_HUB" && hasPermission('edit_orders') && (
             <button
               onClick={handleMarkAsReceived}
               className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
@@ -186,7 +187,7 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
               Mark as Received at Hub
             </button>
           )}
-          {shipment.status === "RECEIVED_AT_ADMIN_HUB" && (
+          {shipment.status === "RECEIVED_AT_ADMIN_HUB" && hasPermission('edit_orders') && (
             <button
               onClick={() => setShowReviewModal(true)}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"

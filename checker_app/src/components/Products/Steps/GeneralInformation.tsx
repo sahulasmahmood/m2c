@@ -14,6 +14,7 @@ interface GeneralInformationProps {
   };
   setFormData: (data: any) => void;
   errors?: Record<string, string>;
+  autofillSnapshot?: Record<string, boolean>;
 }
 
 const SERVICE_TYPES = [
@@ -25,9 +26,10 @@ const SERVICE_TYPES = [
   'Product Testing',
 ];
 
-export default function GeneralInformation({ formData, setFormData, errors = {} }: GeneralInformationProps) {
+export default function GeneralInformation({ formData, setFormData, errors = {}, autofillSnapshot = {} }: GeneralInformationProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const errorCount = Object.keys(errors).length;
+  const locked = (field: string) => !!autofillSnapshot[field];
 
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -45,6 +47,8 @@ export default function GeneralInformation({ formData, setFormData, errors = {} 
           value={formData.client}
           onChangeText={(val) => setFormData({ ...formData, client: val })}
           placeholder="Client name"
+          editable={!locked('client')}
+          style={locked('client') ? { backgroundColor: '#f1f5f9' } : undefined}
         />
         <FieldError msg={errors.client} />
       </View>
@@ -56,6 +60,8 @@ export default function GeneralInformation({ formData, setFormData, errors = {} 
           value={formData.vendor}
           onChangeText={(val) => setFormData({ ...formData, vendor: val })}
           placeholder="Vendor name"
+          editable={!locked('vendor')}
+          style={locked('vendor') ? { backgroundColor: '#f1f5f9' } : undefined}
         />
         <FieldError msg={errors.vendor} />
       </View>
@@ -67,6 +73,8 @@ export default function GeneralInformation({ formData, setFormData, errors = {} 
           value={formData.factory}
           onChangeText={(val) => setFormData({ ...formData, factory: val })}
           placeholder="Factory name"
+          editable={!locked('factory')}
+          style={locked('factory') ? { backgroundColor: '#f1f5f9' } : undefined}
         />
         <FieldError msg={errors.factory} />
       </View>
@@ -78,6 +86,8 @@ export default function GeneralInformation({ formData, setFormData, errors = {} 
           value={formData.serviceLocation}
           onChangeText={(val) => setFormData({ ...formData, serviceLocation: val })}
           placeholder="Service location"
+          editable={!locked('serviceLocation')}
+          style={locked('serviceLocation') ? { backgroundColor: '#f1f5f9' } : undefined}
         />
         <FieldError msg={errors.serviceLocation} />
       </View>

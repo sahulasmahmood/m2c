@@ -1,123 +1,123 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Image, Animated, Easing, StatusBar } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View, Text, Image, Animated, StatusBar, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const { width } = Dimensions.get('window');
+
 export default function SplashScreen() {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.9)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const barWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Fade in and scale animation
+    // Stage 1: Logo fades in + scales up (0 → 500ms)
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
+      Animated.timing(opacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 1, duration: 500, useNativeDriver: true }),
+    ]).start(() => {
+      // Stage 2: Text appears + loading bar fills (500ms → 1500ms)
+      Animated.parallel([
+        Animated.timing(textOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(barWidth, { toValue: 1, duration: 1200, useNativeDriver: false }),
+      ]).start();
+    });
 
-    // Pulse animation for the logo
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1000,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.ease),
-        }),
-      ])
-    ).start();
-
-    // Check authentication and navigate
+    // Navigate after 1.8s
     const checkAuth = async () => {
       try {
         const checkerId = await AsyncStorage.getItem('checkerID');
-        
         setTimeout(() => {
-          if (checkerId) {
-            router.replace('/(tabs)');
-          } else {
-            router.replace('/(auth)/Login');
-          }
-        }, 2500);
-      } catch (error) {
-        setTimeout(() => {
-          router.replace('/(auth)/Login');
-        }, 2500);
+          router.replace(checkerId ? '/(tabs)' : '/(auth)/Login');
+        }, 1800);
+      } catch {
+        setTimeout(() => router.replace('/(auth)/Login'), 1800);
       }
     };
-
     checkAuth();
-  }, [fadeAnim, scaleAnim, pulseAnim]);
+  }, []);
 
   return (
-    <SafeAreaProvider className="flex-1 bg-black">
-      <StatusBar barStyle="light-content" backgroundColor="#000000" translucent={false} />
-      <View className="flex-1 items-center justify-center px-6">
+    <View style={{ flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center' }}>
+
+      {/* Logo */}
+      <Animated.View style={{ opacity, transform: [{ scale }], alignItems: 'center' }}>
+        <View
+          style={{
+            width: 88,
+            height: 88,
+            borderRadius: 22,
+            backgroundColor: '#ffffff',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Image
+            source={require('../../assets/images/512.png')}
+            style={{ width: 64, height: 64 }}
+            resizeMode="contain"
+          />
+        </View>
+      </Animated.View>
+
+      {/* Brand text */}
+      <Animated.View style={{ opacity: textOpacity, alignItems: 'center', marginTop: 28 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: '800',
+            color: '#ffffff',
+            letterSpacing: 2,
+          }}
+        >
+          M2C
+        </Text>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: '600',
+            color: '#525252',
+            letterSpacing: 4,
+            textTransform: 'uppercase',
+            marginTop: 6,
+          }}
+        >
+          Quality Checker
+        </Text>
+      </Animated.View>
+
+      {/* Loading bar */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 80,
+          width: width * 0.3,
+          height: 2,
+          backgroundColor: '#1a1a1a',
+          borderRadius: 1,
+          overflow: 'hidden',
+        }}
+      >
         <Animated.View
           style={{
-            opacity: fadeAnim,
-            transform: [
-              { scale: Animated.multiply(scaleAnim, pulseAnim) },
-            ],
+            height: '100%',
+            backgroundColor: '#404040',
+            borderRadius: 1,
+            width: barWidth.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', '100%'],
+            }),
           }}
-          className="items-center"
-        >
-          {/* Logo Container */}
-          <View className="bg-white rounded-3xl p-4 mb-8 shadow-2xl">
-            <Image
-              source={require('../../assets/images/512.png')}
-              className="w-52 h-36"
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* App Title */}
-          <Text className="text-4xl font-bold text-white mb-3 text-center">
-            QC Checker
-          </Text>
-          
-          <Text className="text-base text-gray-400 text-center mb-8">
-            Quality Control Portal
-          </Text>
-
-          {/* Loading Indicator */}
-          <View className="flex-row items-center space-x-2">
-            <View className="w-2 h-2 bg-white rounded-full opacity-40" />
-            <View className="w-2 h-2 bg-white rounded-full opacity-60" />
-            <View className="w-2 h-2 bg-white rounded-full opacity-80" />
-          </View>
-        </Animated.View>
-
-        {/* Footer */}
-        <Animated.View
-          style={{ opacity: fadeAnim }}
-          className="absolute bottom-10"
-        >
-          <Text className="text-xs text-gray-600 text-center">
-            Powered by Quality Assurance Team
-          </Text>
-          <Text className="text-xs text-gray-700 text-center mt-1">
-            © {new Date().getFullYear()} All rights reserved
-          </Text>
-        </Animated.View>
+        />
       </View>
-    </SafeAreaProvider>
+
+      {/* Footer */}
+      <View style={{ position: 'absolute', bottom: 40, alignItems: 'center' }}>
+        <Text style={{ fontSize: 9, color: '#333333', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+          M2C MarkDowns Pvt Ltd
+        </Text>
+      </View>
+    </View>
   );
 }

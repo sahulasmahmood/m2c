@@ -21,6 +21,7 @@ import { formatDate } from "@/lib/utils"
 import { showErrorToast } from '@/lib/toast-utils'
 import { useDebounce } from '@/hooks/useDebounce'
 import reportsService from '@/services/reportsService'
+import { hasPermission } from '@/lib/auth'
 
 const PAGE_SIZE = 12
 const DEFAULT_SORT = 'desc'
@@ -411,6 +412,7 @@ export default function QCReports() {
                                                     {formatDate(report.completedAt || report.createdAt)}
                                                 </TableCell>
                                                 <TableCell>
+                                                    {hasPermission('view_reports') && (
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => router.push(`/admin/dashboard/qc-reports/${report.id}?type=factory&download=true`)}
@@ -427,6 +429,7 @@ export default function QCReports() {
                                                             View Details
                                                         </button>
                                                     </div>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -616,6 +619,7 @@ export default function QCReports() {
                                                         {formatDate(product.updatedAt)}
                                                     </TableCell>
                                                     <TableCell>
+                                                        {hasPermission('view_reports') && (
                                                         <div className="flex items-center gap-2">
                                                             <button
                                                                 onClick={() => router.push(`/admin/dashboard/qc-reports/${product.id}?type=product&download=true`)}
@@ -632,6 +636,7 @@ export default function QCReports() {
                                                                 View Details
                                                             </button>
                                                         </div>
+                                                        )}
                                                     </TableCell>
                                                 </TableRow>
                                             )

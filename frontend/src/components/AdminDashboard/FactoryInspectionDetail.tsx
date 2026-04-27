@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
     ArrowLeft, Building2, ShieldCheck, Factory,
     CheckCircle, XCircle, AlertTriangle, Clock,
-    FileText, ClipboardList, Package, Settings, Download
+    FileText, ClipboardList, Package, Settings, Download, Camera
 } from 'lucide-react'
 import { Badge } from '@/components/UI/Badge'
 import vendorService from '@/services/vendorService'
@@ -350,7 +350,8 @@ export default function FactoryInspectionDetail({ inspectionId }: Props) {
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                         {formData.factoryPhotos.map((p: any, i: number) => {
                                             const src = p?.data || p?.url || null
-                                            return src && typeof src === 'string' ? (
+                                            const isImage = src && typeof src === 'string' && (src.startsWith('data:image') || src.startsWith('http'))
+                                            return isImage ? (
                                                 <div
                                                     key={i}
                                                     className="relative group cursor-pointer"
@@ -403,6 +404,41 @@ export default function FactoryInspectionDetail({ inspectionId }: Props) {
                                     </div>
                                 </div>
                             )}
+                        </Section>
+                    )}
+
+                    {/* Selfie Verification — shown when selfies exist */}
+                    {(formData.beforeSelfiePhoto || formData.afterSelfiePhoto) && (
+                        <Section title="Selfie Verification" icon={Camera} accent="bg-violet-50 text-violet-800">
+                            <div className="flex flex-wrap gap-6">
+                                {([
+                                    { key: 'before', photo: formData.beforeSelfiePhoto, takenAt: formData.beforeSelfieTakenAt, label: 'Before Inspection' },
+                                    { key: 'after',  photo: formData.afterSelfiePhoto,  takenAt: formData.afterSelfieTakenAt,  label: 'After Inspection'  },
+                                ] as const).map(({ key, photo, takenAt, label }) => {
+                                    const src = photo?.data || photo?.url || (typeof photo === 'string' ? photo : null)
+                                    if (!src) return null
+                                    return (
+                                        <div key={key} className="flex flex-col items-center gap-2">
+                                            <div className="relative w-44 rounded-2xl overflow-hidden border-2 border-violet-200 shadow-md" style={{ aspectRatio: '0.8' }}>
+                                                <img
+                                                    src={src}
+                                                    alt={label}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                <div className="absolute bottom-0 inset-x-0 bg-violet-900/70 text-white text-[10px] font-bold text-center py-1 px-2">
+                                                    {label}
+                                                </div>
+                                            </div>
+                                            {takenAt && (
+                                                <div className="flex items-center gap-1 text-slate-400 text-xs">
+                                                    <Clock className="w-3 h-3" />
+                                                    <span>{new Date(takenAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
                         </Section>
                     )}
                 </div>

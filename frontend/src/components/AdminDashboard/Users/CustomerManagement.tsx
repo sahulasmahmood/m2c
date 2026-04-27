@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/UI/Table';
 import { Breadcrumb } from '@/components/AdminDashboard/Breadcrumb/Breadcrumb';
+import { hasPermission } from '@/lib/auth';
 import Dropdown from '@/components/UI/Dropdown';
 import { useRouter } from 'next/navigation';
 import {
@@ -132,10 +133,12 @@ export default function CustomerManagement() {
           <p className="text-gray-600">Manage customer accounts and their status</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button className="bg-gray-900 hover:bg-gray-800 text-white">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add Customer
-          </Button>
+          {hasPermission('create_users') && (
+            <Button className="bg-gray-900 hover:bg-gray-800 text-white">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Customer
+            </Button>
+          )}
         </div>
       </div>
       {/* Stats Cards */}
@@ -158,7 +161,7 @@ export default function CustomerManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{newThisMonth}</div>
-            <p className="text-xs text-gray-600">+15% from last month</p>
+            <p className="text-xs text-gray-600">Joined in the last 30 days</p>
           </CardContent>
         </Card>
 
@@ -365,15 +368,19 @@ export default function CustomerManagement() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="hover:bg-gray-100"
-                        title="View Customer Details"
-                        onClick={() => router.push(`/admin/dashboard/users/customer-management/view/${customer.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {hasPermission('view_users') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:bg-gray-100"
+                            title="View Customer Details"
+                            onClick={() => router.push(`/admin/dashboard/users/customer-management/view/${customer.id}`)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

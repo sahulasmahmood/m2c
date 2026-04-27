@@ -26,11 +26,7 @@ export default function DashboardScreen() {
   }, []);
 
   if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="small" color="#000" />
-      </View>
-    );
+    return <View className="flex-1 bg-gray-50" />;
   }
 
   return (

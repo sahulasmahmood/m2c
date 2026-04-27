@@ -4,7 +4,7 @@ const orderController = require('../controllers/orderController');
 const adminOrderController = require('../controllers/adminOrderController');
 const vendorOrderController = require('../controllers/vendorOrderController');
 const adminReviewController = require('../controllers/adminReviewController');
-const { authenticateToken, requireAdminRole, requireVendorRole } = require('../middleware/auth');
+const { authenticateToken, requireAdminRole, requireVendorRole, requirePermission } = require('../middleware/auth');
 const { getOrderInvoiceHTML } = require('../utils/email/templates/orderInvoiceTemplate');
 const { prisma } = require('../config/database');
 const { ACTIVE_ITEMS_FILTER } = require('../utils/activeItemsFilter');
@@ -23,12 +23,12 @@ router.put('/admin/shipments/:id/status', requireAdminRole, adminOrderController
 // ============================================
 // ADMIN ORDER ROUTES (/api/orders/admin/*)
 // ============================================
-router.get('/admin', requireAdminRole, adminOrderController.getAllOrdersAdmin);
-router.get('/admin/:id', requireAdminRole, adminOrderController.getAdminOrderById);
-router.put('/admin/:id/status', requireAdminRole, adminOrderController.updateAdminOrderStatus);
+router.get('/admin', requireAdminRole, requirePermission('view_orders'), adminOrderController.getAllOrdersAdmin);
+router.get('/admin/:id', requireAdminRole, requirePermission('view_orders'), adminOrderController.getAdminOrderById);
+router.put('/admin/:id/status', requireAdminRole, requirePermission('edit_orders'), adminOrderController.updateAdminOrderStatus);
 
-// Admin: Get invoice HTML for an order
-router.get('/admin/:id/invoice', requireAdminRole, async (req, res) => {
+// Admin: Get invoice HTML for an order — part of the Billing module
+router.get('/admin/:id/invoice', requireAdminRole, requirePermission(['view_billing', 'view_orders']), async (req, res) => {
     try {
         const { id } = req.params;
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
@@ -61,14 +61,14 @@ router.get('/admin/:id/invoice', requireAdminRole, async (req, res) => {
 // ============================================
 // ADMIN REVIEW ROUTES (/api/orders/admin-reviews/*)
 // ============================================
-router.get('/admin-reviews', requireAdminRole, adminReviewController.getAllAdminReviews);
+router.get('/admin-reviews', requireAdminRole, requirePermission('view_orders'), adminReviewController.getAllAdminReviews);
 // Shipment-based review routes (primary path for new orders)
-router.get('/admin-reviews/shipment/:shipmentId', requireAdminRole, adminReviewController.getAdminReviewByShipment);
-router.post('/admin-reviews/shipment/:shipmentId', requireAdminRole, adminReviewController.createOrUpdateShipmentReview);
+router.get('/admin-reviews/shipment/:shipmentId', requireAdminRole, requirePermission('view_orders'), adminReviewController.getAdminReviewByShipment);
+router.post('/admin-reviews/shipment/:shipmentId', requireAdminRole, requirePermission('edit_orders'), adminReviewController.createOrUpdateShipmentReview);
 // Order-based review routes (backward compat for legacy orders)
-router.get('/admin-reviews/order/:orderId', requireAdminRole, adminReviewController.getAdminReviewByOrder);
-router.post('/admin-reviews/order/:orderId', requireAdminRole, adminReviewController.createOrUpdateAdminReview);
-router.delete('/admin-reviews/:id', requireAdminRole, adminReviewController.deleteAdminReview);
+router.get('/admin-reviews/order/:orderId', requireAdminRole, requirePermission('view_orders'), adminReviewController.getAdminReviewByOrder);
+router.post('/admin-reviews/order/:orderId', requireAdminRole, requirePermission('edit_orders'), adminReviewController.createOrUpdateAdminReview);
+router.delete('/admin-reviews/:id', requireAdminRole, requirePermission('delete_orders'), adminReviewController.deleteAdminReview);
 
 // ============================================
 // VENDOR ROUTES (/api/orders/vendor/*)

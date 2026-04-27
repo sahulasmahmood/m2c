@@ -31,6 +31,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react-native';
 import qcCheckerService from '../../../services/qcCheckerService';
+import SelfieCaptureModal, { SelfieResult } from '../../../components/General/SelfieCaptureModal';
 
 type StepId =
   | 'factoryDetails'
@@ -92,6 +93,12 @@ export default function FactoryInspectionScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [inspectionId, setInspectionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Selfie gates ──────────────────────────────────────────────────
+  const [showBeforeSelfie, setShowBeforeSelfie] = useState(true);
+  const [beforeSelfie, setBeforeSelfie] = useState<SelfieResult | null>(null);
+  const [showAfterSelfie, setShowAfterSelfie] = useState(false);
+  const [afterSelfie, setAfterSelfie] = useState<SelfieResult | null>(null);
 
   // Captures vendor-supplied fields at load time so we can lock them readonly
   const [autofillSnapshot, setAutofillSnapshot] = useState<Record<string, string>>({});
@@ -354,7 +361,7 @@ export default function FactoryInspectionScreen() {
     }));
   };
 
-  const handleComplete = async () => {
+  const handleComplete = async (afterSelfieOverride?: SelfieResult) => {
     if (!inspectionId) {
       Alert.alert('Cannot Submit', 'No active inspection found.');
       return;
@@ -372,12 +379,22 @@ export default function FactoryInspectionScreen() {
       setCurrentStep(invalidSteps[0].id);
       return;
     }
+    // Require after-selfie before submitting
+    const resolvedAfterSelfie = afterSelfieOverride ?? afterSelfie;
+    if (!resolvedAfterSelfie) {
+      setShowAfterSelfie(true);
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {
         ...formData,
         factoryPhotos: formData.factoryPhotos.map((p) => ({ name: p.name, data: p.data })),
         documentsUpload: formData.documentsUpload.map((d) => ({ name: d.name, data: d.data })),
+        beforeSelfieTakenAt: beforeSelfie?.takenAt,
+        beforeSelfiePhoto: beforeSelfie ? { name: 'before-selfie.jpg', data: beforeSelfie.dataUri } : undefined,
+        afterSelfieTakenAt: resolvedAfterSelfie.takenAt,
+        afterSelfiePhoto: { name: 'after-selfie.jpg', data: resolvedAfterSelfie.dataUri },
       };
       const res = await qcCheckerService.completeInspection(inspectionId, payload);
       if (res.success) {
@@ -429,8 +446,32 @@ export default function FactoryInspectionScreen() {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
       <Header onBack={() => router.back()} />
+
+      {/* Before-inspection selfie gate */}
+      <SelfieCaptureModal
+        visible={showBeforeSelfie}
+        title="Before Inspection Selfie"
+        description="Take a selfie to verify your presence before starting the inspection. This is mandatory."
+        onConfirm={(result) => {
+          setBeforeSelfie(result);
+          setShowBeforeSelfie(false);
+        }}
+        onCancel={() => router.back()}
+      />
+
+      {/* After-inspection selfie gate */}
+      <SelfieCaptureModal
+        visible={showAfterSelfie}
+        title="After Inspection Selfie"
+        description="Great work! Take a final selfie to confirm you completed the inspection on-site."
+        onConfirm={(result) => {
+          setAfterSelfie(result);
+          setShowAfterSelfie(false);
+          // Pass result directly to avoid stale closure on afterSelfie state
+          handleComplete(result);
+        }}
+      />
 
       {/* Stepper */}
       <View className="bg-white border-b border-slate-200 pt-3 pb-4">

@@ -3,6 +3,7 @@
 import { use, useState } from 'react'
 import AddEditProduct from '@/components/AdminDashboard/Products/AddEditProduct'
 import { Breadcrumb } from '@/components/AdminDashboard/Breadcrumb/Breadcrumb'
+import PermissionGuard from '@/components/AdminDashboard/PermissionGuard'
 
 interface EditProductPageProps {
   params: Promise<{
@@ -15,9 +16,11 @@ export default function EditProductPage({ params }: EditProductPageProps) {
   const [productName, setProductName] = useState<string>('')
 
   return (
-    <div className="space-y-6">
-      <Breadcrumb customLabels={{ [id]: productName || 'Edit Product' }} />
-      <AddEditProduct productId={id} isEdit={true} onProductNameLoad={setProductName} />
-    </div>
+    <PermissionGuard permission="edit_products">
+      <div className="space-y-6">
+        <Breadcrumb customLabels={{ [id]: productName || 'Edit Product' }} />
+        <AddEditProduct productId={id} isEdit={true} onProductNameLoad={setProductName} />
+      </div>
+    </PermissionGuard>
   )
 }

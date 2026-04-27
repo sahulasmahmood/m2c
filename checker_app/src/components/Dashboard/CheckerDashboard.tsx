@@ -3,7 +3,7 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   RefreshControl,
 } from 'react-native';
 import {
@@ -15,7 +15,6 @@ import {
   Factory,
   Package,
   ArrowRight,
-  BarChart3,
   Calendar,
   RefreshCw,
   Inbox,
@@ -23,6 +22,21 @@ import {
 import StatCard from './StatCard';
 import qcCheckerService from '../../services/qcCheckerService';
 import { router } from 'expo-router';
+
+const STATUS_LABELS: Record<string, string> = {
+  APPROVED: 'Approved by Admin',
+  QC_APPROVED: 'Approved by QC',
+  REJECTED: 'Rejected',
+  REINSPECTION: 'Reinspection',
+  PENDING: 'Pending',
+  UNDER_REVIEW: 'Under Review by Admin',
+  SUSPENDED: 'Suspended',
+};
+
+const formatStatus = (status: string) =>
+  STATUS_LABELS[status] || status.replace(/_/g, ' ');
+
+const pl = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 type StatusKey =
   | 'APPROVED'
@@ -85,6 +99,10 @@ export function CheckerDashboard({ checkerId }: { checkerId: string | null }) {
 
   const fetchDashboardData = useCallback(async () => {
     try {
+      // Skip fetch if not authenticated
+      const token = await qcCheckerService.getCheckerToken();
+      if (!token) return;
+
       setError(null);
       const [productsRes, vendorsRes] = await Promise.all([
         qcCheckerService.getAssignedProducts(),
@@ -103,6 +121,8 @@ export function CheckerDashboard({ checkerId }: { checkerId: string | null }) {
         setAssignedVendors(list);
       }
     } catch (err: any) {
+      // 401 = token expired/invalid — don't show error, axios interceptor handles redirect
+      if (err?.status === 401) return;
       console.error('Dashboard fetch failed:', err);
       setError(err?.message || 'Could not fetch dashboard data');
     } finally {
@@ -120,23 +140,23 @@ export function CheckerDashboard({ checkerId }: { checkerId: string | null }) {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const pendingCount =
-    assignedProducts.filter(
-      (p) =>
-        p.approvalStatus === 'PENDING' ||
-        p.approvalStatus === 'REINSPECTION' ||
-        p.approvalStatus === 'UNDER_REVIEW',
-    ).length +
-    assignedVendors.filter(
-      (v) => v.status === 'UNDER_REVIEW' || v.status === 'PENDING',
-    ).length;
+  const pendingProducts = assignedProducts.filter(
+    (p) =>
+      p.approvalStatus === 'PENDING' ||
+      p.approvalStatus === 'REINSPECTION' ||
+      p.approvalStatus === 'UNDER_REVIEW',
+  ).length;
 
-  const passedCount = assignedProducts.filter(
+  const pendingVendors = assignedVendors.filter(
+    (v) => v.status === 'UNDER_REVIEW' || v.status === 'PENDING',
+  ).length;
+
+  const passedProducts = assignedProducts.filter(
     (p) =>
       p.approvalStatus === 'QC_APPROVED' || p.approvalStatus === 'APPROVED',
   ).length;
 
-  const failedCount = assignedProducts.filter(
+  const failedProducts = assignedProducts.filter(
     (p) => p.approvalStatus === 'REJECTED',
   ).length;
 
@@ -147,28 +167,28 @@ export function CheckerDashboard({ checkerId }: { checkerId: string | null }) {
       label: 'Total Assignments',
       value: totalAssignments.toString(),
       icon: TrendingUp,
-      trend: 'Products and Vendors',
+      trend: `${pl(assignedProducts.length, 'Product')} · ${pl(assignedVendors.length, 'Vendor')}`,
       color: 'blue' as const,
     },
     {
       label: 'Pending Action',
-      value: pendingCount.toString(),
+      value: (pendingProducts + pendingVendors).toString(),
       icon: Clock,
-      trend: 'Awaiting inspection',
+      trend: `${pl(pendingProducts, 'Product')} · ${pl(pendingVendors, 'Vendor')}`,
       color: 'amber' as const,
     },
     {
-      label: 'QC Approved',
-      value: passedCount.toString(),
+      label: 'Passed',
+      value: passedProducts.toString(),
       icon: CheckCircle2,
-      trend: 'Passed inspection',
+      trend: `${pl(passedProducts, 'Product')} approved`,
       color: 'emerald' as const,
     },
     {
       label: 'Rejected',
-      value: failedCount.toString(),
+      value: failedProducts.toString(),
       icon: AlertCircle,
-      trend: 'Failed quality check',
+      trend: `${pl(failedProducts, 'Product')} rejected`,
       color: 'red' as const,
     },
   ];
@@ -189,16 +209,24 @@ export function CheckerDashboard({ checkerId }: { checkerId: string | null }) {
         <Text className="text-base text-slate-600 text-center mb-6">
           {error}
         </Text>
-        <TouchableOpacity
+        <Pressable
           onPress={fetchDashboardData}
           accessibilityLabel="Retry loading dashboard"
           accessibilityRole="button"
-          activeOpacity={0.85}
-          className="flex-row items-center bg-blue-600 rounded-xl px-6 py-3"
+          style={({ pressed }) => [
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: pressed ? '#1d4ed8' : '#2563eb',
+              borderRadius: 12,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+            },
+          ]}
         >
           <RefreshCw size={18} color="#ffffff" strokeWidth={2.25} />
           <Text className="text-white font-bold text-base ml-2">Try Again</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     );
   }
@@ -242,189 +270,231 @@ export function CheckerDashboard({ checkerId }: { checkerId: string | null }) {
       </View>
 
       {/* Recent Assignments */}
-      <View className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-        <View className="px-5 py-4 border-b border-slate-200 bg-blue-50/50 flex-row justify-between items-center">
-          <View className="flex-row items-center flex-1 pr-2">
-            <View className="p-2 bg-blue-100 rounded-lg mr-3">
-              <CalendarDays size={18} color="#2563eb" />
+      <View 
+        className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6"
+        
+      >
+        <View className="px-5 py-4 border-b border-slate-100" style={{ gap: 12 }}>
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center" style={{ gap: 12 }}>
+              <View 
+                className="w-10 h-10 bg-blue-100 rounded-xl items-center justify-center"
+                
+              >
+                <CalendarDays size={20} color="#2563eb" strokeWidth={2} />
+              </View>
+              <View style={{ gap: 2 }}>
+                <Text className="text-base font-semibold text-slate-900">
+                  Recent Assignments
+                </Text>
+                <Text className="text-xs text-slate-600">
+                  Products and Vendors awaiting action
+                </Text>
+              </View>
             </View>
-            <View className="flex-1">
-              <Text className="text-lg font-bold text-slate-900">
-                Recent Assignments
-              </Text>
-              <Text className="text-xs text-slate-600">
-                Products and Vendors awaiting action
+            <View 
+              className="bg-blue-100 px-3 py-1.5 rounded-full"
+              
+            >
+              <Text className="text-xs font-bold text-blue-800">
+                {totalAssignments}
               </Text>
             </View>
-          </View>
-          <View className="bg-blue-100 px-2.5 py-1 rounded-full">
-            <Text className="text-xs font-bold text-blue-800">
-              {totalAssignments} total
-            </Text>
           </View>
         </View>
 
-        <View className="p-4">
+        <View className="p-5">
           {totalAssignments === 0 ? (
-            <View className="items-center py-10">
-              <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
-                <Inbox size={28} color="#64748b" strokeWidth={1.75} />
+            <View className="items-center py-12" style={{ gap: 12 }}>
+              <View 
+                className="w-20 h-20 rounded-2xl bg-slate-100 items-center justify-center"
+                
+              >
+                <Inbox size={32} color="#64748b" strokeWidth={1.75} />
               </View>
-              <Text className="text-base font-bold text-slate-900 mb-1">
-                No active assignments
-              </Text>
-              <Text className="text-xs text-slate-500 text-center">
-                New assignments will appear here when available.
-              </Text>
+              <View style={{ gap: 4 }}>
+                <Text className="text-base font-semibold text-slate-900 text-center">
+                  No active assignments
+                </Text>
+                <Text className="text-sm text-slate-600 text-center">
+                  New assignments will appear here
+                </Text>
+              </View>
             </View>
           ) : (
-            <ScrollView
-              style={{ maxHeight: 420 }}
-              contentContainerStyle={{ rowGap: 12, paddingBottom: 4 }}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator
-            >
-              {assignedProducts.map((product) => {
-                const badge = getStatusBadgeStyle(product.approvalStatus);
-                return (
-                  <View
-                    key={`p-${product.id}`}
-                    className="border border-slate-200 rounded-xl p-4 bg-white"
-                  >
-                    <View className="flex-row items-start justify-between mb-3">
-                      <View className="flex-row items-start flex-1 pr-2">
-                        <View className="p-2 bg-blue-50 rounded-lg mr-3">
-                          <Package size={16} color="#2563eb" />
-                        </View>
-                        <View className="flex-1">
-                          <Text
-                            className="font-semibold text-slate-900 text-sm mb-0.5"
-                            numberOfLines={1}
-                          >
-                            {product.name}
-                          </Text>
-                          <Text
-                            className="text-xs text-slate-600 mb-2"
-                            numberOfLines={1}
-                          >
-                            SKU: {product.baseSku}
-                          </Text>
-                          <View
-                            className={`self-start px-2.5 py-0.5 rounded-full border ${badge.bg} ${badge.border}`}
-                          >
-                            <Text
-                              className={`text-[10px] font-bold ${badge.text}`}
-                            >
-                              {product.approvalStatus}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      {product.vendor?.companyName ? (
-                        <Text
-                          className="text-[11px] font-medium text-slate-500 max-w-[110px] text-right"
-                          numberOfLines={2}
-                        >
-                          {product.vendor.companyName}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => router.push('/products' as any)}
-                      accessibilityLabel={`Go to products for ${product.name}`}
-                      accessibilityRole="button"
-                      activeOpacity={0.85}
-                      className="flex-row items-center justify-center bg-blue-600 rounded-lg py-2.5"
+            <View style={{ gap: 24 }}>
+              {/* Products Section */}
+              {assignedProducts.length > 0 && (
+                <View style={{ gap: 12 }}>
+                  <View className="flex-row items-center" style={{ gap: 8 }}>
+                    <View 
+                      className="w-6 h-6 bg-blue-100 rounded-lg items-center justify-center"
+                      
                     >
-                      <Text className="text-white font-semibold text-sm mr-1.5">
-                        Go to Products
+                      <Package size={14} color="#2563eb" strokeWidth={2.5} />
+                    </View>
+                    <Text className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
+                      Products
+                    </Text>
+                    <View 
+                      className="bg-slate-100 px-2 py-0.5 rounded-full"
+                      
+                    >
+                      <Text className="text-[10px] font-bold text-slate-600">
+                        {assignedProducts.length}
                       </Text>
-                      <ArrowRight size={14} color="#ffffff" />
-                    </TouchableOpacity>
+                    </View>
                   </View>
-                );
-              })}
+                  <ScrollView
+                    style={{ maxHeight: 300 }}
+                    contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {[...assignedProducts]
+                      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                      .map((product) => {
+                        const badge = getStatusBadgeStyle(product.approvalStatus);
+                        return (
+                          <Pressable
+                            key={`p-${product.id}`}
+                            onPress={() => router.push('/products' as any)}
+                            style={({ pressed }) => [
+                              {
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: '#e2e8f0',
+                                padding: 14,
+                                backgroundColor: pressed ? '#f8fafc' : '#ffffff',
+                                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                              },
+                            ]}
+                          >
+                            <View className="flex-row items-center" style={{ gap: 12 }}>
+                              <View 
+                                className="w-12 h-12 bg-blue-50 rounded-xl items-center justify-center"
+                                
+                              >
+                                <Package size={18} color="#2563eb" strokeWidth={2} />
+                              </View>
+                              <View className="flex-1" style={{ gap: 4 }}>
+                                <Text
+                                  className="font-semibold text-slate-900"
+                                  numberOfLines={1}
+                                >
+                                  {product.name}
+                                </Text>
+                                <Text
+                                  className="text-xs text-slate-600"
+                                  numberOfLines={1}
+                                >
+                                  {product.baseSku}
+                                </Text>
+                              </View>
+                              <View
+                                className={`px-2.5 py-1 rounded-lg border ${badge.bg} ${badge.border}`}
+                                
+                              >
+                                <Text
+                                  className={`text-[10px] font-bold ${badge.text}`}
+                                  numberOfLines={1}
+                                >
+                                  {formatStatus(product.approvalStatus)}
+                                </Text>
+                              </View>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
 
-              {assignedVendors.map((vendor) => {
-                const badge = getStatusBadgeStyle(vendor.status);
-                return (
-                  <View
-                    key={`v-${vendor.id}`}
-                    className="border border-slate-200 rounded-xl p-4 bg-white"
-                  >
-                    <View className="flex-row items-start justify-between mb-3">
-                      <View className="flex-row items-start flex-1">
-                        <View className="p-2 bg-emerald-50 rounded-lg mr-3">
-                          <Factory size={16} color="#059669" />
-                        </View>
-                        <View className="flex-1">
-                          <Text
-                            className="font-semibold text-slate-900 text-sm mb-0.5"
-                            numberOfLines={1}
-                          >
-                            {vendor.companyName}
-                          </Text>
-                          <Text className="text-xs text-slate-600 mb-2">
-                            Factory Onboarding
-                          </Text>
-                          <View
-                            className={`self-start px-2.5 py-0.5 rounded-full border ${badge.bg} ${badge.border}`}
-                          >
-                            <Text
-                              className={`text-[10px] font-bold ${badge.text}`}
-                            >
-                              {vendor.status}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => router.push('/vendors' as any)}
-                      accessibilityLabel={`Go to vendors for ${vendor.companyName}`}
-                      accessibilityRole="button"
-                      activeOpacity={0.85}
-                      className="flex-row items-center justify-center bg-emerald-600 rounded-lg py-2.5"
+              {/* Vendors Section */}
+              {assignedVendors.length > 0 && (
+                <View style={{ gap: 12 }}>
+                  <View className="flex-row items-center" style={{ gap: 8 }}>
+                    <View 
+                      className="w-6 h-6 bg-emerald-100 rounded-lg items-center justify-center"
+                      
                     >
-                      <Text className="text-white font-semibold text-sm mr-1.5">
-                        Go to Vendors
+                      <Factory size={14} color="#059669" strokeWidth={2.5} />
+                    </View>
+                    <Text className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
+                      Vendors
+                    </Text>
+                    <View 
+                      className="bg-slate-100 px-2 py-0.5 rounded-full"
+                      
+                    >
+                      <Text className="text-[10px] font-bold text-slate-600">
+                        {assignedVendors.length}
                       </Text>
-                      <ArrowRight size={14} color="#ffffff" />
-                    </TouchableOpacity>
+                    </View>
                   </View>
-                );
-              })}
-            </ScrollView>
+                  <ScrollView
+                    style={{ maxHeight: 300 }}
+                    contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {[...assignedVendors]
+                      .sort((a, b) => new Date(b.createdAt || b.submittedAt || 0).getTime() - new Date(a.createdAt || a.submittedAt || 0).getTime())
+                      .map((vendor) => {
+                        const badge = getStatusBadgeStyle(vendor.status);
+                        return (
+                          <Pressable
+                            key={`v-${vendor.id}`}
+                            onPress={() => router.push('/vendors' as any)}
+                            style={({ pressed }) => [
+                              {
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: '#e2e8f0',
+                                padding: 14,
+                                backgroundColor: pressed ? '#f8fafc' : '#ffffff',
+                                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                              },
+                            ]}
+                          >
+                            <View className="flex-row items-center" style={{ gap: 12 }}>
+                              <View 
+                                className="w-12 h-12 bg-emerald-50 rounded-xl items-center justify-center"
+                                
+                              >
+                                <Factory size={18} color="#059669" strokeWidth={2} />
+                              </View>
+                              <View className="flex-1" style={{ gap: 4 }}>
+                                <Text
+                                  className="font-semibold text-slate-900"
+                                  numberOfLines={1}
+                                >
+                                  {vendor.companyName}
+                                </Text>
+                                <Text className="text-xs text-slate-600">
+                                  Factory Onboarding
+                                </Text>
+                              </View>
+                              <View
+                                className={`px-2.5 py-1 rounded-lg border ${badge.bg} ${badge.border}`}
+                                
+                              >
+                                <Text
+                                  className={`text-[10px] font-bold ${badge.text}`}
+                                  numberOfLines={1}
+                                >
+                                  {formatStatus(vendor.status)}
+                                </Text>
+                              </View>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
           )}
-        </View>
-      </View>
-
-      {/* Summary Statistics */}
-      <View className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <View className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex-row items-center">
-          <View className="p-2 bg-emerald-100 rounded-lg mr-3">
-            <BarChart3 size={18} color="#059669" />
-          </View>
-          <View className="flex-1">
-            <Text className="text-lg font-bold text-slate-900">
-              Summary Statistics
-            </Text>
-            <Text className="text-xs text-slate-600">
-              Current inspection overview
-            </Text>
-          </View>
-        </View>
-        <View className="py-10 px-6 items-center">
-          <View className="w-20 h-20 rounded-full bg-blue-100 items-center justify-center mb-4">
-            <BarChart3 size={36} color="#2563eb" strokeWidth={1.75} />
-          </View>
-          <Text className="text-base font-bold text-slate-900 mb-1">
-            Live Updates
-          </Text>
-          <Text className="text-sm text-slate-600 text-center max-w-xs">
-            Your dashboard reflects real-time assignments from the
-            administrators.
-          </Text>
         </View>
       </View>
     </ScrollView>
@@ -528,22 +598,7 @@ function DashboardSkeleton({ checkerId }: { checkerId: string | null }) {
           <SkeletonAssignmentCard />
         </View>
       </View>
-
-      {/* Summary statistics card */}
-      <View className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <View className="px-5 py-4 border-b border-slate-200 flex-row items-center bg-slate-50">
-          <SkeletonBlock width={36} height={36} rounded="lg" className="mr-3" />
-          <View className="flex-1">
-            <SkeletonBlock width={160} height={16} rounded="md" className="mb-2" />
-            <SkeletonBlock width={200} height={10} rounded="md" />
-          </View>
-        </View>
-        <View className="py-10 px-6 items-center">
-          <SkeletonBlock width={80} height={80} rounded="full" className="mb-4" />
-          <SkeletonBlock width={120} height={14} rounded="md" className="mb-2" />
-          <SkeletonBlock width={200} height={10} rounded="md" />
-        </View>
-      </View>
     </ScrollView>
   );
 }
+

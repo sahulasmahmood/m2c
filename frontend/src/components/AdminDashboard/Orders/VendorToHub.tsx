@@ -14,19 +14,20 @@ import {
 import Dropdown from "@/components/UI/Dropdown";
 import { orderService, VendorShipment } from "@/services/orderService";
 import { showErrorToast } from "@/lib/toast-utils";
+import { hasPermission } from "@/lib/auth";
 
 // Polls every 30s while the tab is visible so admin sees vendor status updates without F5.
 const REFRESH_INTERVAL_MS = 30000;
 const PAGE_SIZE = 10;
 
-function getPageRange(current: number, total: number): Array<number | '…'> {
+function getPageRange(current: number, total: number): Array<number | '\u2026'> {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: Array<number | '…'> = [1];
-  if (current > 4) pages.push('…');
+  const pages: Array<number | '\u2026'> = [1];
+  if (current > 4) pages.push('\u2026');
   const start = Math.max(2, current - 1);
   const end = Math.min(total - 1, current + 1);
   for (let p = start; p <= end; p++) pages.push(p);
-  if (current < total - 3) pages.push('…');
+  if (current < total - 3) pages.push('\u2026');
   pages.push(total);
   return pages;
 }
@@ -427,16 +428,18 @@ export default function VendorToHub() {
                             </span>
                           </TableCell>
                           <TableCell>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleViewShipment(s.id);
-                              }}
-                              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="View Shipment"
-                            >
-                              <Eye className="h-5 w-5" />
-                            </button>
+                            {hasPermission('view_orders') && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewShipment(s.id);
+                                }}
+                                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="View Shipment"
+                              >
+                                <Eye className="h-5 w-5" />
+                              </button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );

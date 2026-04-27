@@ -5,6 +5,7 @@ import { ArrowLeft, Package, CreditCard, User, MapPin, Truck, Star, CheckCircle,
 import { useRouter } from "next/navigation";
 import { showSuccessToast, showErrorToast } from "@/lib/toast-utils";
 import { orderService, Order, VendorShipment } from "@/services/orderService";
+import { hasPermission } from "@/lib/auth";
 
 interface HubToCustomerDetailProps {
   orderId: string;
@@ -95,7 +96,7 @@ export default function HubToCustomerDetail({ orderId }: HubToCustomerDetailProp
           </div>
         </div>
         <div className="flex gap-3">
-          {["RECEIVED_AT_ADMIN_HUB", "APPROVED_BY_ADMIN_HUB"].includes(status) && (
+          {["RECEIVED_AT_ADMIN_HUB", "APPROVED_BY_ADMIN_HUB"].includes(status) && hasPermission('edit_orders') && (
             <button
               onClick={handleMarkOutForDelivery}
               disabled={!canShipToCustomer}
@@ -108,7 +109,7 @@ export default function HubToCustomerDetail({ orderId }: HubToCustomerDetailProp
               Mark Out for Delivery
             </button>
           )}
-          {status === "SHIPPED_TO_CUSTOMER" && (
+          {status === "SHIPPED_TO_CUSTOMER" && hasPermission('edit_orders') && (
             <button
               onClick={handleMarkAsDelivered}
               className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"

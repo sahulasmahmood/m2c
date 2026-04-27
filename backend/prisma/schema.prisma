@@ -763,6 +763,7 @@ model Order {
   tax                   Float     @default(0)
   discount              Float     @default(0)
   totalAmount           Float
+  couponCode            String?
 
   // Bag Add-on
   bagTypeId             String?   @db.ObjectId
@@ -1490,6 +1491,20 @@ model Counter {
   @@map("counters")
 }
 
+// FCM device tokens for push notifications (mobile + web)
+model DeviceToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  role      String   // ADMIN, VENDOR, QC_CHECKER, USER
+  token     String   @unique
+  platform  String   // android, ios, web
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, role])
+  @@map("device_tokens")
+}
+
 // ============================================
 // ANALYTICS & TRACKING
 // ============================================
@@ -1526,3 +1541,4 @@ model ProductView {
   @@index([category])
   @@map("product_views")
 }
+

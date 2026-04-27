@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import Dropdown from "../../UI/Dropdown";
 import { Breadcrumb } from "../Breadcrumb/Breadcrumb";
 import adminReviewService, { AdminOrderReview } from "@/services/adminReviewService";
+import { hasPermission } from "@/lib/auth";
 
 const PAGE_SIZE = 10;
 
@@ -291,13 +292,15 @@ export default function VendorProductReviews() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <button
-                        onClick={() => setSelectedReview(review)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <Eye className="h-4 w-4" />
-                        View
-                      </button>
+                      {hasPermission('view_reviews') && (
+                        <button
+                          onClick={() => setSelectedReview(review)}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View
+                        </button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

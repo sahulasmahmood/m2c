@@ -8,6 +8,15 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/512.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#2563eb"
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -19,7 +28,12 @@
         "monochromeImage": "./assets/images/logo3.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.anonymous.m2c_app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -34,11 +48,19 @@
           "photosPermission": "The app needs access to your photo library to attach inspection evidence.",
           "cameraPermission": "The app needs camera access to capture inspection photos."
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a0631327-c1cb-48c8-8e54-374e9b4cf0ed"
+      }
     }
   }
 }
