@@ -15,14 +15,13 @@ import {
 } from '@/components/UI/Table';
 import { Breadcrumb } from '@/components/AdminDashboard/Breadcrumb/Breadcrumb';
 import Dropdown from '@/components/UI/Dropdown';
+import { useRouter } from 'next/navigation';
 import {
   Users as UsersIcon,
   UserPlus,
   Search,
   Filter,
   Eye,
-  Edit,
-  Trash2,
   ShieldCheck,
   Mail,
   Phone,
@@ -35,6 +34,7 @@ import {
 
 
 export default function CustomerManagement() {
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -118,25 +118,6 @@ export default function CustomerManagement() {
         className={`w-3 h-3 ${i < Math.floor(rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
       />
     ));
-  };
-
-  const handleStatusChange = async (customerId: string, newStatus: 'active' | 'inactive' | 'suspended') => {
-    try {
-      await userManagementService.updateCustomerStatus(customerId, newStatus === 'active' ? 'active' : 'suspended');
-      fetchCustomers();
-    } catch (error) {
-      console.error('Failed to update status', error);
-    }
-  };
-
-  const handleDelete = async (customerId: string) => {
-    if (!window.confirm('Are you sure you want to delete this customer?')) return;
-    try {
-      await userManagementService.deleteCustomer(customerId);
-      fetchCustomers();
-    } catch (error) {
-      console.error('Failed to delete customer', error);
-    }
   };
 
   return (
@@ -361,7 +342,7 @@ export default function CustomerManagement() {
                     <TableCell>
                       <div className="text-sm">
                         <div className="font-medium">{customer.totalOrders} orders</div>
-                        <div className="text-gray-500">${customer.totalSpent.toFixed(2)}</div>
+                        <div className="text-gray-500">₹{customer.totalSpent.toFixed(2)}</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -384,55 +365,15 @@ export default function CustomerManagement() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-gray-100"
-                          title="View Customer Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-gray-100"
-                          title="Edit Customer"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        {customer.status === 'active' ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hover:bg-yellow-100 text-yellow-600"
-                            title="Suspend Customer"
-                            onClick={() => handleStatusChange(customer.id, 'suspended')}
-                          >
-                            <UserX className="h-4 w-4" />
-                          </Button>
-                        ) : customer.status === 'suspended' ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hover:bg-green-100 text-green-600"
-                            title="Activate Customer"
-                            onClick={() => handleStatusChange(customer.id, 'active')}
-                          >
-                            <UserCheck className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hover:bg-red-100 text-red-600"
-                            title="Delete Customer"
-                            onClick={() => handleDelete(customer.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:bg-gray-100"
+                        title="View Customer Details"
+                        onClick={() => router.push(`/admin/dashboard/users/customer-management/view/${customer.id}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
