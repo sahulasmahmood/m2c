@@ -34,7 +34,10 @@ export default function CustomerReviews() {
       });
       if (response.success) {
         setReviews(response.data);
-        setStats(response.stats);
+        setStats({
+          ...response.stats,
+          pending: response.stats.total - response.stats.approved - response.stats.rejected,
+        });
       }
     } catch (error) {
       console.error("Error fetching reviews:", error);
