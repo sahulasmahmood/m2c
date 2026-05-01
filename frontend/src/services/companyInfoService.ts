@@ -54,7 +54,31 @@ export interface UpdateBankDetailsData {
   bankBranch?: string;
 }
 
+const LOGO_CACHE_KEY = 'companyInfo_public';
+const DEFAULT_INFO = { companyName: 'M2C MarkDowns Private Limited', companyLogo: null };
+
 export const companyInfoService = {
+  // Get cached company info instantly (no API call — for initial render)
+  getCachedCompanyInfo: (): { companyName: string; companyLogo: string | null } => {
+    try {
+      const cached = localStorage.getItem(LOGO_CACHE_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch { /* ignore */ }
+    return DEFAULT_INFO;
+  },
+
+  // Get public company info with localStorage caching (no auth required)
+  getPublicCompanyInfo: async (): Promise<{ companyName: string; companyLogo: string | null }> => {
+    try {
+      const response = await axios.get('/company-info/public');
+      const data = response.data?.data || DEFAULT_INFO;
+      try { localStorage.setItem(LOGO_CACHE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
+      return data;
+    } catch {
+      return companyInfoService.getCachedCompanyInfo();
+    }
+  },
+
   // Get company info
   getCompanyInfo: async () => {
     try {

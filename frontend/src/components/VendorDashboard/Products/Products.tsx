@@ -8,11 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Edit, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { productService, type Product } from '@/services/productService'
 import { showSuccessToast, showErrorToast, showWarningToast } from '@/lib/toast-utils'
+import DeleteConfirmModal from '@/components/UI/DeleteConfirmModal'
 
 export default function Products() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean; product: Product | null; loading: boolean }>({
+    show: false, product: null, loading: false
+  });
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -55,17 +59,23 @@ export default function Products() {
     router.push(`/vendor/dashboard/products/edit/${product.id}`);
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      try {
-        const response = await productService.deleteProduct(id);
-        if (response.success) {
-          showSuccessToast('Product Deleted', 'Product has been deleted successfully');
-          loadProducts(pagination.currentPage); // Reload current page
-        }
-      } catch (error: any) {
-        showErrorToast('Delete Failed', error.message || 'Unable to delete product');
+  const handleDeleteProduct = (product: Product) => {
+    setDeleteModal({ show: true, product, loading: false });
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!deleteModal.product) return;
+    setDeleteModal(prev => ({ ...prev, loading: true }));
+    try {
+      const response = await productService.deleteProduct(deleteModal.product.id);
+      if (response.success) {
+        showSuccessToast('Product Deleted', 'Product has been deleted successfully');
+        loadProducts(pagination.currentPage);
       }
+    } catch (error: any) {
+      showErrorToast('Delete Failed', error.message || 'Unable to delete product');
+    } finally {
+      setDeleteModal({ show: false, product: null, loading: false });
     }
   };
 
@@ -228,7 +238,7 @@ export default function Products() {
                             if (product.approvalStatus === 'APPROVED') {
                               showWarningToast('Delete Restricted', 'This product has been approved. Only admin can delete the product.')
                             } else {
-                              handleDeleteProduct(product.id)
+                              handleDeleteProduct(product)
                             }
                           }}
                         >
@@ -272,6 +282,17 @@ export default function Products() {
           )}
         </CardContent>
       </Card>
+
+      <DeleteConfirmModal
+        show={deleteModal.show}
+        title="Delete Product"
+        itemName={deleteModal.product?.name}
+        itemDetail={deleteModal.product?.baseSku ? `SKU: ${deleteModal.product.baseSku}` : undefined}
+        loading={deleteModal.loading}
+        confirmLabel="Delete Permanently"
+        onConfirm={confirmDeleteProduct}
+        onCancel={() => setDeleteModal({ show: false, product: null, loading: false })}
+      />
     </div>
   )
 }

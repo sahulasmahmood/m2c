@@ -8,6 +8,7 @@ import { Button } from '@/components/UI/Button';
 import { Mail, Phone, Calendar, Eye, Trash2, MessageSquare, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils';
 import { hasPermission } from '@/lib/auth';
+import DeleteConfirmModal from '@/components/UI/DeleteConfirmModal';
 
 const PAGE_SIZE = 10;
 
@@ -32,6 +33,8 @@ export default function WebsiteEnquiryManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({ total: 0, new: 0, read: 0, replied: 0, closed: 0 });
   const [currentPage, setCurrentPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; subject: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchEnquiries();
@@ -88,16 +91,24 @@ export default function WebsiteEnquiryManagement() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this enquiry?')) return;
+  const handleDeleteClick = (enquiry: ContactEnquiry) => {
+    setDeleteTarget({ id: enquiry.id, name: enquiry.name, subject: enquiry.subject });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
 
     try {
-      await contactEnquiryService.deleteEnquiry(id);
+      setDeleting(true);
+      await contactEnquiryService.deleteEnquiry(deleteTarget.id);
       showSuccessToast('Success', 'Enquiry deleted');
       fetchEnquiries();
       fetchStats();
     } catch (error: any) {
       showErrorToast('Error', error.message || 'Failed to delete enquiry');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -239,7 +250,7 @@ export default function WebsiteEnquiryManagement() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleDelete(enquiry.id)}
+                              onClick={() => handleDeleteClick(enquiry)}
                               className="text-red-600 hover:text-red-700"
                               title="Delete"
                             >
@@ -266,6 +277,16 @@ export default function WebsiteEnquiryManagement() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        show={!!deleteTarget}
+        title="Delete Enquiry"
+        itemName={deleteTarget?.name || ''}
+        itemDetail={deleteTarget?.subject || ''}
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {/* View Modal */}
       {showModal && selectedEnquiry && (

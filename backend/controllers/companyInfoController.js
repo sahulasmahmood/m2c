@@ -260,8 +260,28 @@ const updateLogo = async (req, res) => {
   }
 };
 
+// Public: Get company logo and name (no auth required)
+const getPublicCompanyInfo = async (req, res) => {
+  try {
+    const companyInfo = await prisma.companyInfo.findFirst({
+      select: { companyName: true, companyLogo: true },
+    });
+    res.json({
+      success: true,
+      data: {
+        companyName: companyInfo?.companyName || 'M2C MarkDowns Private Limited',
+        companyLogo: companyInfo?.companyLogo || null,
+      },
+    });
+  } catch (error) {
+    console.error('Get public company info error:', error);
+    res.json({ success: true, data: { companyName: 'M2C MarkDowns Private Limited', companyLogo: null } });
+  }
+};
+
 module.exports = {
   getCompanyInfo,
+  getPublicCompanyInfo,
   updateBasicInfo,
   updateLegalInfo,
   updateAddress,

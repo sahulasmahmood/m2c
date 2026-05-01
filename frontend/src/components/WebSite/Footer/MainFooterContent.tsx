@@ -5,9 +5,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { Instagram, Facebook, Youtube } from "lucide-react";
 import { categoryService, Category } from "@/services/categoryService";
+import { companyInfoService } from "@/services/companyInfoService";
 
 const MainFooterContent = () => {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(() => companyInfoService.getCachedCompanyInfo().companyLogo);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -26,6 +28,9 @@ const MainFooterContent = () => {
     };
 
     fetchCategories();
+    companyInfoService.getPublicCompanyInfo().then(info => {
+      if (info.companyLogo) setCompanyLogo(info.companyLogo);
+    }).catch(() => {});
   }, []);
 
   return (
@@ -40,15 +45,23 @@ const MainFooterContent = () => {
             <div className="space-y-3 sm:space-y-4 md:space-y-6">
               <div className="bg-white p-2 sm:p-3 rounded-lg inline-block">
                 <Link href="/" className="block">
-                  <Image
-                    src="/assets/logo/logo2.png"
-                    alt="Nav Nit Textile Logo"
-                    width={190}
-                    height={50}
-                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-                    className="object-cover w-32 sm:w-40 md:w-48 lg:w-52 h-auto"
-                    priority
-                  />
+                  {companyLogo ? (
+                    <img
+                      src={companyLogo}
+                      alt="Company Logo"
+                      className="object-cover w-32 sm:w-40 md:w-48 lg:w-52 h-auto"
+                    />
+                  ) : (
+                    <Image
+                      src="/assets/logo/m2c-logo.png"
+                      alt="Company Logo"
+                      width={190}
+                      height={50}
+                      sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+                      className="object-cover w-32 sm:w-40 md:w-48 lg:w-52 h-auto"
+                      priority
+                    />
+                  )}
                 </Link>
               </div>
 

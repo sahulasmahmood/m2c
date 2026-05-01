@@ -17,7 +17,8 @@ import Link from 'next/link'
 import Dropdown from '@/components/UI/Dropdown'
 import inventoryService, { InventoryItem as APIInventoryItem, InventoryStats } from '@/services/inventoryService'
 import StockHistoryModal from '@/components/Shared/StockHistoryModal'
-import { showWarningToast } from '@/lib/toast-utils'
+import { showWarningToast, showSuccessToast, showErrorToast } from '@/lib/toast-utils'
+import DeleteConfirmModal from '@/components/UI/DeleteConfirmModal'
 
 const getStatusBadge = (status: string, currentStock: number, lowStockAlert: number) => {
   if (currentStock === 0) {
@@ -51,6 +52,13 @@ export default function Inventory() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    show: boolean
+    item: APIInventoryItem | null
+    loading: boolean
+  }>({ show: false, item: null, loading: false })
 
   // Stock history modal state
   const [stockHistoryModal, setStockHistoryModal] = useState<{
@@ -98,10 +106,10 @@ export default function Inventory() {
       } catch (error: any) {
         console.error('Error loading data:', error)
         if (error.response?.status === 401) {
-          alert('Authentication required. Please login again.')
+          showErrorToast('Authentication Required', 'Please login again.')
           window.location.href = '/vendor'
         } else {
-          alert('Failed to load inventory data')
+          showErrorToast('Load Failed', 'Failed to load inventory data')
         }
       } finally {
         setIsLoading(false)
@@ -151,20 +159,26 @@ export default function Inventory() {
     // Navigation is handled by the Link component
   }
 
-  const handleDelete = async (itemId: string) => {
-    if (confirm('Are you sure you want to delete this inventory item?')) {
-      try {
-        await inventoryService.deleteItem(itemId)
-        alert('Item deleted successfully')
-        loadInventoryItems() // Reload the list
-      } catch (error: any) {
-        console.error('Error deleting item:', error)
-        if (error.response?.status === 400) {
-          alert(error.response.data.message || 'Cannot delete this item')
-        } else {
-          alert('Failed to delete item')
-        }
+  const handleDelete = (item: APIInventoryItem) => {
+    setDeleteModal({ show: true, item, loading: false })
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteModal.item) return
+    setDeleteModal(prev => ({ ...prev, loading: true }))
+    try {
+      await inventoryService.deleteItem(deleteModal.item.id)
+      showSuccessToast('Item Deleted', 'Inventory item deleted successfully')
+      loadInventoryItems()
+    } catch (error: any) {
+      console.error('Error deleting item:', error)
+      if (error.response?.status === 400) {
+        showErrorToast('Delete Failed', error.response.data.message || 'Cannot delete this item')
+      } else {
+        showErrorToast('Delete Failed', 'Failed to delete item')
       }
+    } finally {
+      setDeleteModal({ show: false, item: null, loading: false })
     }
   }
 
@@ -427,7 +441,7 @@ export default function Inventory() {
                           variant="outline"
                           size="sm"
                           className="hover:bg-gray-50 hover:border-gray-200 text-red-600 hover:text-red-700"
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item)}
                           disabled={item.hasProductCreated}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -480,6 +494,17 @@ export default function Inventory() {
           isAdmin={false}
         />
       )}
+
+      <DeleteConfirmModal
+        show={deleteModal.show}
+        title="Delete Inventory Item"
+        itemName={deleteModal.item?.name}
+        itemDetail={deleteModal.item?.sku ? `SKU: ${deleteModal.item.sku}` : undefined}
+        loading={deleteModal.loading}
+        confirmLabel="Delete Permanently"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteModal({ show: false, item: null, loading: false })}
+      />
     </div>
   )
 }

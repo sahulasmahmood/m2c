@@ -10,6 +10,7 @@ import { Plus, Edit, Trash2, Eye, Search, Filter, ChevronLeft, ChevronRight } fr
 import Link from 'next/link'
 import { categoryService, Category, CategoryStats } from '@/services/categoryService'
 import { hasPermission } from '@/lib/auth'
+import DeleteConfirmModal from '@/components/UI/DeleteConfirmModal'
 
 const PAGE_SIZE = 10
 
@@ -33,6 +34,8 @@ export default function CategoryLists() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE'>('all')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [currentPage, setCurrentPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     loadCategories()
@@ -105,15 +108,22 @@ export default function CategoryLists() {
     setExpandedCategories(newExpanded)
   }
 
-  const handleDelete = async (categoryId: string) => {
-    if (confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
-      try {
-        await categoryService.deleteCategory(categoryId)
-        await loadCategories()
-        await loadStats()
-      } catch (error) {
-        alert(error instanceof Error ? error.message : 'Failed to delete category')
-      }
+  const handleDeleteClick = (category: Category) => {
+    setDeleteTarget({ id: category.id, name: category.name })
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      setDeleting(true)
+      await categoryService.deleteCategory(deleteTarget.id)
+      await loadCategories()
+      await loadStats()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to delete category')
+    } finally {
+      setDeleting(false)
+      setDeleteTarget(null)
     }
   }
 
@@ -204,7 +214,7 @@ export default function CategoryLists() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handleDelete(category.id)}
+              onClick={() => handleDeleteClick(category)}
               className="text-red-600 hover:text-red-800"
             >
               <Trash2 className="h-4 w-4" />
@@ -373,6 +383,15 @@ export default function CategoryLists() {
           </CardContent>
         </Card>
       </div>
+
+      <DeleteConfirmModal
+        show={!!deleteTarget}
+        title="Delete Category"
+        itemName={deleteTarget?.name || ''}
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

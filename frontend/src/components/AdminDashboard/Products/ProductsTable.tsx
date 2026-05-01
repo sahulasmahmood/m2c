@@ -19,6 +19,7 @@ import { showSuccessToast, showErrorToast } from '@/lib/toast-utils'
 import Dropdown from '@/components/UI/Dropdown'
 import { adminProductService } from '@/services/adminProductService'
 import { hasPermission } from '@/lib/auth'
+import DeleteConfirmModal from '@/components/UI/DeleteConfirmModal'
 
 interface Product {
   id: string
@@ -98,6 +99,8 @@ export default function ProductsTable() {
     totalCount: 0,
     limit: 10
   })
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [showApprovalModal, setShowApprovalModal] = useState(false)
   const [approvingProduct, setApprovingProduct] = useState<Product | null>(null)
   const [adminPrice, setAdminPrice] = useState<string>('')
@@ -281,19 +284,24 @@ export default function ProductsTable() {
     }
   }
 
-  const handleDeleteProduct = async (productId: string, productName: string) => {
-    const confirmed = confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)
-    if (!confirmed) return
+  const handleDeleteClick = (productId: string, productName: string) => {
+    setDeleteTarget({ id: productId, name: productName })
+  }
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
     try {
-      const response = await adminProductService.deleteProduct(productId)
-
+      setDeleting(true)
+      const response = await adminProductService.deleteProduct(deleteTarget.id)
       if (response.success) {
         showSuccessToast('Product Deleted', 'Product has been deleted successfully')
-        loadProducts() // Reload products
+        loadProducts()
       }
     } catch (error: any) {
       showErrorToast('Delete Failed', error.message || 'Unable to delete product')
+    } finally {
+      setDeleting(false)
+      setDeleteTarget(null)
     }
   }
 
@@ -519,7 +527,7 @@ export default function ProductsTable() {
                         variant="ghost"
                         size="sm"
                         className="hover:bg-red-50 text-red-600"
-                        onClick={() => handleDeleteProduct(product.id, product.name)}
+                        onClick={() => handleDeleteClick(product.id, product.name)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -706,6 +714,14 @@ export default function ProductsTable() {
           </div>
         </div>
       )}
+      <DeleteConfirmModal
+        show={!!deleteTarget}
+        title="Delete Product"
+        itemName={deleteTarget?.name}
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </Card>
   )
 }

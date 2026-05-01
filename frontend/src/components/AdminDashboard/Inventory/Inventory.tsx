@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/UI/Table'
 import { Breadcrumb } from '@/components/AdminDashboard/Breadcrumb/Breadcrumb'
+import DeleteConfirmModal from '@/components/UI/DeleteConfirmModal'
 import { Package, AlertTriangle, TrendingDown, TrendingUp, Plus, Search, Filter, Loader2, History, Edit, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import Dropdown from '@/components/UI/Dropdown'
@@ -81,6 +82,10 @@ export default function Inventory() {
     outOfStockItems: 0,
     totalStockUnits: 0
   })
+
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean; item: InventoryItem } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Stock history modal state
   const [stockHistoryModal, setStockHistoryModal] = useState<{
@@ -155,18 +160,19 @@ export default function Inventory() {
     setStockHistoryModal({ isOpen: true, item })
   }
 
-  const handleDelete = async (item: InventoryItem) => {
+  const handleDeleteClick = (item: InventoryItem) => {
     if (item.hasProductCreated) {
       alert('Cannot delete this inventory item because it has been used to create a product.')
       return
     }
+    setDeleteModal({ show: true, item })
+  }
 
-    if (!confirm('Are you sure you want to delete this inventory item? This action cannot be undone.')) {
-      return
-    }
-
+  const confirmDelete = async () => {
+    if (!deleteModal) return
+    setIsDeleting(true)
     try {
-      await inventoryService.adminDeleteItem(item.id)
+      await inventoryService.adminDeleteItem(deleteModal.item.id)
 
       // Reload data
       const params: any = {
@@ -191,6 +197,9 @@ export default function Inventory() {
       console.error('Error deleting item:', error)
       const errorMessage = error.message || error.response?.data?.message || 'Failed to delete item'
       alert(errorMessage)
+    } finally {
+      setIsDeleting(false)
+      setDeleteModal(null)
     }
   }
 
@@ -420,7 +429,7 @@ export default function Inventory() {
                                 variant="outline"
                                 size="sm"
                                 className={`${item.hasProductCreated ? 'opacity-50 cursor-not-allowed' : 'text-red-600 hover:text-red-700 hover:bg-red-50'}`}
-                                onClick={() => handleDelete(item)}
+                                onClick={() => handleDeleteClick(item)}
                                 title={item.hasProductCreated ? "Cannot delete: Product created from this item" : "Delete item"}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -464,6 +473,19 @@ export default function Inventory() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirm Modal */}
+      <DeleteConfirmModal
+        show={!!deleteModal?.show}
+        title="Delete Inventory Item"
+        itemName={deleteModal?.item.name}
+        itemDetail={`SKU: ${deleteModal?.item.sku}`}
+        loading={isDeleting}
+        confirmLabel="Delete Permanently"
+        loadingLabel="Deleting..."
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteModal(null)}
+      />
 
       {/* Stock History Modal */}
       {stockHistoryModal.item && (
