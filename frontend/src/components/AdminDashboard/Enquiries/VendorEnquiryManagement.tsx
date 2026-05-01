@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/UI/Card';
 import { Badge } from '@/components/UI/Badge';
 import { Button } from '@/components/UI/Button';
 import DeleteConfirmModal from '@/components/UI/DeleteConfirmModal';
+import Dropdown from '@/components/UI/Dropdown';
 import { Mail, Phone, Building2, FileText, Eye, Trash2, CheckCircle, XCircle, Search, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils';
 import { hasPermission } from '@/lib/auth';
@@ -157,16 +158,19 @@ export default function VendorEnquiryManagement() {
                 />
               </div>
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
+            <div className="w-full md:w-64">
+              <Dropdown
+                value={statusFilter}
+                options={[
+                  { value: 'all', label: 'All Status' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'approved', label: 'Approved' },
+                  { value: 'rejected', label: 'Rejected' },
+                ]}
+                onChange={(value) => { setStatusFilter(value as string); setCurrentPage(1); }}
+                placeholder="Filter by Status"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -174,7 +178,7 @@ export default function VendorEnquiryManagement() {
       {/* Enquiries Table */}
       {enquiries.length > 0 && (
         <p className="text-sm text-slate-600">
-          Showing {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, enquiries.length)} of {enquiries.length}
+          Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, enquiries.length)} of {enquiries.length}
         </p>
       )}
       <Card>

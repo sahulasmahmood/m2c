@@ -243,6 +243,52 @@ export default function CategoryLists() {
         )}
       </div>
 
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900">{stats?.total || 0}</div>
+              <div className="text-sm text-gray-500">Main Categories</div>
+              <div className="text-xs text-gray-400 mt-1">Root level categories</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {stats?.active || 0}
+              </div>
+              <div className="text-sm text-gray-500">Active Categories</div>
+              <div className="text-xs text-gray-400 mt-1">Currently visible</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {stats?.subcategories || 0}
+              </div>
+              <div className="text-sm text-gray-500">Total Subcategories</div>
+              <div className="text-xs text-gray-400 mt-1">Nested under main categories</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {categories.reduce((sum, c) => sum + c.productCount, 0)}
+              </div>
+              <div className="text-sm text-gray-500">Total Products</div>
+              <div className="text-xs text-gray-400 mt-1">Across all categories</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
@@ -274,15 +320,17 @@ export default function CategoryLists() {
         </CardContent>
       </Card>
 
+      {/* Showing */}
+      {filteredCategories.length > 0 && (
+        <div className="flex items-center justify-between gap-4 flex-wrap text-sm text-slate-600">
+          <span>Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredCategories.length)} of {filteredCategories.length}</span>
+        </div>
+      )}
+
       {/* Categories Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Categories List</CardTitle>
-            <span className="text-sm text-slate-500">
-              Showing {filteredCategories.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredCategories.length)} of {filteredCategories.length}
-            </span>
-          </div>
+          <CardTitle>Categories List</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -337,52 +385,6 @@ export default function CategoryLists() {
           </div>
         )}
       </Card>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{stats?.total || 0}</div>
-              <div className="text-sm text-gray-500">Main Categories</div>
-              <div className="text-xs text-gray-400 mt-1">Root level categories</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {stats?.active || 0}
-              </div>
-              <div className="text-sm text-gray-500">Active Categories</div>
-              <div className="text-xs text-gray-400 mt-1">Currently visible</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {stats?.subcategories || 0}
-              </div>
-              <div className="text-sm text-gray-500">Total Subcategories</div>
-              <div className="text-xs text-gray-400 mt-1">Nested under main categories</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {categories.reduce((sum, c) => sum + c.productCount, 0)}
-              </div>
-              <div className="text-sm text-gray-500">Total Products</div>
-              <div className="text-xs text-gray-400 mt-1">Across all categories</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       <DeleteConfirmModal
         show={!!deleteTarget}

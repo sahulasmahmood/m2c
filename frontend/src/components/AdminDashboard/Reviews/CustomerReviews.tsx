@@ -287,7 +287,7 @@ export default function CustomerReviews() {
       {/* Reviews Table */}
       {!loading && reviews.length > 0 && (
         <div className="text-sm text-slate-600 mb-2">
-          Showing {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, reviews.length)} of {reviews.length}
+          Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, reviews.length)} of {reviews.length}
         </div>
       )}
       <Card>

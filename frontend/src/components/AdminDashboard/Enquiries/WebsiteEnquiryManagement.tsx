@@ -5,6 +5,7 @@ import { contactEnquiryService, ContactEnquiry } from '@/services/contactEnquiry
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/Card';
 import { Badge } from '@/components/UI/Badge';
 import { Button } from '@/components/UI/Button';
+import Dropdown from '@/components/UI/Dropdown';
 import { Mail, Phone, Calendar, Eye, Trash2, MessageSquare, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils';
 import { hasPermission } from '@/lib/auth';
@@ -167,17 +168,20 @@ export default function WebsiteEnquiryManagement() {
                 />
               </div>
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900"
-            >
-              <option value="all">All Status</option>
-              <option value="new">New</option>
-              <option value="read">Read</option>
-              <option value="replied">Replied</option>
-              <option value="closed">Closed</option>
-            </select>
+            <div className="w-full md:w-64">
+              <Dropdown
+                value={statusFilter}
+                options={[
+                  { value: 'all', label: 'All Status' },
+                  { value: 'new', label: 'New' },
+                  { value: 'read', label: 'Read' },
+                  { value: 'replied', label: 'Replied' },
+                  { value: 'closed', label: 'Closed' },
+                ]}
+                onChange={(value) => { setStatusFilter(value as string); setCurrentPage(1); }}
+                placeholder="Filter by Status"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -185,7 +189,7 @@ export default function WebsiteEnquiryManagement() {
       {/* Enquiries Table */}
       {enquiries.length > 0 && (
         <p className="text-sm text-slate-600">
-          Showing {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, enquiries.length)} of {enquiries.length}
+          Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, enquiries.length)} of {enquiries.length}
         </p>
       )}
       <Card>
@@ -330,14 +334,21 @@ export default function WebsiteEnquiryManagement() {
                   <div>{getStatusBadge(selectedEnquiry.status)}</div>
                 </div>
 
-                {hasPermission('manage_enquiries') && (
+                {hasPermission('manage_enquiries') && selectedEnquiry.status !== 'closed' && (
                   <div className="flex gap-2 pt-4 border-t">
-                    <Button onClick={() => handleUpdateStatus('replied')} className="flex-1">
-                      Mark as Replied
-                    </Button>
+                    {selectedEnquiry.status !== 'replied' && (
+                      <Button onClick={() => handleUpdateStatus('replied')} className="flex-1">
+                        Mark as Replied
+                      </Button>
+                    )}
                     <Button onClick={() => handleUpdateStatus('closed')} variant="outline" className="flex-1">
                       Close Enquiry
                     </Button>
+                  </div>
+                )}
+                {selectedEnquiry.status === 'closed' && (
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-gray-500 text-center italic">This enquiry has been closed.</p>
                   </div>
                 )}
               </div>
