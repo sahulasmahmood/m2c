@@ -195,12 +195,13 @@ model CartItem {
 }
 
 model Wishlist {
-  id        String         @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String         @unique @db.ObjectId
-  items     WishlistItem[]
-  
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id         String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String         @unique @db.ObjectId
+  shareToken String?        @unique
+  items      WishlistItem[]
+
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   @@map("wishlists")
 }

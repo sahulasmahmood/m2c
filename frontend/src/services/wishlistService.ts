@@ -8,6 +8,7 @@ export interface WishlistItem {
     name: string;
     image: string;
     basePrice: number;
+    adminFixedPrice?: number;
     originalPrice?: number;
     discount?: number;
     inStock: boolean;
@@ -66,6 +67,26 @@ class WishlistService {
       return response.data.inWishlist || false;
     } catch (error: any) {
       return false;
+    }
+  }
+
+  // Generate share token for wishlist
+  async getShareToken(): Promise<string> {
+    try {
+      const response = await axios.post('/wishlist/share');
+      return response.data.shareToken;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Failed to generate share link');
+    }
+  }
+
+  // Get public wishlist by share token (no auth required)
+  async getSharedWishlist(token: string): Promise<{ ownerName: string; items: WishlistItem[]; count: number }> {
+    try {
+      const response = await axios.get(`/wishlist/shared/${token}`);
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Wishlist not found');
     }
   }
 
