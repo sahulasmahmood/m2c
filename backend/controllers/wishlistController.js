@@ -128,6 +128,7 @@ const getWishlist = async (req, res) => {
           select: {
             id: true,
             name: true,
+            slug: true,
             basePrice: true,
             adminFixedPrice: true,
             priceINR: true,
@@ -157,6 +158,7 @@ const getWishlist = async (req, res) => {
           ...item,
           product: product ? {
             id: product.id,
+            slug: product.slug,
             name: product.name,
             image: product.images[0]?.url || '',
             basePrice: product.basePrice,
@@ -380,6 +382,7 @@ const getPublicWishlist = async (req, res) => {
           select: {
             id: true,
             name: true,
+            slug: true,
             basePrice: true,
             adminFixedPrice: true,
             originalPrice: true,
@@ -403,6 +406,7 @@ const getPublicWishlist = async (req, res) => {
           createdAt: item.createdAt,
           product: product ? {
             id: product.id,
+            slug: product.slug,
             name: product.name,
             image: product.images[0]?.url || '',
             basePrice: product.basePrice,

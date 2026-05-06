@@ -18,10 +18,10 @@ import { calculateLogistics, formatWeight, formatDimensions, LogisticsConfig } f
 import PromotionalPopup from '@/components/WebSite/PromotionalPopup/PromotionalPopup';
 
 interface ProductDetailProps {
-  productId: string;
+  productSlug: string;
 }
 
-const ProductDetail = ({ productId }: ProductDetailProps) => {
+const ProductDetail = ({ productSlug }: ProductDetailProps) => {
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
@@ -43,7 +43,7 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
     if (reviews.length > 0) { setShowReviews(true); return; }
     setLoadingReviews(true);
     try {
-      const res = await reviewService.getProductReviews(productId);
+      const res = await reviewService.getProductReviews(product?.id || productSlug);
       if (res.success && res.data) setReviews(res.data);
     } catch { /* ignore */ }
     setLoadingReviews(false);
@@ -54,7 +54,7 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        const response = await productService.getPublicProduct(productId);
+        const response = await productService.getPublicProduct(productSlug);
 
         if (response.success && response.data) {
           setProduct(response.data);
@@ -91,7 +91,13 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
     };
 
     fetchProduct();
-  }, [productId]);
+  }, [productSlug]);
+
+  // Check wishlist status after product loads
+  useEffect(() => {
+    if (!product?.id) return;
+    wishlistService.isInWishlist(product.id).then(setIsWishlisted).catch(() => {});
+  }, [product?.id]);
 
   // Smart logistics calculation (must be before any conditional returns)
   const logisticsResult = useMemo(() => {
@@ -257,24 +263,25 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
       return;
     }
 
+    // Optimistic update — UI changes instantly
+    const wasWishlisted = isWishlisted;
+    setIsWishlisted(!wasWishlisted);
+
     try {
-      if (isWishlisted) {
+      if (wasWishlisted) {
         await wishlistService.removeFromWishlist(product.id);
-        setIsWishlisted(false);
-        showSuccessToast(
-          'Removed from Wishlist',
-          `${product.name} has been removed from your wishlist.`
-        );
+        showSuccessToast('Removed from Wishlist', `${product.name} has been removed from your wishlist.`);
       } else {
         await wishlistService.addToWishlist(product.id);
-        setIsWishlisted(true);
-        showSuccessToast(
-          'Added to Wishlist!',
-          `${product.name} has been saved to your wishlist.`
-        );
+        showSuccessToast('Added to Wishlist!', `${product.name} has been saved to your wishlist.`);
       }
-    } catch (error) {
-      showErrorToast('Wishlist Error', 'Unable to update wishlist. Please try again.');
+    } catch (error: any) {
+      if (error.message?.includes('already in wishlist')) {
+        setIsWishlisted(true);
+      } else {
+        setIsWishlisted(wasWishlisted);
+        showErrorToast('Wishlist Error', 'Unable to update wishlist. Please try again.');
+      }
     }
   };
 
@@ -439,9 +446,9 @@ const ProductDetail = ({ productId }: ProductDetailProps) => {
                         </div>
                         <button
                           onClick={handleWishlistToggle}
-                          className="p-3 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors"
+                          className={`p-3 rounded-full transition-colors ${isWishlisted ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'}`}
                         >
-                          <Heart className={`w-6 h-6 ${isWishlisted ? 'fill-current text-gray-500' : 'text-gray-400'}`} />
+                          <Heart className={`w-6 h-6 ${isWishlisted ? 'fill-current text-red-500' : 'text-gray-400'}`} />
                         </button>
                       </div>
 

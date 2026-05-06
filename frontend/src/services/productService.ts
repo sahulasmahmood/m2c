@@ -128,6 +128,7 @@ export interface PricingTier {
 
 export interface Product extends ProductFormData {
   id: string;
+  slug?: string;
   vendorId: string;
   createdAt: string;
   updatedAt: string;
