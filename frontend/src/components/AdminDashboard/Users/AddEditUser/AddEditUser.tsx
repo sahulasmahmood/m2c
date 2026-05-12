@@ -252,12 +252,12 @@ export default function AddEditUser({ isEdit = false }: AddEditUserProps) {
                                                 name="password"
                                                 value={formData.password}
                                                 onChange={handleInputChange}
-                                                placeholder="Leave empty for default (Staff@123!!)"
+                                                placeholder="Leave empty to auto-generate a password"
                                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
                                             />
                                         </div>
                                         <p className="text-xs text-gray-500 italic">
-                                            Staff will receive this password via email. It's recommended to change it after first login.
+                                            A secure password will be auto-generated and emailed to the staff member. It's recommended to change it after first login.
                                         </p>
                                     </div>
                                 )}
