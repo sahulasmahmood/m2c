@@ -6,6 +6,7 @@ import VendorHeader from '@/components/VendorDashboard/Header/Header'
 import VendorFooter from '@/components/VendorDashboard/Footer/Footer'
 import VendorProtectedRoute from '@/components/VendorDashboard/ProtectedRoute'
 import { Toaster } from '@/components/UI/Toaster'
+import { NotificationProvider } from '@/components/Shared/NotificationProvider'
 import { useStorageSync } from '@/hooks/useStorageSync'
 import { useVendorStatusCheck } from '@/hooks/useVendorStatusCheck'
 import VendorService from '@/services/vendorService'
@@ -28,6 +29,7 @@ export default function VendorDashboardLayout({
 
   return (
     <VendorProtectedRoute>
+      <NotificationProvider>
       <div className="flex h-screen bg-slate-50 font-sans">
         {/* Sidebar */}
         <div
@@ -60,6 +62,7 @@ export default function VendorDashboardLayout({
         </div>
         <Toaster />
       </div>
+      </NotificationProvider>
     </VendorProtectedRoute>
   )
 }

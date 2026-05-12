@@ -8,31 +8,39 @@ const { prisma } = require('../config/database');
 
 // ─── Send to a single device token ──────────────────────────────────────────
 
-async function sendToDevice(token, { title, body, data = {} }) {
-  if (!token) return null;
+async function sendToDevice(token, { title, body, data = {} }, platform = 'mobile') {
+  if (!token || !admin) return null;
   try {
-    const result = await admin.messaging().send({
-      token,
-      notification: { title, body },
-      data: Object.fromEntries(
-        Object.entries(data).map(([k, v]) => [k, String(v)])
-      ),
-      android: {
-        priority: 'high',
-        notification: {
-          sound: 'default',
-          color: '#2563eb',
-          priority: 'high',
-          defaultVibrateTimings: true,
-          defaultSound: true,
-        },
-      },
-      apns: {
-        payload: {
-          aps: { sound: 'default', badge: 1 },
-        },
-      },
-    });
+    const dataPayload = Object.fromEntries(
+      Object.entries({ ...data, title, body }).map(([k, v]) => [k, String(v)])
+    );
+
+    // Web: data-only message — foreground handled by onMessage, background by service worker
+    // Mobile: notification + data — system tray handled by OS
+    const message = platform === 'web'
+      ? { token, data: dataPayload }
+      : {
+          token,
+          notification: { title, body },
+          data: dataPayload,
+          android: {
+            priority: 'high',
+            notification: {
+              sound: 'default',
+              color: '#2563eb',
+              priority: 'high',
+              defaultVibrateTimings: true,
+              defaultSound: true,
+            },
+          },
+          apns: {
+            payload: {
+              aps: { sound: 'default', badge: 1 },
+            },
+          },
+        };
+
+    const result = await admin.messaging().send(message);
     return result;
   } catch (error) {
     // Token is invalid/expired — clean it up
@@ -54,7 +62,7 @@ async function sendToDevice(token, { title, body, data = {} }) {
 async function sendToTokens(tokens, { title, body, data = {} }) {
   if (!tokens || tokens.length === 0) return [];
   const results = await Promise.allSettled(
-    tokens.map((token) => sendToDevice(token, { title, body, data }))
+    tokens.map((t) => sendToDevice(t.token || t, { title, body, data }, t.platform || 'mobile'))
   );
   return results;
 }
@@ -64,13 +72,10 @@ async function sendToTokens(tokens, { title, body, data = {} }) {
 async function sendToUser(userId, role, { title, body, data = {} }) {
   const devices = await prisma.deviceToken.findMany({
     where: { userId, role },
-    select: { token: true },
+    select: { token: true, platform: true },
   });
   if (devices.length === 0) return [];
-  return sendToTokens(
-    devices.map((d) => d.token),
-    { title, body, data }
-  );
+  return sendToTokens(devices, { title, body, data });
 }
 
 // ─── Send to all users with a given role ────────────────────────────────────
@@ -78,13 +83,10 @@ async function sendToUser(userId, role, { title, body, data = {} }) {
 async function sendToRole(role, { title, body, data = {} }) {
   const devices = await prisma.deviceToken.findMany({
     where: { role },
-    select: { token: true },
+    select: { token: true, platform: true },
   });
   if (devices.length === 0) return [];
-  return sendToTokens(
-    devices.map((d) => d.token),
-    { title, body, data }
-  );
+  return sendToTokens(devices, { title, body, data });
 }
 
 // ─── Pre-built notification helpers ─────────────────────────────────────────

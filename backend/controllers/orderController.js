@@ -195,6 +195,9 @@ const createOrder = async (req, res) => {
 
         const datePeriod = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
+        // Track low stock alerts (populated inside transaction, sent after)
+        const lowStockAlerts = [];
+
         // Use transaction to ensure data integrity
         const result = await prisma.$transaction(async (tx) => {
             // Create Order
@@ -356,6 +359,17 @@ const createOrder = async (req, res) => {
                         inStock: newTotalStock > 0
                     }
                 });
+
+                // Collect low stock data for post-transaction notifications
+                if (newTotalStock <= 10 || newTotalStock === 0) {
+                    const prodInfo = await tx.product.findUnique({ where: { id: productId }, select: { name: true, lowStockThreshold: true } });
+                    lowStockAlerts.push({
+                        productId,
+                        productName: prodInfo?.name || 'Unknown Product',
+                        newStock: newTotalStock,
+                        threshold: prodInfo?.lowStockThreshold || 10,
+                    });
+                }
             }
 
             // Create Vendor Settlements
@@ -425,17 +439,57 @@ const createOrder = async (req, res) => {
             return newOrder;
         });
 
+        // Send low stock / out of stock alerts (outside transaction)
+        const { createNotification, createNotificationForRole: notifyStockAlert } = require('./notificationController');
+        for (const alert of lowStockAlerts) {
+            if (alert.newStock === 0) {
+                notifyStockAlert({
+                    role: 'ADMIN', type: 'OUT_OF_STOCK',
+                    title: 'Out of Stock',
+                    message: `"${alert.productName}" is now out of stock!`,
+                    data: { productId: alert.productId }
+                }).catch(() => {});
+            } else if (alert.newStock <= alert.threshold) {
+                notifyStockAlert({
+                    role: 'ADMIN', type: 'LOW_STOCK_ALERT',
+                    title: 'Low Stock Alert',
+                    message: `"${alert.productName}" has only ${alert.newStock} units left.`,
+                    data: { productId: alert.productId }
+                }).catch(() => {});
+            }
+        }
+
         // Notify vendors about new order (fire-and-forget)
         const vendorIds = [...new Set(result.items.map((i) => i.vendorId).filter(Boolean))];
         for (const vid of vendorIds) {
             const vendorItems = result.items.filter((i) => i.vendorId === vid);
             const vendorTotal = vendorItems.reduce((s, i) => s + i.totalPrice, 0);
             notifications.orderReceived(vid, result.orderId, vendorItems.length, vendorTotal).catch(() => {});
+            createNotification({
+                userId: vid, role: 'VENDOR', type: 'ORDER_RECEIVED',
+                title: 'New Order Received',
+                message: `Order #${result.orderId} — ${vendorItems.length} item(s), ₹${vendorTotal.toLocaleString('en-IN')}`,
+                data: { orderId: result.id }
+            }).catch(() => {});
         }
+
+        // Notify admins — new order placed
+        notifyStockAlert({
+            role: 'ADMIN', type: 'NEW_ORDER',
+            title: 'New Order Placed',
+            message: `Order #${result.orderId} — ₹${result.totalAmount?.toLocaleString('en-IN')} from ${result.customerName || 'Customer'}`,
+            data: { orderId: result.id }
+        }).catch(() => {});
 
         // Notify customer — order confirmed
         if (result.customerId) {
             notifications.orderConfirmed(result.customerId, result.orderId).catch(() => {});
+            createNotification({
+                userId: result.customerId, role: 'USER', type: 'ORDER_CONFIRMED',
+                title: 'Order Confirmed',
+                message: `Your order #${result.orderId} has been placed successfully.`,
+                data: { orderId: result.id }
+            }).catch(() => {});
         }
 
         res.status(201).json({

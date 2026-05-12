@@ -304,6 +304,15 @@ const adminReviewFactoryInspection = async (req, res) => {
 
             notifications.inspectionCompleted(inspection.vendor.companyName, 'PASSED').catch(console.error);
 
+            // In-app notification for admins
+            const { createNotificationForRole: notifyAdminsInspResult } = require('./notificationController');
+            notifyAdminsInspResult({
+                role: 'ADMIN', type: 'REINSPECTION_RESULT',
+                title: 'Re-inspection Passed',
+                message: `Factory re-inspection for "${inspection.vendor.companyName}" — Result: PASSED`,
+                data: { inspectionId }
+            }).catch(() => {});
+
             return res.json({ success: true, message: 'Factory inspection approved successfully' });
         }
 
@@ -344,6 +353,14 @@ const adminReviewFactoryInspection = async (req, res) => {
             });
 
             notifications.vendorStatusChanged(inspection.vendorId, 'REJECTED').catch(console.error);
+
+            const { createNotificationForRole: notifyAdminsReject } = require('./notificationController');
+            notifyAdminsReject({
+                role: 'ADMIN', type: 'REINSPECTION_RESULT',
+                title: 'Re-inspection Failed',
+                message: `Factory re-inspection for "${inspection.vendor.companyName}" — Result: REJECTED`,
+                data: { inspectionId }
+            }).catch(() => {});
 
             return res.json({ success: true, message: 'Factory inspection finally rejected' });
         }
@@ -435,6 +452,15 @@ const adminReviewFactoryInspection = async (req, res) => {
                 inspection.vendor.companyName,
                 'factory'
             ).catch(console.error);
+
+            // Notify vendor about re-inspection
+            const { createNotification: createReinspNotif } = require('./notificationController');
+            createReinspNotif({
+                userId: inspection.vendorId, role: 'VENDOR', type: 'REINSPECTION_REQUIRED',
+                title: 'Re-inspection Required',
+                message: `Factory re-inspection #${inspection.cycleNumber + 1} has been scheduled for your company.`,
+                data: { inspectionId: newInspection.id }
+            }).catch(() => {});
 
             return res.json({
                 success: true,
@@ -610,6 +636,15 @@ const adminReviewProductInspection = async (req, res) => {
             if (reCheckerId) {
                 notifications.reinspectionRaised(reCheckerId, product.name, 'product').catch(console.error);
             }
+
+            // Notify vendor about product re-inspection
+            const { createNotification: createProdReinspNotif } = require('./notificationController');
+            createProdReinspNotif({
+                userId: product.vendorId, role: 'VENDOR', type: 'REINSPECTION_REQUIRED',
+                title: 'Product Re-inspection Required',
+                message: `Your product "${product.name}" requires re-inspection.${reason ? ` Reason: ${reason}` : ''}`,
+                data: { productId }
+            }).catch(() => {});
 
             return res.json({
                 success: true,

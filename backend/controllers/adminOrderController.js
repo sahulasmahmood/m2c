@@ -278,6 +278,36 @@ const updateShipmentStatusAdmin = async (req, res) => {
             return updated;
         });
 
+        // Notify vendor about shipment status change
+        if (status || assignedHubId) {
+            const { createNotification: createShipmentNotif } = require('./notificationController');
+            const vendorId = shipment.vendorId || shipment.items?.[0]?.vendorId;
+            const orderId = updatedShipment.order?.orderId || '';
+
+            const shipmentMessages = {
+                'VENDOR_PROCESSING': assignedHubId
+                    ? { title: 'Hub Assigned — Start Processing', message: `Order #${orderId} has been assigned to a hub. Please start processing.` }
+                    : { title: 'Order Processing', message: `Order #${orderId} is now being processed.` },
+                'IN_TRANSIT_TO_ADMIN_HUB': { title: 'Order In Transit', message: `Order #${orderId} is in transit to admin hub.` },
+                'RECEIVED_AT_ADMIN_HUB': { title: 'Order Received at Hub', message: `Order #${orderId} has been received at admin hub.` },
+                'APPROVED_BY_ADMIN_HUB': { title: 'Shipment Approved', message: `Your shipment for order #${orderId} has been approved by the hub.` },
+                'SHIPPED_TO_CUSTOMER': { title: 'Order Shipped', message: `Order #${orderId} has been shipped to the customer.` },
+                'DELIVERED': { title: 'Order Delivered', message: `Order #${orderId} has been delivered to the customer.` },
+                'CANCELLED': { title: 'Order Cancelled', message: `Order #${orderId} has been cancelled.` },
+                'RETURNED': { title: 'Order Returned', message: `Order #${orderId} has been returned.` },
+            };
+
+            const nextSt = status || (assignedHubId ? 'VENDOR_PROCESSING' : null);
+            const msg = nextSt ? shipmentMessages[nextSt] : null;
+            if (msg && vendorId) {
+                createShipmentNotif({
+                    userId: vendorId, role: 'VENDOR', type: `ORDER_${nextSt}`,
+                    title: msg.title, message: msg.message,
+                    data: { orderId: shipment.orderId, shipmentId: shipment.id }
+                }).catch(() => {});
+            }
+        }
+
         res.json({ success: true, data: updatedShipment });
     } catch (error) {
         if (error.message === 'CONFLICT') {
@@ -492,6 +522,49 @@ const updateAdminOrderStatus = async (req, res) => {
             const notifHelper = STATUS_NOTIFICATION_MAP[status];
             if (notifHelper && notifications[notifHelper]) {
                 notifications[notifHelper](order.customerId, order.orderId).catch(() => {});
+            }
+        }
+
+        // In-app notifications for vendor on key order status changes
+        if (status) {
+            const { createNotification: createOrderNotif } = require('./notificationController');
+            const vendorIds = [...new Set(order.items.map(i => i.vendorId).filter(Boolean))];
+            const vendorStatusMessages = {
+                'VENDOR_PROCESSING': { title: 'Hub Assigned — Start Processing', message: `Order #${order.orderId} has been assigned to a hub. Please start processing.` },
+                'IN_TRANSIT_TO_ADMIN_HUB': { title: 'Order In Transit', message: `Order #${order.orderId} is in transit to admin hub.` },
+                'RECEIVED_AT_ADMIN_HUB': { title: 'Order Received at Hub', message: `Order #${order.orderId} has been received at admin hub.` },
+                'SHIPPED_TO_CUSTOMER': { title: 'Order Shipped to Customer', message: `Order #${order.orderId} has been shipped to the customer.` },
+                'DELIVERED': { title: 'Order Delivered', message: `Order #${order.orderId} has been delivered to the customer.` },
+                'CANCELLED': { title: 'Order Cancelled', message: `Order #${order.orderId} has been cancelled.` },
+                'RETURNED': { title: 'Order Returned', message: `Order #${order.orderId} has been returned by the customer.` },
+            };
+            const vendorMsg = vendorStatusMessages[status];
+            if (vendorMsg) {
+                for (const vid of vendorIds) {
+                    createOrderNotif({
+                        userId: vid, role: 'VENDOR', type: `ORDER_${status}`,
+                        title: vendorMsg.title, message: vendorMsg.message,
+                        data: { orderId: order.id }
+                    }).catch(() => {});
+                }
+            }
+
+            // In-app notifications for customer on key order status changes
+            if (order.customerId) {
+                const customerStatusMessages = {
+                    'SHIPPED_TO_CUSTOMER': { title: 'Order Shipped!', message: `Your order #${order.orderId} has been shipped and is on its way!` },
+                    'DELIVERED': { title: 'Order Delivered', message: `Your order #${order.orderId} has been delivered. Enjoy your purchase!` },
+                    'CANCELLED': { title: 'Order Cancelled', message: `Your order #${order.orderId} has been cancelled.` },
+                    'RETURNED': { title: 'Refund Processed', message: `Your order #${order.orderId} has been returned and a refund will be processed.` },
+                };
+                const customerMsg = customerStatusMessages[status];
+                if (customerMsg) {
+                    createOrderNotif({
+                        userId: order.customerId, role: 'USER', type: `ORDER_${status}`,
+                        title: customerMsg.title, message: customerMsg.message,
+                        data: { orderId: order.id }
+                    }).catch(() => {});
+                }
             }
         }
 

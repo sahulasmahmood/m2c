@@ -25,13 +25,19 @@ function GoogleAuthSuccessContent() {
           // Admin users should go to admin dashboard
           localStorage.setItem('adminToken', token)
           localStorage.setItem('adminUser', JSON.stringify(user))
-          
+
+          // Register FCM push token (fire-and-forget)
+          import('@/services/webNotificationService').then(m => m.registerWebPushToken()).catch(() => {})
+
           showSuccessToast('Login Successful', `Welcome, ${user.name}!`)
           router.replace('/admin/dashboard')
         } else {
           // Regular users go to home page
           userAuthService.storeAuthData(token, user, true)
-          
+
+          // Register FCM push token (fire-and-forget)
+          import('@/services/webNotificationService').then(m => m.registerWebPushToken()).catch(() => {})
+
           showSuccessToast('Login Successful', `Welcome, ${user.name}!`)
           router.replace('/')
         }

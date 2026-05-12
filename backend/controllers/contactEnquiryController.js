@@ -23,6 +23,15 @@ const submitContactEnquiry = async (req, res) => {
             }
         });
 
+        // Notify admins about new website enquiry
+        const { createNotificationForRole: notifyAdminsContact } = require('./notificationController');
+        notifyAdminsContact({
+            role: 'ADMIN', type: 'NEW_ENQUIRY',
+            title: 'New Website Enquiry',
+            message: `"${subject}" from ${name} (${email})`,
+            data: { enquiryId: enquiry.id }
+        }).catch(() => {});
+
         res.status(201).json({
             success: true,
             message: 'Your message has been sent successfully. We will get back to you soon.',

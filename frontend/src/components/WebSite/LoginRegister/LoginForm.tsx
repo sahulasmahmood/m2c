@@ -137,6 +137,9 @@ export default function LoginForm({ onGoogleAuth }: LoginFormProps) {
           // Store regular user auth data
           userAuthService.storeAuthData(response.data.token, response.data.user, loginData.rememberMe)
 
+          // Register FCM push token (fire-and-forget)
+          import('@/services/webNotificationService').then(m => m.registerWebPushToken()).catch(() => {})
+
           showSuccessToast('Login Successful', `Welcome back, ${response.data.user.name}!`)
 
           // Redirect to home page

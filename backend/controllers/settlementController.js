@@ -111,6 +111,17 @@ const updateSettlementStatus = async (req, res) => {
             data: updateData
         });
 
+        // Notify vendor when payment is confirmed
+        if (status === 'Paid') {
+            const { createNotification } = require('./notificationController');
+            createNotification({
+                userId: settlement.vendorId, role: 'VENDOR', type: 'PAYMENT_RECEIVED',
+                title: 'Payment Received',
+                message: `Payment of ₹${settlement.amount.toLocaleString('en-IN')} for settlement ${settlement.settlementNumber} has been processed.`,
+                data: { settlementId: settlement.id }
+            }).catch(() => {});
+        }
+
         res.status(200).json({
             success: true,
             message: `Settlement marked as ${status}`,

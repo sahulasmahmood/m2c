@@ -181,6 +181,9 @@ export default function AdminLogin() {
       // Show success toast
       showSuccessToast('Login Successful', `Welcome back, ${loginResponse.user.name}!`)
 
+      // Register FCM push token (fire-and-forget)
+      import('@/services/webNotificationService').then(m => m.registerWebPushToken()).catch(() => {})
+
       // Small delay to show the toast before redirect
       setTimeout(() => {
         router.push('/admin/dashboard')

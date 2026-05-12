@@ -1475,6 +1475,16 @@ const approveProductByQc = async (req, res) => {
             notifications.inspectionSubmitted(product.name, approvalStatus).catch(console.error);
         }
 
+        // In-app notification for admins
+        const { createNotificationForRole: notifyAdminsQc } = require('./notificationController');
+        const resultLabel = approvalStatus === 'QC_APPROVED' ? 'Approved' : approvalStatus === 'REINSPECTION' ? 'Re-inspection' : 'Rejected';
+        notifyAdminsQc({
+            role: 'ADMIN', type: 'INSPECTION_COMPLETED',
+            title: 'Product Inspection Completed',
+            message: `QC inspection for "${product.name}" — Result: ${resultLabel}`,
+            data: { productId: product.id }
+        }).catch(() => {});
+
         res.status(200).json({
             success: true,
             message: `Product ${approvalStatus === 'QC_APPROVED' ? 'approved' : approvalStatus === 'REINSPECTION' ? 'marked for reinspection' : 'rejected'} successfully`,

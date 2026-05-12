@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/Card'
+import { Card, CardContent } from '@/components/UI/Card'
 import { Button } from '@/components/UI/Button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/UI/Table'
 import { Plus, Edit, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -51,9 +51,9 @@ export default function Products() {
         setProducts(response.data.items);
         setPagination(response.data.pagination);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading products:', error);
-      showErrorToast('Load Failed', error.message || 'Unable to load products');
+      showErrorToast('Load Failed', error instanceof Error ? error.message : 'Unable to load products');
     } finally {
       setIsLoading(false);
     }
@@ -84,8 +84,8 @@ export default function Products() {
         showSuccessToast('Product Deleted', 'Product has been deleted successfully');
         loadProducts(pagination.currentPage);
       }
-    } catch (error: any) {
-      showErrorToast('Delete Failed', error.message || 'Unable to delete product');
+    } catch (error) {
+      showErrorToast('Delete Failed', error instanceof Error ? error.message : 'Unable to delete product');
     } finally {
       setDeleteModal({ show: false, product: null, loading: false });
     }
@@ -121,34 +121,35 @@ export default function Products() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#222222]">My Products</h1>
-          <p className="text-slate-600">Manage your product catalog</p>
+      {/* Header */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">My Products</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Manage your product catalog</p>
+          </div>
+          <Button
+            onClick={handleAddProduct}
+            className="bg-gray-900 text-white font-semibold hover:bg-black"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
         </div>
-        <Button
-          onClick={handleAddProduct}
-          className="bg-[#222222] text-white text-base font-semibold hover:bg-[#313131]"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
-        </Button>
       </div>
 
       {/* Results summary */}
       {products.length > 0 && (
-        <div className="flex items-center justify-between gap-4 flex-wrap text-sm text-slate-600">
-          <span>
-            Showing {((pagination.currentPage - 1) * 10) + 1}–{Math.min(pagination.currentPage * 10, pagination.totalItems)} of {pagination.totalItems} product{pagination.totalItems === 1 ? '' : 's'}
-          </span>
-        </div>
+        <p className="text-sm text-gray-500">
+          Showing {((pagination.currentPage - 1) * 10) + 1}–{Math.min(pagination.currentPage * 10, pagination.totalItems)} of {pagination.totalItems} product{pagination.totalItems === 1 ? '' : 's'}
+        </p>
       )}
 
-      <Card className="border border-gray-200">
-        <CardHeader className="bg-gray-50 border-b border-gray-200">
-          <CardTitle className="text-[#222222]">Product Inventory</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="p-4 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900">Product Inventory</h2>
+        </div>
+        <div>
           {products.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-600 mb-4">No products found</p>
@@ -176,10 +177,12 @@ export default function Products() {
                   <TableRow key={product.id} className="hover:bg-gray-50">
                     <TableCell>
                       <div className="font-medium text-[#222222]">{product.name}</div>
-                      <div className="text-sm text-gray-500">{product.baseSku}</div>
+                      <div className="text-xs text-gray-500 font-mono">{product.baseSku}</div>
                     </TableCell>
-                    <TableCell className="text-slate-600">{product.category}</TableCell>
-                    <TableCell className="font-medium text-gray-700">
+                    <TableCell>
+                      <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">{product.category}</span>
+                    </TableCell>
+                    <TableCell className="font-semibold text-gray-900">
                       ₹{product.basePrice.toFixed(2)}
                       {product.hasVariants && product.variants && product.variants.length > 0 && (
                         <div className="text-xs text-gray-500">
@@ -188,12 +191,17 @@ export default function Products() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className={product.totalStock === 0 ? 'text-red-600' : 'text-[#222222]'}>
-                        {product.hasVariants && product.variants
+                      {(() => {
+                        const stock = product.hasVariants && product.variants
                           ? product.variants.reduce((sum, v) => sum + v.stock, 0)
-                          : product.totalStock
-                        }
-                      </span>
+                          : product.totalStock;
+                        return (
+                          <span className={`font-semibold ${stock === 0 ? 'text-red-600' : stock < 10 ? 'text-orange-600' : 'text-gray-900'}`}>
+                            {stock}
+                            {stock > 0 && stock < 10 ? <span className="text-xs font-normal text-orange-500 ml-1">Low</span> : null}
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs capitalize ${product.status === 'ACTIVE'
@@ -218,7 +226,7 @@ export default function Products() {
                           {product.approvalStatus === 'REINSPECTION' ? 'Reinspection Required' : product.approvalStatus?.toLowerCase()}
                         </span>
                         {product.approvalStatus === 'REJECTED' && product.rejectionReason && (
-                          <div className="text-xs text-red-600 max-w-32 truncate" title={product.rejectionReason}>
+                          <div className="text-xs text-red-600 max-w-40 truncate mt-0.5" title={product.rejectionReason}>
                             {product.rejectionReason}
                           </div>
                         )}
@@ -228,19 +236,15 @@ export default function Products() {
                       {product.hasVariants ? `${product.variants?.length || 0} variants` : 'No variants'}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-gray-50 hover:text-[#222222]"
+                      <div className="flex items-center gap-1">
+                        <button
                           onClick={() => handleViewProduct(product)}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                          title="View"
                         >
                           <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-gray-50 hover:text-[#222222]"
+                        </button>
+                        <button
                           onClick={() => {
                             if (product.approvalStatus === 'APPROVED') {
                               showWarningToast('Edit Restricted', 'This product has been approved. Only admin can edit the product.')
@@ -248,13 +252,12 @@ export default function Products() {
                               handleEditProduct(product)
                             }
                           }}
+                          className={`p-1.5 rounded-lg transition-colors ${product.approvalStatus === 'APPROVED' ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
+                          title={product.approvalStatus === 'APPROVED' ? 'Approved — admin only' : 'Edit'}
                         >
                           <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-gray-700 hover:bg-gray-50 hover:text-red-600"
+                        </button>
+                        <button
                           onClick={() => {
                             if (product.approvalStatus === 'APPROVED') {
                               showWarningToast('Delete Restricted', 'This product has been approved. Only admin can delete the product.')
@@ -262,9 +265,11 @@ export default function Products() {
                               handleDeleteProduct(product)
                             }
                           }}
+                          className={`p-1.5 rounded-lg transition-colors ${product.approvalStatus === 'APPROVED' ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-red-600 hover:bg-red-50'}`}
+                          title={product.approvalStatus === 'APPROVED' ? 'Approved — admin only' : 'Delete'}
                         >
                           <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -283,8 +288,8 @@ export default function Products() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <DeleteConfirmModal
         show={deleteModal.show}

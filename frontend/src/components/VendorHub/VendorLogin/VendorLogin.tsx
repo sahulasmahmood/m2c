@@ -116,7 +116,10 @@ export default function VendorLogin() {
 
       // Show success toast
       showSuccessToast('Login Successful', `Welcome back, ${result.vendor.companyName}!`)
-      
+
+      // Register FCM push token (fire-and-forget)
+      import('@/services/webNotificationService').then(m => m.registerWebPushToken()).catch(() => {})
+
       // Small delay to show the toast before redirect
       setTimeout(() => {
         // Redirect based on vendor status
