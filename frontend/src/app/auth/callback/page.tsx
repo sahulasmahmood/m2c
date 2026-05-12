@@ -20,9 +20,12 @@ function AuthCallbackContent() {
         
         // Store auth data (remember me = true for OAuth)
         userAuthService.storeAuthData(token, user, true)
-        
+
+        // Register FCM push token (fire-and-forget)
+        import('@/services/webNotificationService').then(m => m.registerWebPushToken()).catch(() => {})
+
         showSuccessToast('Login Successful', `Welcome, ${user.name}!`)
-        
+
         // Redirect to home page
         router.replace('/')
       } catch (error) {

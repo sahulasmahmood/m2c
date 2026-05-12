@@ -340,6 +340,15 @@ const createProduct = async (req, res) => {
       }
     });
 
+    // Notify admins — new product pending approval
+    const { createNotificationForRole: notifyAdminsProd } = require('./notificationController');
+    notifyAdminsProd({
+      role: 'ADMIN', type: 'PRODUCT_PENDING_APPROVAL',
+      title: 'Product Pending Approval',
+      message: `New product "${result.name}" submitted by vendor awaiting approval.`,
+      data: { productId: result.id }
+    }).catch(() => {});
+
     res.status(201).json({
       success: true,
       message: 'Product created successfully',
@@ -1164,6 +1173,15 @@ const approveProduct = async (req, res) => {
       }
     });
 
+    // Notify vendor about product approval
+    const { createNotification } = require('./notificationController');
+    createNotification({
+      userId: product.vendorId, role: 'VENDOR', type: 'PRODUCT_APPROVED',
+      title: 'Product Approved',
+      message: `Your product "${product.name}" has been approved and is now live.`,
+      data: { productId: product.id }
+    }).catch(() => {});
+
     res.json({
       success: true,
       message: 'Product approved successfully',
@@ -1240,6 +1258,15 @@ const rejectProduct = async (req, res) => {
       }
     });
 
+    // Notify vendor about product rejection
+    const { createNotification: createRejectNotif } = require('./notificationController');
+    createRejectNotif({
+      userId: product.vendorId, role: 'VENDOR', type: 'PRODUCT_REJECTED',
+      title: 'Product Rejected',
+      message: `Your product "${product.name}" was rejected: ${rejectionReason.trim()}`,
+      data: { productId: product.id }
+    }).catch(() => {});
+
     res.json({
       success: true,
       message: 'Product rejected successfully',
@@ -1305,6 +1332,15 @@ const assignQCCheckerToProduct = async (req, res) => {
     // Notify the QC checker on mobile
     const { notifications } = require('../utils/notificationService');
     notifications.productAssigned(qcCheckerId, product.name).catch(console.error);
+
+    // Notify vendor that QC checker has been assigned
+    const { createNotification: createQcNotif } = require('./notificationController');
+    createQcNotif({
+      userId: product.vendorId, role: 'VENDOR', type: 'QC_ASSIGNED',
+      title: 'QC Checker Assigned',
+      message: `A QC Checker has been assigned to inspect your product "${product.name}".`,
+      data: { productId: product.id }
+    }).catch(() => {});
 
     res.json({
       success: true,

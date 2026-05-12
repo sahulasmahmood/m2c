@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/Card'
+import { Card, CardContent } from '@/components/UI/Card'
 import { Button } from '@/components/UI/Button'
 import { Badge } from '@/components/UI/Badge'
 import {
@@ -223,122 +223,107 @@ export default function Inventory() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#222222]">Inventory Management</h1>
-          <p className="text-slate-600">Manage your product inventory and stock levels</p>
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Inventory Management</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Manage your product inventory and stock levels</p>
+          </div>
+          <Link href="/vendor/dashboard/inventory/add">
+            <Button className="bg-gray-900 text-white hover:bg-black">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Inventory Item
+            </Button>
+          </Link>
         </div>
-        <Link href="/vendor/dashboard/inventory/add">
-          <Button className="bg-[#222222] text-white hover:bg-[#313131]">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Inventory Item
-          </Button>
-        </Link>
       </div>
 
       {/* Inventory Stats */}
-      <div className="grid gap-6 lg:grid-cols-4">
-        <Card className="border border-gray-200 hover:border-gray-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Total Items</CardTitle>
-            <Package className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#222222]">{totalItems}</div>
-            <p className="text-xs text-slate-600">Unique products</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-gray-200 hover:border-gray-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Low Stock</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{lowStockItems}</div>
-            <p className="text-xs text-slate-600">Need restocking</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-gray-200 hover:border-gray-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Out of Stock</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{outOfStockItems}</div>
-            <p className="text-xs text-slate-600">Urgent attention</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-gray-200 hover:border-gray-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Total Value</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#222222]">${totalValue.toLocaleString()}</div>
-            <p className="text-xs text-slate-600">Inventory worth</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Items</span>
+            <div className="p-1.5 bg-blue-50 rounded-lg"><Package className="h-4 w-4 text-blue-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Unique products</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Low Stock</span>
+            <div className="p-1.5 bg-yellow-50 rounded-lg"><AlertTriangle className="h-4 w-4 text-yellow-600" /></div>
+          </div>
+          <p className={`text-2xl font-bold ${lowStockItems > 0 ? 'text-yellow-600' : 'text-gray-900'}`}>{lowStockItems}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Need restocking</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Out of Stock</span>
+            <div className="p-1.5 bg-red-50 rounded-lg"><TrendingDown className="h-4 w-4 text-red-600" /></div>
+          </div>
+          <p className={`text-2xl font-bold ${outOfStockItems > 0 ? 'text-red-600' : 'text-gray-900'}`}>{outOfStockItems}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Urgent attention</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Stock</span>
+            <div className="p-1.5 bg-green-50 rounded-lg"><TrendingUp className="h-4 w-4 text-green-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{totalValue.toLocaleString()}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Total units</p>
+        </div>
       </div>
 
       {/* Filters */}
-      <Card className="border border-gray-200">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder="Search inventory..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Dropdown
-                  id="statusFilter"
-                  value={statusFilter}
-                  options={[
-                    { value: 'all', label: 'All Status' },
-                    { value: 'ACTIVE', label: 'Active' },
-                    { value: 'INACTIVE', label: 'Inactive' }
-                  ]}
-                  onChange={(value) => setStatusFilter(value as 'all' | 'ACTIVE' | 'INACTIVE')}
-                />
-              </div>
-              <Dropdown
-                id="categoryFilter"
-                value={categoryFilter}
-                options={categories.map(cat => ({
-                  value: cat,
-                  label: cat === 'all' ? 'All Categories' : cat
-                }))}
-                onChange={(value) => setCategoryFilter(value as string)}
-              />
-            </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <input
+              type="text"
+              placeholder="Search inventory..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-3">
+            <Dropdown
+              id="statusFilter"
+              value={statusFilter}
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'INACTIVE', label: 'Inactive' }
+              ]}
+              onChange={(value) => setStatusFilter(value as 'all' | 'ACTIVE' | 'INACTIVE')}
+            />
+            <Dropdown
+              id="categoryFilter"
+              value={categoryFilter}
+              options={categories.map(cat => ({
+                value: cat,
+                label: cat === 'all' ? 'All Categories' : cat
+              }))}
+              onChange={(value) => setCategoryFilter(value as string)}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Results summary */}
       {inventoryItems.length > 0 && (
-        <div className="flex items-center justify-between gap-4 flex-wrap text-sm text-slate-600">
-          <span>Showing {inventoryItems.length} item{inventoryItems.length === 1 ? '' : 's'}</span>
-        </div>
+        <p className="text-sm text-gray-500">
+          Showing {inventoryItems.length} item{inventoryItems.length === 1 ? '' : 's'}
+        </p>
       )}
 
       {/* Inventory Table */}
-      <Card className="border border-gray-200">
-        <CardHeader className="bg-gray-50 border-b border-gray-200">
-          <CardTitle className="text-[#222222]">Inventory Items</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="p-4 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900">Inventory Items</h2>
+        </div>
+        <div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -396,75 +381,59 @@ export default function Inventory() {
                       {item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString() : 'Never'}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
-                        {item.hasProductCreated && item.productApprovalStatus === 'APPROVED' ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="hover:bg-gray-50 hover:border-gray-200"
-                            onClick={() => handleRestock(item)}
-                          >
-                            Update Stock
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              if (!item.hasProductCreated) {
-                                showWarningToast('Stock Update Not Available', 'Create a product first before updating stock.')
-                              } else {
-                                showWarningToast('Stock Update Not Available', `Product approval status: ${item.productApprovalStatus}. Stock can only be updated after admin approval.`)
-                              }
-                            }}
-                          >
-                            Update Stock
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="hover:bg-gray-50 hover:border-gray-200"
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            if (item.hasProductCreated && item.productApprovalStatus === 'APPROVED') {
+                              handleRestock(item)
+                            } else if (!item.hasProductCreated) {
+                              showWarningToast('Stock Update Not Available', 'Create a product first before updating stock.')
+                            } else {
+                              showWarningToast('Stock Update Not Available', `Product approval status: ${item.productApprovalStatus}. Stock can only be updated after admin approval.`)
+                            }
+                          }}
+                          className={`text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors ${
+                            item.hasProductCreated && item.productApprovalStatus === 'APPROVED'
+                              ? 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                              : 'border-gray-100 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          Update Stock
+                        </button>
+                        <button
                           onClick={() => handleViewHistory(item)}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                          title="Stock History"
                         >
                           <History className="h-4 w-4" />
-                        </Button>
-                        {!item.hasProductCreated && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="hover:bg-gray-50 hover:border-gray-200 text-blue-600 hover:text-blue-700"
-                            onClick={() => handleCreateProduct(item)}
-                          >
-                            <Package className="w-4 h-4 mr-1" />
-                            Create Product
-                          </Button>
-                        )}
+                        </button>
                         {item.hasProductCreated && item.productApprovalStatus === 'APPROVED' ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="hover:bg-gray-50 hover:border-gray-200"
+                          <button
                             onClick={() => showWarningToast('Edit Restricted', 'This product has been approved. Only admin can edit the inventory.')}
+                            className="p-1.5 rounded-lg text-gray-300 cursor-not-allowed"
+                            title="Approved — admin only"
                           >
-                            <Edit className="w-4 h-4" />
-                          </Button>
+                            <Edit className="h-4 w-4" />
+                          </button>
                         ) : (
                           <Link href={`/vendor/dashboard/inventory/edit/${item.id}`}>
-                            <Button variant="outline" size="sm" className="hover:bg-gray-50 hover:border-gray-200">
-                              <Edit className="w-4 h-4" />
-                            </Button>
+                            <span className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors inline-flex" title="Edit">
+                              <Edit className="h-4 w-4" />
+                            </span>
                           </Link>
                         )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="hover:bg-gray-50 hover:border-gray-200 text-red-600 hover:text-red-700"
+                        <button
                           onClick={() => handleDelete(item)}
                           disabled={item.hasProductCreated}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            item.hasProductCreated
+                              ? 'text-gray-300 cursor-not-allowed'
+                              : 'text-gray-500 hover:text-red-600 hover:bg-red-50'
+                          }`}
+                          title={item.hasProductCreated ? 'Has linked product' : 'Delete'}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -481,8 +450,8 @@ export default function Inventory() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Stock History Modal */}
       {stockHistoryModal.item && (

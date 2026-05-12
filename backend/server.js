@@ -250,6 +250,14 @@ if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
 
+    // Start cron jobs
+    try {
+      const { startOverdueSettlementCheck } = require('./jobs/overdueSettlements');
+      startOverdueSettlementCheck();
+    } catch (error) {
+      console.error('Failed to start cron jobs:', error.message);
+    }
+
     // Set up periodic session cleanup (every 6 hours) - only for local dev
     setInterval(
       async () => {

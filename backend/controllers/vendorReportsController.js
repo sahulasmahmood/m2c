@@ -139,14 +139,14 @@ const getVendorOverviewReport = async (req, res) => {
         const topProductsData = await Promise.all(topSellingProducts.map(async p => {
             const product = await prisma.product.findUnique({
                 where: { id: p.productId },
-                select: { inStock: true, rating: true }
+                select: { totalStock: true, rating: true }
             });
             return {
                 id: p.productId,
                 name: p.productName,
                 sales: p._sum.quantity || 0,
                 revenue: p._sum.totalPrice || 0,
-                stock: product?.inStock ? 1 : 0, // Fallback as inStock might be boolean
+                stock: product?.totalStock ?? 0,
                 trend: 0, // Mock trend for now
                 rating: product?.rating || 0
             };

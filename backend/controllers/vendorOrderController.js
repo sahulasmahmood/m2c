@@ -264,6 +264,20 @@ const updateVendorOrderStatus = async (req, res) => {
             }
         }
 
+        // Notify admins about vendor shipment status change
+        const statusLabels = {
+            'VENDOR_PROCESSING': 'Vendor Processing',
+            'PACKED_BY_VENDOR': 'Packed by Vendor',
+            'IN_TRANSIT_TO_ADMIN_HUB': 'Shipped to Hub',
+        };
+        const { createNotificationForRole: notifyAdminsShipment } = require('./notificationController');
+        notifyAdminsShipment({
+            role: 'ADMIN', type: 'ORDER_STATUS_CHANGE',
+            title: `Order ${statusLabels[status] || status.replace(/_/g, ' ')}`,
+            message: `Order #${updatedShipment.order?.orderId || ''} — ${updatedShipment.vendorName} updated to "${statusLabels[status] || status}".`,
+            data: { orderId: shipment.orderId, shipmentId: shipment.id }
+        }).catch(() => {});
+
         res.json({
             success: true,
             data: normalizeShipment(updatedShipment),

@@ -124,6 +124,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         // Store auth data
         qcCheckerService.storeCheckerAuth(result.data.token, result.data.checker);
 
+        // Register FCM push token (fire-and-forget)
+        import('@/services/webNotificationService').then(m => m.registerWebPushToken()).catch(() => {});
+
         // Call onLogin callback with the checker ID
         onLogin(result.data.checker.checkerId);
       }

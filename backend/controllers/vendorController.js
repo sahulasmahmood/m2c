@@ -426,6 +426,15 @@ const registerVendor = async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
+    // Notify admins about new vendor registration
+    const { createNotificationForRole: notifyAdminsReg } = require('./notificationController');
+    notifyAdminsReg({
+      role: 'ADMIN', type: 'NEW_VENDOR_REGISTRATION',
+      title: 'New Vendor Registration',
+      message: `${vendor.companyName} has submitted a vendor registration.`,
+      data: { vendorId: vendor.id }
+    }).catch(() => {});
+
     res.status(201).json({
       message: 'Vendor registration submitted successfully',
       vendor: {
@@ -979,6 +988,14 @@ const approveVendor = async (req, res) => {
       // The vendor is still approved, just log the email error
     }
 
+    // Notify vendor
+    const { createNotification: createVendorNotif } = require('./notificationController');
+    createVendorNotif({
+      userId: vendor.id, role: 'VENDOR', type: 'VENDOR_STATUS_CHANGED',
+      title: 'Vendor Application Approved',
+      message: `Congratulations! Your vendor application for "${vendor.companyName}" has been approved.`,
+    }).catch(() => {});
+
     res.json({
       message: 'Vendor approved successfully and credentials sent via email',
       vendor: {
@@ -1093,6 +1110,14 @@ const suspendVendor = async (req, res) => {
       console.error('❌ Failed to send suspension email:', emailError);
       // Don't fail the suspension process if email fails
     }
+
+    // Notify vendor
+    const { createNotification: createSuspendNotif } = require('./notificationController');
+    createSuspendNotif({
+      userId: vendor.id, role: 'VENDOR', type: 'VENDOR_STATUS_CHANGED',
+      title: 'Account Suspended',
+      message: `Your vendor account has been suspended.${reason ? ` Reason: ${reason}` : ''}`,
+    }).catch(() => {});
 
     res.json({
       message: 'Vendor suspended successfully and notification sent via email',

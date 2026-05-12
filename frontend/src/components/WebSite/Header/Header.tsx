@@ -24,6 +24,7 @@ import { userAuthService } from "@/services/userAuthService";
 import { categoryService } from "@/services/categoryService";
 import { couponService } from "@/services/couponService";
 import { companyInfoService } from "@/services/companyInfoService";
+import NotificationDropdown from "@/components/Shared/NotificationDropdown";
 
 const Header = () => {
   const pathname = usePathname();
@@ -384,6 +385,9 @@ const Header = () => {
 
             {/* Section 3: Action Icons (30% on desktop, 50% on mobile/tablet) */}
             <div className="w-[50%] md:w-[30%] flex items-center justify-end gap-1 sm:gap-2 md:gap-3 shrink-0">
+              {/* Notifications (logged-in users only) */}
+              {isUserLoggedIn && <NotificationDropdown />}
+
               {/* Wishlist */}
               <Link
                 href="/wishlist"

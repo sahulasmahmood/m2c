@@ -1624,6 +1624,23 @@ model DeviceToken {
   @@map("device_tokens")
 }
 
+// In-app notifications (persisted for dropdown UI + history)
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   // recipient's ID (vendorId, adminId, or customerId)
+  role      String   // ADMIN, VENDOR, USER — determines which dashboard shows it
+  type      String   // ORDER_RECEIVED, PRODUCT_APPROVED, PAYMENT_RECEIVED, etc.
+  title     String
+  message   String
+  data      Json?    // optional metadata (orderId, productId, etc.)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, role, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
 // ============================================
 // ANALYTICS & TRACKING
 // ============================================

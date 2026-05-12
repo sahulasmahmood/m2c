@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useVendorAuth } from '@/hooks/useVendorAuth'
+import NotificationDropdown from '@/components/Shared/NotificationDropdown'
 import { Button } from '@/components/UI/Button'
 import { Badge } from '@/components/UI/Badge'
 import {
@@ -32,11 +33,10 @@ interface VendorHeaderProps {
 export default function VendorHeader({ onMenuToggle, isSidebarOpen = true }: VendorHeaderProps) {
   const { vendor, loading, logout } = useVendorAuth()
   const router = useRouter()
-  const [showNotifications, setShowNotifications] = useState(false)
+  // Notification dropdown is handled by NotificationDropdown component
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const pathname = usePathname()
-  const notificationsRef = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
   // Redirect if not authenticated
@@ -48,6 +48,7 @@ export default function VendorHeader({ onMenuToggle, isSidebarOpen = true }: Ven
 
   // Handle logout
   const handleLogout = () => {
+    import('@/services/webNotificationService').then(m => m.unregisterWebPushToken()).catch(() => {})
     logout()
     router.push('/vendor')
   }
@@ -55,22 +56,19 @@ export default function VendorHeader({ onMenuToggle, isSidebarOpen = true }: Ven
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
-        setShowNotifications(false)
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false)
       }
     }
 
-    if (showNotifications || showUserMenu) {
+    if (showUserMenu) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showNotifications, showUserMenu])
+  }, [showUserMenu])
 
   // Map pathnames to titles and icons
   const getPageInfo = () => {
@@ -110,31 +108,6 @@ export default function VendorHeader({ onMenuToggle, isSidebarOpen = true }: Ven
 
   const { title, icon: PageIcon } = getPageInfo()
 
-  const notifications = [
-    {
-      id: 1,
-      title: 'New Order Received',
-      message: 'Order #1234 has been placed',
-      time: '5 min ago',
-      unread: true,
-    },
-    {
-      id: 2,
-      title: 'Product Review',
-      message: 'New 5-star review for Handwoven Cotton Towel',
-      time: '1 hour ago',
-      unread: true,
-    },
-    {
-      id: 3,
-      title: 'Payment Received',
-      message: 'Payment of $1,245.00 has been processed',
-      time: '2 hours ago',
-      unread: false,
-    },
-  ]
-
-  const unreadCount = notifications.filter(n => n.unread).length
 
   // Show loading state if vendor data is not available
   if (loading || !vendor) {
@@ -210,61 +183,7 @@ export default function VendorHeader({ onMenuToggle, isSidebarOpen = true }: Ven
             </Button>
 
             {/* Notifications */}
-            <div className="relative" ref={notificationsRef}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative text-gray-700 hover:bg-gray-100"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-[#222222] text-white text-xs flex items-center justify-center p-0">
-                    {unreadCount}
-                  </Badge>
-                )}
-              </Button>
-
-              {/* Notifications Dropdown */}
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                  <div className="p-4 border-b border-gray-200 bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-[#222222]">Notifications</h3>
-                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-[#222222]">
-                        Mark all read
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto">
-                    {notifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`border-b border-gray-100 p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                          notification.unread ? 'bg-gray-50' : ''
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-[#222222]">{notification.title}</h4>
-                            <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                            <p className="text-xs text-gray-400 mt-2">{notification.time}</p>
-                          </div>
-                          {notification.unread && (
-                            <div className="w-2 h-2 bg-[#222222] rounded-full mt-1 ml-2"></div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t border-gray-200 p-3 bg-gray-50">
-                    <button className="text-[#222222] text-sm font-medium hover:text-gray-700">
-                      View all notifications
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationDropdown />
 
             {/* User Menu */}
             <div className="relative" ref={userMenuRef}>

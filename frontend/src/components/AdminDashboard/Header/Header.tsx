@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/UI/Button'
 import { Badge } from '@/components/UI/Badge'
 import { getStoredAuth, logout } from '@/lib/auth'
+import NotificationDropdown from '@/components/Shared/NotificationDropdown'
 import {
   Bell,
   Settings,
@@ -36,11 +37,10 @@ interface HeaderProps {
 }
 
 export default function Header({ onMenuToggle, isSidebarOpen = true }: HeaderProps) {
-  const [showNotifications, setShowNotifications] = useState(false)
+  // Notification dropdown handled by shared NotificationDropdown component
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const pathname = usePathname()
-  const notificationsRef = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
   // Get current user data
@@ -54,27 +54,25 @@ export default function Header({ onMenuToggle, isSidebarOpen = true }: HeaderPro
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
-        setShowNotifications(false)
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false)
       }
     }
 
-    if (showNotifications || showUserMenu) {
+    if (showUserMenu) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showNotifications, showUserMenu])
+  }, [showUserMenu])
 
   // Handle logout
   const handleLogout = async () => {
     try {
       setShowUserMenu(false) // Close the menu first
+      import('@/services/webNotificationService').then(m => m.unregisterWebPushToken()).catch(() => {})
       await logout()
     } catch (error) {
       console.error('Logout error:', error)
@@ -217,32 +215,6 @@ export default function Header({ onMenuToggle, isSidebarOpen = true }: HeaderPro
 
   const { title, icon: PageIcon } = getPageInfo()
 
-  const notifications = [
-    {
-      id: 1,
-      title: 'New vendor registration',
-      message: 'TechStore Pro has submitted registration',
-      time: '2 min ago',
-      unread: true,
-    },
-    {
-      id: 2,
-      title: 'Product approval needed',
-      message: 'iPhone 15 Pro requires approval',
-      time: '5 min ago',
-      unread: true,
-    },
-    {
-      id: 3,
-      title: 'Order dispute',
-      message: 'Customer dispute for order #12345',
-      time: '10 min ago',
-      unread: false,
-    },
-  ]
-
-  const unreadCount = notifications.filter(n => n.unread).length
-
   return (
     <header className="p-2 font-sans sticky top-0 z-30">
       <div className="px-6 py-4 bg-white rounded-full border border-gray-300 p-2 mb-2 shadow-md">
@@ -312,61 +284,7 @@ export default function Header({ onMenuToggle, isSidebarOpen = true }: HeaderPro
             </Button> */}
 
             {/* Notifications */}
-            <div className="relative" ref={notificationsRef}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative text-gray-700 hover:bg-gray-100"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-[#222222] text-white text-xs flex items-center justify-center p-0">
-                    {unreadCount}
-                  </Badge>
-                )}
-              </Button>
-
-              {/* Notifications Dropdown */}
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                  <div className="p-4 border-b border-gray-200 bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-[#222222]">Notifications</h3>
-                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-[#222222]">
-                        Mark all read
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto">
-                    {notifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`border-b border-gray-100 p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                          notification.unread ? 'bg-gray-50' : ''
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-[#222222]">{notification.title}</h4>
-                            <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                            <p className="text-xs text-gray-400 mt-2">{notification.time}</p>
-                          </div>
-                          {notification.unread && (
-                            <div className="w-2 h-2 bg-[#222222] rounded-full mt-1 ml-2"></div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t border-gray-200 p-3 bg-gray-50">
-                    <button className="text-[#222222] text-sm font-medium hover:text-gray-700">
-                      View all notifications
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationDropdown />
 
             {/* User Menu */}
             <div className="relative" ref={userMenuRef}>

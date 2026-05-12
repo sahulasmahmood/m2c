@@ -59,6 +59,15 @@ const createTicket = async (req, res) => {
             },
         });
 
+        // Notify admins about new support ticket
+        const { createNotificationForRole: notifyAdminsTicket } = require('./notificationController');
+        notifyAdminsTicket({
+            role: 'ADMIN', type: 'NEW_SUPPORT_TICKET',
+            title: 'New Support Ticket',
+            message: `"${subject}" from ${creatorName} (${role})`,
+            data: { ticketId: ticket.id }
+        }).catch(() => {});
+
         res.status(201).json({
             success: true,
             data: ticket,
@@ -266,6 +275,20 @@ const addTicketMessage = async (req, res) => {
             where: { id },
             data: { updatedAt: new Date() },
         });
+
+        // Notify the other party about the reply
+        const { createNotification: createSupportNotif } = require('./notificationController');
+        if (role === 'admin' || role === 'super_admin') {
+            // Admin replied → notify vendor/user who created the ticket
+            createSupportNotif({
+                userId: ticket.creatorId,
+                role: ticket.creatorType === 'vendor' ? 'VENDOR' : 'USER',
+                type: 'SUPPORT_REPLY',
+                title: 'New Support Reply',
+                message: `New reply on your ticket "${ticket.subject}".`,
+                data: { ticketId: ticket.id }
+            }).catch(() => {});
+        }
 
         res.status(201).json({
             success: true,

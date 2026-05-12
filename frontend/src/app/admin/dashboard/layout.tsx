@@ -5,6 +5,7 @@ import Header from '@/components/AdminDashboard/Header/Header'
 import Sidebar from '@/components/AdminDashboard/Sidebar/Sidebar'
 import Footer from '@/components/AdminDashboard/Footer/Footer'
 import ProtectedRoute from '@/components/AdminDashboard/ProtectedRoute'
+import { NotificationProvider } from '@/components/Shared/NotificationProvider'
 import { useStorageSync } from '@/hooks/useStorageSync'
 import { clearAuth } from '@/lib/auth'
 
@@ -23,6 +24,7 @@ export default function DashboardLayout({
 
   return (
     <ProtectedRoute>
+      <NotificationProvider>
       <div className="flex h-screen bg-slate-50 font-sans">
         {/* Sidebar */}
         <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'} fixed inset-y-0 left-0 z-50 w-64 transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
@@ -53,6 +55,7 @@ export default function DashboardLayout({
           {/* <Footer /> */}
         </div>
       </div>
+      </NotificationProvider>
     </ProtectedRoute>
   )
 }

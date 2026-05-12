@@ -2,14 +2,28 @@ const express = require('express');
 const router = express.Router();
 const { prisma } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { sendToDevice, notifications } = require('../utils/notificationService');
+const {
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+  getUnreadCount,
+} = require('../controllers/notificationController');
+
+let sendToDevice, notifications;
+try {
+  const svc = require('../utils/notificationService');
+  sendToDevice = svc.sendToDevice;
+  notifications = svc.notifications;
+} catch {
+  // FCM not configured — push disabled
+}
 
 // Register / update a device token (called on app login)
 router.post('/register-token', authenticateToken, async (req, res) => {
   try {
     const { token, platform } = req.body;
-    const userId = req.user.id || req.user.checkerId;
-    const role = req.user.role;
+    const userId = req.user.vendorId || req.user.id || req.user.checkerId;
+    const role = (req.user.role || 'USER').toUpperCase();
 
     if (!token || !platform) {
       return res.status(400).json({ success: false, error: 'Token and platform are required' });
@@ -44,5 +58,11 @@ router.delete('/remove-token', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to remove token' });
   }
 });
+
+// In-app notification routes
+router.get('/', authenticateToken, getNotifications);
+router.get('/unread-count', authenticateToken, getUnreadCount);
+router.put('/read-all', authenticateToken, markAllAsRead);
+router.put('/:id/read', authenticateToken, markAsRead);
 
 module.exports = router;

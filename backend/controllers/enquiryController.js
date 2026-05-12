@@ -37,6 +37,15 @@ const submitEnquiry = async (req, res) => {
             }
         });
 
+        // Notify admins about new enquiry
+        const { createNotificationForRole: notifyAdminsEnquiry } = require('./notificationController');
+        notifyAdminsEnquiry({
+            role: 'ADMIN', type: 'NEW_ENQUIRY',
+            title: 'New Vendor Enquiry',
+            message: `${companyName} (${name}) submitted a vendor enquiry.`,
+            data: { enquiryId: enquiry.id }
+        }).catch(() => {});
+
         res.status(201).json({
             success: true,
             message: 'Your application has been submitted successfully. We will review and get back to you soon.',

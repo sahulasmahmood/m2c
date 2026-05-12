@@ -107,6 +107,20 @@ const createOrUpdateShipmentReview = async (req, res) => {
             return review;
         });
 
+        // Notify vendor about the review
+        if (vendorId) {
+            const { createNotification: createReviewNotif } = require('./notificationController');
+            const ratingText = rating ? `${rating}-star` : '';
+            createReviewNotif({
+                userId: vendorId, role: 'VENDOR', type: 'REVIEW_RECEIVED',
+                title: approved ? 'Shipment Approved' : 'Shipment Rejected',
+                message: approved
+                    ? `Your shipment received a ${ratingText} review.${reviewComments ? ` "${reviewComments}"` : ''}`
+                    : `Your shipment was rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`,
+                data: { shipmentId }
+            }).catch(() => {});
+        }
+
         res.status(existingReview ? 200 : 201).json({
             success: true,
             data: result,

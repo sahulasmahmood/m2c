@@ -9,7 +9,7 @@ import { showErrorToast } from "@/lib/toast-utils";
 type ReviewsPayload = Awaited<ReturnType<typeof orderService.getVendorReviews>>["data"];
 type Pagination = Awaited<ReturnType<typeof orderService.getVendorReviews>>["pagination"];
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 function getPageRange(current: number, total: number): Array<number | '…'> {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -45,9 +45,9 @@ export default function VendorReviewsPage() {
         setData(res.data);
         setPagination(res.pagination);
       }
-    } catch (err: any) {
+    } catch (err) {
       if (controller.signal.aborted) return;
-      showErrorToast(err.message || "Failed to load reviews");
+      showErrorToast(err instanceof Error ? err.message : "Failed to load reviews");
     } finally {
       if (!controller.signal.aborted) {
         setLoading(false);
@@ -87,9 +87,9 @@ export default function VendorReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reviews & Ratings</h1>
-        <p className="text-sm text-gray-600 mt-1">
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <h1 className="text-xl font-bold text-gray-900">Reviews & Ratings</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
           Feedback from the admin hub on every delivery you&apos;ve made.
         </p>
       </div>
@@ -198,19 +198,22 @@ export default function VendorReviewsPage() {
             </p>
           </div>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
             {filteredReviews.map((r) => {
               const firstItem = r.order.items[0];
               const extra = r.order.items.length > 1 ? ` +${r.order.items.length - 1} more` : "";
               return (
-                <li key={r.id} className="p-5">
-                  <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
-                    <div className="flex items-center gap-3">
+                <div key={r.id} className={`rounded-xl border p-4 transition-colors ${
+                  r.approved ? 'border-gray-200 bg-gray-50/50 hover:border-gray-300' : 'border-red-200 bg-red-50/30 hover:border-red-300'
+                }`}>
+                  {/* Top row: status + stars + date */}
+                  <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                    <div className="flex items-center gap-2.5">
                       <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full border ${
                           r.approved
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                            ? "bg-green-50 text-green-700 border-green-200"
+                            : "bg-red-50 text-red-700 border-red-200"
                         }`}
                       >
                         {r.approved ? (
@@ -235,51 +238,56 @@ export default function VendorReviewsPage() {
                         </div>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {r.reviewedAt
-                        ? new Date(r.reviewedAt).toLocaleString("en-IN")
-                        : new Date(r.createdAt).toLocaleString("en-IN")}
-                    </div>
+                    <span className="text-xs text-gray-400">
+                      {new Date(r.reviewedAt || r.createdAt).toLocaleString("en-IN", {
+                        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                      })}
+                    </span>
                   </div>
 
+                  {/* Order link */}
                   <Link
                     href={`/vendor/dashboard/orders/view/${r.shipment?.id ?? r.order.id}`}
-                    className="text-sm text-gray-700 hover:underline flex items-center gap-1.5 mb-2"
+                    className="inline-flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 transition-colors mb-3 group"
                   >
-                    <Package className="h-4 w-4 text-gray-500" />
-                    <span className="font-semibold">{r.order.orderId}</span>
-                    <span className="text-gray-500">
+                    <Package className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-600" />
+                    <span className="font-semibold group-hover:underline">{r.order.orderId}</span>
+                    <span className="text-gray-500 text-xs">
                       &middot; {firstItem?.productName || "Order"}{extra}
                     </span>
                   </Link>
 
+                  {/* Review content */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {r.reviewComments && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-600 mb-0.5">Review</p>
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{r.reviewComments}</p>
+                      <div className="bg-white rounded-lg p-3 border border-gray-100">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Review</p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{r.reviewComments}</p>
                       </div>
                     )}
                     {r.qualityCheckNotes && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-600 mb-0.5">Quality Notes</p>
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{r.qualityCheckNotes}</p>
+                      <div className="bg-white rounded-lg p-3 border border-gray-100">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Quality Notes</p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{r.qualityCheckNotes}</p>
                       </div>
                     )}
                     {!r.approved && r.rejectionReason && (
-                      <div className="md:col-span-2 bg-red-50 border border-red-200 rounded-md p-3">
-                        <p className="text-xs font-semibold text-red-800 mb-0.5">Reason for rejection</p>
-                        <p className="text-sm text-red-800 whitespace-pre-wrap">{r.rejectionReason}</p>
-                        {r.returnToVendor && (
-                          <p className="text-xs text-red-700 italic mt-1">Order will be returned to you.</p>
-                        )}
+                      <div className="md:col-span-2 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">Rejection Reason</p>
+                        <p className="text-sm text-red-800 whitespace-pre-wrap leading-relaxed">{r.rejectionReason}</p>
+                        {r.returnToVendor ? (
+                          <p className="text-xs text-red-600 italic mt-2 flex items-center gap-1">
+                            <XCircle className="h-3 w-3" />
+                            Order will be returned to you.
+                          </p>
+                        ) : null}
                       </div>
                     )}
                   </div>
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
 
         {/* Pagination */}
