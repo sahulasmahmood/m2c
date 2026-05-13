@@ -442,6 +442,12 @@ export default function ViewProduct({ productId }: ViewProductProps) {
               </h2>
             </div>
             <div className="p-4 space-y-4">
+              {product.baseSku && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Base SKU</p>
+                  <p className="text-sm text-gray-900 mt-0.5 font-mono">{product.baseSku}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Category</p>
                 <p className="text-sm text-gray-900 mt-0.5">{product.category}</p>
