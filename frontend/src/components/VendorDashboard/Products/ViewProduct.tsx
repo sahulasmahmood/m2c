@@ -406,12 +406,6 @@ export default function ViewProduct({ productId }: ViewProductProps) {
                 <span className="text-sm text-gray-500">Vendor Price</span>
                 <span className="text-lg font-bold text-gray-900">₹{product.basePrice}</span>
               </div>
-              {product.adminFixedPrice ? (
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">Admin Price</span>
-                  <span className="text-lg font-bold text-green-700">₹{product.adminFixedPrice}</span>
-                </div>
-              ) : null}
               {product.originalPrice && product.originalPrice > product.basePrice ? (
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Original (MRP)</span>
