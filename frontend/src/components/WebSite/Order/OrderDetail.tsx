@@ -226,7 +226,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             <div>
               <div className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${getStatusColorClass(orderDetails.status)}`}>
                 <Package className="w-4 h-4 mr-1" />
-                {formatStatus(orderDetails.status)}
+                {formatStatus(getNormalizedStatus(orderDetails.status))}
               </div>
             </div>
           </div>

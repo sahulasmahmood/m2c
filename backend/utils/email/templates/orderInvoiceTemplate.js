@@ -110,7 +110,7 @@ const getOrderInvoiceHTML = (order, adminSettings = {}, isForPDF = false) => {
         <img
           src="${companyLogo}"
           alt="${companyName} logo"
-          style="height:64px; width:auto; object-fit:contain; border-radius:8px; background:#fff; padding:4px;"
+          style="height:64px; width:auto; object-fit:contain; border-radius:8px;"
         />` : ''}
         <div>
           ${(companyName !== 'M2C Store' && companyName !== 'M2C Marketplace Pvt Ltd') ? `<div style="font-size:26px; font-weight:800; color:#fff; letter-spacing:-0.5px; margin-bottom:4px;">${companyName}</div>` : ''}

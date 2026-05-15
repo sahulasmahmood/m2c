@@ -169,7 +169,7 @@ export default function InvoiceDetail({ invoiceId }: InvoiceDetailProps) {
               <img
                 src={companyLogo}
                 alt={`${companyName} logo`}
-                className="h-16 w-auto object-contain rounded-lg bg-white p-1"
+                className="h-16 w-auto object-contain rounded-lg"
               />
             )}
             <div>
