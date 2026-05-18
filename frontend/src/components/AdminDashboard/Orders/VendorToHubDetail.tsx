@@ -289,13 +289,24 @@ export default function VendorToHubDetail({ orderId }: VendorToHubDetailProps) {
             <h3 className="text-sm font-medium text-gray-900 mb-2">Customer Info</h3>
             <p className="text-sm text-gray-600">{order?.customerName}</p>
             <p className="text-sm text-gray-600">{order?.customerEmail}</p>
-            <p className="text-sm text-gray-600">{order?.customerPhone ? formatPhoneForDisplay(order.customerPhone, order?.shippingAddress?.country) : ""}</p>
+            {order?.customerPhone && (
+              <p className="text-sm text-gray-600">{formatPhoneForDisplay(order.customerPhone, order?.shippingAddress?.country)}</p>
+            )}
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-900 mb-2">Shipping Address</h3>
             <div className="text-sm text-gray-600">
               {order?.shippingAddress ? (
                 <>
+                  {(() => {
+                    const a = order.shippingAddress;
+                    const recipient = a.firstName && a.lastName
+                      ? `${a.firstName} ${a.lastName}`
+                      : a.firstName || a.name || "";
+                    return recipient ? (
+                      <p className="font-medium text-gray-900">{recipient}</p>
+                    ) : null;
+                  })()}
                   <p>{order.shippingAddress.address || order.shippingAddress.street}</p>
                   {order.shippingAddress.addressLine2 && <p>{order.shippingAddress.addressLine2}</p>}
                   <p>{order.shippingAddress.city}, {getStateName(order.shippingAddress.state ?? "", order.shippingAddress.country)} {order.shippingAddress.zipCode}</p>
