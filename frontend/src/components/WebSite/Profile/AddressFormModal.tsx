@@ -152,10 +152,16 @@ export default function AddressFormModal({
 
   const handleBlur = (field: keyof FormState) => {
     setTouched((t) => ({ ...t, [field]: true }));
+    // Skip non-text fields managed by their own components (country dropdown, state
+    // <select> when a list exists). Reading form[field] here would be stale because
+    // the dropdown's onChange + onBlur fire in the same tick, so trimming the "old"
+    // value would overwrite the freshly-selected one.
+    if (field === "country") return;
+    if (field === "state" && hasStateList) return;
     if (typeof form[field] === "string") {
       const v = form[field] as string;
-      if (field === "zipCode") setField(field, v.trim().toUpperCase() as any);
-      else setField(field, v.trim() as any);
+      if (field === "zipCode") setField(field, v.trim().toUpperCase() as FormState[typeof field]);
+      else setField(field, v.trim() as FormState[typeof field]);
     }
   };
 

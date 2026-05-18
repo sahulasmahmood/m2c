@@ -116,10 +116,15 @@ export default function ShippingForm({ formData, updateFormData, disabled = fals
 
   const handleBlur = (field: keyof CheckoutFormData) => {
     setTouched((prev) => ({ ...prev, [field]: true }))
+    // Skip non-text fields managed by their own components (country dropdown, state
+    // <select> when a list exists). Reading formData[field] here would be stale because
+    // the dropdown's onChange + onBlur fire in the same tick, so trimming the "old" value
+    // would overwrite the freshly-selected one.
+    if (field === "country") return
+    if (field === "state" && hasStateList) return
     if (typeof formData[field] === "string") {
       const val = formData[field] as string
       if (field === "email") updateFormData(field, val.trim().toLowerCase())
-      else if (field === "state" && !hasStateList) updateFormData(field, val.trim())
       else if (field === "zipCode") updateFormData(field, val.trim().toUpperCase())
       else updateFormData(field, val.trim())
     }
