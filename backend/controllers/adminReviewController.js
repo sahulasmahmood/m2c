@@ -301,7 +301,7 @@ const getAllAdminReviews = async (req, res) => {
             ];
         }
 
-        const [reviews, totalCount, approvedCount, rejectedCount] = await Promise.all([
+        const [reviews, totalCount, approvedCount, rejectedCount, ratingAgg] = await Promise.all([
             prisma.adminReview.findMany({
                 where,
                 include: {
@@ -321,7 +321,18 @@ const getAllAdminReviews = async (req, res) => {
             prisma.adminReview.count({ where }),
             prisma.adminReview.count({ where: { ...where, approved: true } }),
             prisma.adminReview.count({ where: { ...where, approved: false } }),
+            // Average rating across ALL matching reviews (not just the current page).
+            // Required so the stats card shown above the list reflects the full
+            // dataset instead of just the visible page.
+            prisma.adminReview.aggregate({
+                where: { ...where, rating: { not: null } },
+                _avg: { rating: true },
+            }),
         ]);
+
+        const averageRating = ratingAgg?._avg?.rating
+            ? Number(ratingAgg._avg.rating.toFixed(1))
+            : 0;
 
         let ratingDistribution;
         if (vendorId) {
@@ -348,6 +359,7 @@ const getAllAdminReviews = async (req, res) => {
                 total: totalCount,
                 approved: approvedCount,
                 rejected: rejectedCount,
+                averageRating,
             },
             ...(ratingDistribution && { ratingDistribution }),
         });
