@@ -61,6 +61,7 @@ export interface AdminOrderReviewsResponse {
         total: number;
         approved: number;
         rejected: number;
+        averageRating: number;
     };
     ratingDistribution?: Record<number, number>;
 }
