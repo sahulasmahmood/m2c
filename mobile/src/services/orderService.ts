@@ -102,7 +102,8 @@ class OrderService {
       const response = await axios.post('/orders', params);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to create order');
+      const apiError = error?.response?.data;
+      throw new Error(apiError?.detail || apiError?.error || 'Failed to create order');
     }
   }
 
