@@ -144,7 +144,11 @@ class OrderService {
             const response = await axios.post('/orders', params);
             return response.data;
         } catch (error: any) {
-            throw new Error(error.message || 'Failed to create order');
+            // Prefer the backend's actual error (e.g. transaction timeout, stock issue)
+            // over the axios "Request failed with status code 500" message.
+            const apiError = error?.response?.data;
+            const message = apiError?.detail || apiError?.error || error.message || 'Failed to create order';
+            throw new Error(message);
         }
     }
 

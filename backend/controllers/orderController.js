@@ -61,22 +61,24 @@ const createOrder = async (req, res) => {
         const vendorTotals = {}; // Tracks vendor amounts using their base prices
 
 
-        // Helper to get vendor details
-        // We need to fetch product details for each item to get price, vendor, etc.
-        for (const item of cart.items) {
-            const product = await prisma.product.findUnique({
-                where: { id: item.productId },
-                include: {
-                    vendor: true, // Need vendor info for OrderItem
-                    variants: item.variantId ? {
-                        where: { id: item.variantId }
-                    } : false,
-                    images: {
-                        where: { isPrimary: true },
-                        take: 1
+        // Fetch all products in parallel — sequential awaits add latency that
+        // pushes the downstream transaction past its 5s default on cold starts.
+        const productsForItems = await Promise.all(
+            cart.items.map((item) =>
+                prisma.product.findUnique({
+                    where: { id: item.productId },
+                    include: {
+                        vendor: true,
+                        variants: item.variantId ? { where: { id: item.variantId } } : false,
+                        images: { where: { isPrimary: true }, take: 1 }
                     }
-                }
-            });
+                })
+            )
+        );
+
+        for (let i = 0; i < cart.items.length; i++) {
+            const item = cart.items[i];
+            const product = productsForItems[i];
 
             if (!product) {
                 return res.status(404).json({
@@ -438,6 +440,13 @@ const createOrder = async (req, res) => {
             });
 
             return newOrder;
+        }, {
+            // Order creation runs many sequential writes (order, stock revalidation,
+            // variant + inventory updates, stockChangeHistory, settlements, vendor
+            // shipments, cart cleanup). The 5s Prisma default is not enough on
+            // Vercel serverless cold starts and was silently failing post-payment.
+            maxWait: 10000,
+            timeout: 30000,
         });
 
         // Send low stock / out of stock alerts (outside transaction)
@@ -506,7 +515,11 @@ const createOrder = async (req, res) => {
         console.error('Create order error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to create order'
+            error: 'Failed to create order',
+            // Surface the underlying message so payment-completed-but-order-failed
+            // incidents can be diagnosed without server log access.
+            detail: error?.message || undefined,
+            code: error?.code || undefined,
         });
     }
 };
