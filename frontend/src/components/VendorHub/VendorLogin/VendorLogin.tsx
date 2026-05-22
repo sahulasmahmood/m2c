@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
+import CompanyLogo from '@/components/Shared/CompanyLogo'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/UI/Button'
@@ -18,7 +18,6 @@ import {
 } from 'lucide-react'
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils'
 import { useVendorAuth } from '@/hooks/useVendorAuth'
-import { companyInfoService } from '@/services/companyInfoService'
 import { dispatchAuthChange } from '@/lib/authEvents'
 
 interface LoginFormData {
@@ -31,7 +30,6 @@ export default function VendorLogin() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [emailError, setEmailError] = useState("")
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null)
 
   const emailInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -42,12 +40,6 @@ export default function VendorLogin() {
     password: '',
     rememberMe: false
   })
-
-  useEffect(() => {
-    companyInfoService.getPublicCompanyInfo().then(info => {
-      if (info.companyLogo) setCompanyLogo(info.companyLogo)
-    }).catch(() => {})
-  }, [])
 
   // Autofocus email field on mount
   useEffect(() => {
@@ -153,11 +145,12 @@ export default function VendorLogin() {
             {/* Logo Section */}
             <div className="mb-8">
               <div className="inline-flex items-center justify-center w-44 h-36 mb-6">
-                {companyLogo ? (
-                  <img src={companyLogo} alt="Company Logo" className="object-contain" style={{ width: 190, height: 150 }} />
-                ) : (
-                  <Image src="/assets/logo/m2c-logo.png" alt="Company Logo" width={190} height={150} className="object-contain" />
-                )}
+                <CompanyLogo
+                  className="w-[190px] h-[150px] object-contain"
+                  skeletonClassName="h-[150px] aspect-square bg-white/10"
+                  fallbackWidth={190}
+                  fallbackHeight={150}
+                />
               </div>
               <h1 className="text-4xl font-bold mb-3">
                 Vendor Portal
