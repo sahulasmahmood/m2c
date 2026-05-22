@@ -1,29 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import {
   ShoppingBag,
   Heart,
   Truck,
   Shield,
-  Users,
   Award
 } from 'lucide-react'
-import { companyInfoService } from '@/services/companyInfoService'
+import CompanyLogo from '@/components/Shared/CompanyLogo'
 
 interface LeftSideContentProps {
   isLogin: boolean
 }
 
 export default function LeftSideContent({ isLogin }: LeftSideContentProps) {
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null)
-
-  useEffect(() => {
-    companyInfoService.getPublicCompanyInfo().then(info => {
-      if (info.companyLogo) setCompanyLogo(info.companyLogo)
-    }).catch(() => {})
-  }, [])
   return (
     <div className="hidden lg:flex lg:flex-1 relative bg-[#000000]">
       <div className="flex items-center justify-center w-full p-12">
@@ -31,21 +21,12 @@ export default function LeftSideContent({ isLogin }: LeftSideContentProps) {
           {/* Logo Section */}
           <div className="mb-8">
             <div className="inline-flex items-center justify-center w-44 h-36 mb-6">
-              {companyLogo ? (
-                <img
-                  src={companyLogo}
-                  alt="Company Logo"
-                  className="object-contain w-[190px] h-[150px]"
-                />
-              ) : (
-                <Image
-                  src="/assets/logo/m2c-logo.png"
-                  alt="Company Logo"
-                  width={190}
-                  height={150}
-                  className="object-contain"
-                />
-              )}
+              <CompanyLogo
+                className="object-contain w-[190px] h-[150px]"
+                skeletonClassName="h-[150px] aspect-square bg-white/10"
+                fallbackWidth={190}
+                fallbackHeight={150}
+              />
             </div>
             <h1 className="text-4xl font-bold mb-3">
               M 2 C MarkDowns Private Limited

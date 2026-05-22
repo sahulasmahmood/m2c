@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Instagram, Facebook, Youtube } from "lucide-react";
 import { categoryService, Category } from "@/services/categoryService";
 import { companyInfoService, PublicCompanyInfo } from "@/services/companyInfoService";
+import CompanyLogo from "@/components/Shared/CompanyLogo";
 
 const MainFooterContent = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -63,23 +63,14 @@ const MainFooterContent = () => {
             <div className="space-y-3 sm:space-y-4 md:space-y-6">
               <div className="inline-block">
                 <Link href="/" className="block">
-                  {companyInfo.companyLogo ? (
-                    <img
-                      src={companyInfo.companyLogo}
-                      alt="Company Logo"
-                      className="object-cover w-32 sm:w-40 md:w-48 lg:w-52 h-auto"
-                    />
-                  ) : (
-                    <Image
-                      src="/assets/logo/m2c-logo.png"
-                      alt="Company Logo"
-                      width={190}
-                      height={50}
-                      sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-                      className="object-cover w-32 sm:w-40 md:w-48 lg:w-52 h-auto"
-                      priority
-                    />
-                  )}
+                  <CompanyLogo
+                    className="object-cover w-32 sm:w-40 md:w-48 lg:w-52 h-auto"
+                    skeletonClassName="w-32 sm:w-40 md:w-48 lg:w-52 aspect-square bg-white/10"
+                    fallbackWidth={190}
+                    fallbackHeight={50}
+                    fallbackSizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+                    priority
+                  />
                 </Link>
               </div>
 
