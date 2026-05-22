@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Breadcrumb from '../Navigation/Breadcrumb';
-import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import { productService, Product, ProductVariant } from '@/services/productService';
 import { cartService } from '@/services/cartService';
 import { userAuthService } from '@/services/userAuthService';
@@ -109,9 +108,95 @@ const ProductDetail = ({ productSlug }: ProductDetailProps) => {
   }, [product?.logisticsConfig, quantity, transportOverride]);
 
   if (loading) {
+    /*
+      Skeleton mirrors the product detail layout: 2-column grid with an
+      aspect-square main image + thumbnails on the left and the title /
+      rating / price / details / stock / shipping stack on the right.
+      Same outer max-w-360 container so the page doesn't reflow when the
+      fetch resolves.
+    */
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <LoadingSpinner />
+      <div className="max-w-360 mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="h-4 w-12 bg-gray-200 rounded animate-pulse" />
+          <div className="h-4 w-4 bg-gray-100 rounded animate-pulse" />
+          <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+          <div className="h-4 w-4 bg-gray-100 rounded animate-pulse" />
+          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+        </div>
+        <div className="bg-white rounded-2xl overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+            {/* Image column skeleton */}
+            <div className="p-8 lg:p-12 bg-linear-to-br from-gray-50 to-white">
+              <div className="aspect-square bg-gray-200 rounded-xl animate-pulse mb-6" />
+              <div className="flex gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="w-20 h-20 bg-gray-200 rounded-lg animate-pulse" />
+                ))}
+              </div>
+            </div>
+
+            {/* Details column skeleton */}
+            <div className="p-8 lg:p-12 space-y-6">
+              {/* Title */}
+              <div className="space-y-3">
+                <div className="h-9 w-3/4 bg-gray-200 rounded animate-pulse" />
+                <div className="h-9 w-1/2 bg-gray-200 rounded animate-pulse" />
+              </div>
+
+              {/* Rating row */}
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-28 bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 w-20 bg-gray-100 rounded animate-pulse" />
+              </div>
+
+              {/* Price card */}
+              <div className="border border-gray-100 rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-28 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-6 w-20 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-6 w-20 bg-gray-200 rounded animate-pulse" />
+                </div>
+                <div className="h-3 w-32 bg-gray-100 rounded animate-pulse" />
+              </div>
+
+              {/* Product details card */}
+              <div className="border border-gray-100 rounded-xl p-5 space-y-4">
+                <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-16 bg-gray-100 rounded animate-pulse" />
+                  <div className="w-7 h-7 bg-gray-200 rounded-full animate-pulse" />
+                  <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                </div>
+              </div>
+
+              {/* Stock card */}
+              <div className="border border-gray-100 rounded-xl p-5 space-y-2">
+                <div className="h-5 w-40 bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 w-64 bg-gray-100 rounded animate-pulse" />
+              </div>
+
+              {/* Shipping card */}
+              <div className="border border-gray-100 rounded-xl p-5 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="h-5 w-40 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-6 w-24 bg-gray-100 rounded-full animate-pulse" />
+                </div>
+                <div className="flex justify-between">
+                  <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div className="h-12 bg-gray-200 rounded-lg animate-pulse" />
+                  <div className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+                </div>
+              </div>
+
+              {/* Add to cart button */}
+              <div className="h-12 w-full bg-gray-200 rounded-lg animate-pulse" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -996,9 +1081,21 @@ const ProductDetail = ({ productSlug }: ProductDetailProps) => {
             <div id="customer-reviews" ref={(el) => { if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); }} className="mt-8 bg-white rounded-2xl shadow-lg p-8 scroll-mt-48">
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Customer Reviews</h3>
               {loadingReviews ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-                  <span className="ml-3 text-gray-500">Loading reviews...</span>
+                /* Skeleton mirrors the review list — 3 review-row placeholders. */
+                <div className="space-y-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="border-b border-gray-100 pb-4 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-200 rounded-full animate-pulse" />
+                        <div className="space-y-1">
+                          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
+                        </div>
+                      </div>
+                      <div className="h-4 w-full bg-gray-100 rounded animate-pulse" />
+                      <div className="h-4 w-3/4 bg-gray-100 rounded animate-pulse" />
+                    </div>
+                  ))}
                 </div>
               ) : reviews.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No reviews yet</p>

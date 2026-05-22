@@ -148,11 +148,39 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
 
   // Loading state
   if (loading) {
+    /* Skeleton mirrors the order detail page (header + items list + totals). */
     return (
       <div className="min-h-screen bg-slate-50 py-8 font-sans">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center min-h-[400px]">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="h-8 w-8 bg-gray-200 rounded animate-pulse" />
+            <div className="h-7 w-48 bg-gray-200 rounded animate-pulse" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-3">
+                <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex gap-4 items-center pt-3">
+                    <div className="w-20 h-20 bg-gray-200 rounded-lg animate-pulse shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-3 w-1/2 bg-gray-100 rounded animate-pulse" />
+                    </div>
+                    <div className="h-5 w-16 bg-gray-200 rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-3 h-fit">
+              <div className="h-5 w-28 bg-gray-200 rounded animate-pulse" />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex justify-between">
+                  <div className="h-4 w-20 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

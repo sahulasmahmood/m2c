@@ -52,11 +52,27 @@ export default function Category() {
   };
 
   if (loading) {
+    // Skeleton mirrors the loaded section (header row + responsive category
+    // grid). We render six placeholder tiles — enough to fill two rows on
+    // desktop and one on mobile — so the skeleton looks intentional even
+    // when the actual category count comes back smaller.
     return (
       <section className="py-16 bg-white font-sans">
         <div className="max-w-420 mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <p className="text-gray-500">Loading categories...</p>
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-10 md:mb-12 lg:mb-16">
+            <div className="flex-1 space-y-3">
+              <div className="h-7 md:h-8 w-48 md:w-64 bg-gray-200 rounded animate-pulse mx-auto lg:mx-0" />
+              <div className="h-4 w-full max-w-md bg-gray-100 rounded animate-pulse mx-auto lg:mx-0" />
+            </div>
+            <div className="h-10 w-32 sm:w-40 bg-gray-200 rounded-lg animate-pulse shrink-0 mx-auto lg:mx-0" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6 items-center justify-center mx-auto">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="text-center">
+                <div className="relative w-full aspect-square mb-4 overflow-hidden rounded-md bg-gray-200 animate-pulse" />
+                <div className="h-5 w-32 bg-gray-200 rounded animate-pulse mx-auto" />
+              </div>
+            ))}
           </div>
         </div>
       </section>

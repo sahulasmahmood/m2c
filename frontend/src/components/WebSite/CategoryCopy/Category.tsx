@@ -94,11 +94,24 @@ export default function Category() {
 
   // Show loading state
   if (loading) {
+    /* Skeleton mirrors the loaded section (header row + responsive category grid). */
     return (
       <section className="py-8 sm:py-12 md:py-16 lg:py-20 bg-white font-sans">
         <div className="max-w-7xl 2xl:max-w-420 mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
-          <div className="text-center">
-            <p className="text-gray-500">Loading categories...</p>
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-10 md:mb-12 lg:mb-16">
+            <div className="flex-1 space-y-3">
+              <div className="h-7 md:h-8 lg:h-10 w-48 md:w-64 bg-gray-200 rounded animate-pulse mx-auto lg:mx-0" />
+              <div className="h-4 md:h-5 w-full max-w-md bg-gray-100 rounded animate-pulse mx-auto lg:mx-0" />
+            </div>
+            <div className="h-10 w-32 sm:w-40 bg-gray-200 rounded-lg animate-pulse shrink-0 mx-auto lg:mx-0" />
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 md:gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="text-center">
+                <div className="relative w-full aspect-square mb-3 overflow-hidden rounded-md bg-gray-200 animate-pulse" />
+                <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mx-auto" />
+              </div>
+            ))}
           </div>
         </div>
       </section>
