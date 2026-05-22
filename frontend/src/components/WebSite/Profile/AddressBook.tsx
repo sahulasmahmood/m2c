@@ -112,9 +112,19 @@ export default function AddressBook() {
   };
 
   if (loading) {
+    /* Skeleton mirrors the address card list. */
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-10 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="border border-slate-100 rounded-lg p-4 space-y-3">
+            <div className="flex justify-between">
+              <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
+              <div className="h-6 w-16 bg-gray-100 rounded-full animate-pulse" />
+            </div>
+            <div className="h-4 w-3/4 bg-gray-100 rounded animate-pulse" />
+            <div className="h-4 w-1/2 bg-gray-100 rounded animate-pulse" />
+          </div>
+        ))}
       </div>
     );
   }

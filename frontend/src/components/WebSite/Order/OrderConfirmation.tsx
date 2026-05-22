@@ -55,9 +55,25 @@ export default function OrderConfirmation({ initialOrder }: OrderConfirmationPro
   }
 
   if (loading) {
+    /* Skeleton mirrors the confirmation card (success icon + heading + totals). */
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-800" />
+      <div className="min-h-screen bg-gray-50 py-12 px-4">
+        <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm p-8 space-y-6">
+          <div className="w-16 h-16 bg-gray-200 rounded-full animate-pulse mx-auto" />
+          <div className="space-y-3 text-center">
+            <div className="h-7 w-64 bg-gray-200 rounded animate-pulse mx-auto" />
+            <div className="h-4 w-80 max-w-full bg-gray-100 rounded animate-pulse mx-auto" />
+          </div>
+          <div className="border-t border-gray-100 pt-6 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex justify-between">
+                <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
+                <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="h-11 w-full bg-gray-200 rounded-lg animate-pulse" />
+        </div>
       </div>
     )
   }

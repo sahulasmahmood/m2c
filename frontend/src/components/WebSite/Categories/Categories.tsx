@@ -50,14 +50,34 @@ export default function Categories() {
   }, []);
 
   if (loading) {
+    /* Skeleton mirrors the loaded page (banner + intro + category grid). */
     return (
       <div className="min-h-screen bg-gray-50 font-sans">
-        <div className="relative h-52 md:h-60 lg:h-80 overflow-hidden bg-gray-200">
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <div className="text-center text-white px-4">
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold font-sans mb-4">
-                Loading Categories...
-              </h1>
+        {/* Banner skeleton — light neutral, same height ladder as loaded banner. */}
+        <div className="relative h-52 md:h-60 lg:h-80 overflow-hidden bg-gray-100">
+          <div className="absolute inset-0 flex items-center justify-center animate-pulse">
+            <div className="text-center px-4 space-y-3 w-full max-w-2xl">
+              <div className="h-10 md:h-12 lg:h-14 w-64 md:w-80 bg-gray-300 rounded-md mx-auto" />
+              <div className="h-4 md:h-5 w-full max-w-md bg-gray-200 rounded mx-auto" />
+              <div className="h-4 md:h-5 w-3/4 max-w-md bg-gray-200 rounded mx-auto" />
+            </div>
+          </div>
+        </div>
+
+        {/* Body skeleton — intro text + category card grid. */}
+        <div className="py-12">
+          <div className="max-w-7xl 2xl:max-w-420 mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-start mb-12 space-y-3">
+              <div className="h-7 w-56 bg-gray-200 rounded animate-pulse" />
+              <div className="h-5 w-80 max-w-full bg-gray-100 rounded animate-pulse" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="text-center">
+                  <div className="relative w-full aspect-square mb-4 overflow-hidden rounded-md bg-gray-200 animate-pulse" />
+                  <div className="h-5 w-32 bg-gray-200 rounded animate-pulse mx-auto" />
+                </div>
+              ))}
             </div>
           </div>
         </div>
