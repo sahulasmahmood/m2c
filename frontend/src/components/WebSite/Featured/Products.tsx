@@ -27,12 +27,31 @@ export default function FeaturedProducts() {
   }, []);
 
   if (isLoading) {
+    // Skeleton that mirrors the loaded section (header row + 4-card product
+    // grid). Same outer section padding as the loaded state so the page
+    // doesn't reflow when the fetch resolves.
     return (
       <section className="bg-white py-8 sm:py-12 md:py-16 lg:py-20 font-sans">
         <div className="max-w-7xl 2xl:max-w-420 mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-700 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading featured products...</p>
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-10 md:mb-12 lg:mb-16">
+            <div className="flex-1 space-y-3">
+              <div className="h-7 md:h-8 w-48 md:w-64 bg-gray-200 rounded animate-pulse mx-auto lg:mx-0" />
+              <div className="h-4 w-full max-w-md bg-gray-100 rounded animate-pulse mx-auto lg:mx-0" />
+            </div>
+            <div className="h-10 w-32 sm:w-40 bg-gray-200 rounded-lg animate-pulse shrink-0 mx-auto lg:mx-0" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 md:gap-6 lg:gap-8">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="h-48 sm:h-64 md:h-72 w-full bg-gray-200 animate-pulse" />
+                <div className="p-4 space-y-3">
+                  <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-5 w-3/4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 w-1/2 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-9 w-full bg-gray-200 rounded animate-pulse mt-3" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

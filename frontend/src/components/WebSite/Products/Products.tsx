@@ -574,11 +574,19 @@ const Products = () => {
             {/* Products Grid */}
             <div className="flex-1 min-w-0">
               {loading ? (
-                <div className="text-center py-12">
-                  <div className="text-gray-400 mb-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto"></div>
-                  </div>
-                  <p className="text-gray-600">Loading products...</p>
+                /* Product grid skeleton — mirrors the 2/2/3-column ProductCard layout below. */
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="bg-white rounded-lg shadow-md overflow-hidden">
+                      <div className="h-48 sm:h-64 md:h-72 w-full bg-gray-200 animate-pulse" />
+                      <div className="p-4 space-y-3">
+                        <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
+                        <div className="h-5 w-3/4 bg-gray-200 rounded animate-pulse" />
+                        <div className="h-4 w-1/2 bg-gray-100 rounded animate-pulse" />
+                        <div className="h-9 w-full bg-gray-200 rounded animate-pulse mt-3" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : filteredProducts.length === 0 ? (
                 <div className="text-center py-12">

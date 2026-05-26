@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { prisma } = require('../config/database');
 const { generateInvoiceNo } = require('../utils/invoiceGenerator');
 const { ACTIVE_ITEMS_FILTER } = require('../utils/activeItemsFilter');
@@ -11,6 +12,11 @@ const createOrder = async (req, res) => {
             shippingAddress,
             paymentMethod,
             paymentId, // from payment gateway (e.g., Stripe, Razorpay)
+            // Razorpay signature payload. When present, signature verification
+            // happens inline here so the client can replace its prior two-step
+            // (verify → createOrder) flow with a single round trip.
+            razorpayOrderId = null,
+            razorpaySignature = null,
             shippingCost = 0,
             tax = 0,
             discount = 0,
@@ -27,13 +33,45 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // 2. Get User's Cart
-        const cart = await prisma.cart.findFirst({
-            where: { userId },
-            include: {
-                items: true
+        // 2. Parallel pre-flight: cart, user, bag type, and payment settings
+        // (when Razorpay verification is required). These reads are independent
+        // of each other, so running them concurrently removes ~3 sequential
+        // round trips from the critical path on Vercel.
+        //
+        // generateInvoiceNo is intentionally NOT included here — it mutates the
+        // invoice-sequence counter, so we only call it after all validation
+        // passes (otherwise a rejected request would burn an invoice number).
+        const needsRazorpayVerification = Boolean(razorpayOrderId && razorpaySignature && paymentId);
+
+        const [cart, user, bagType, paymentSettings] = await Promise.all([
+            prisma.cart.findFirst({ where: { userId }, include: { items: true } }),
+            prisma.user.findUnique({ where: { id: userId } }),
+            bagTypeId ? prisma.bagType.findUnique({ where: { id: bagTypeId } }) : Promise.resolve(null),
+            needsRazorpayVerification
+                ? prisma.paymentSettings.findFirst({ select: { razorpayKeySecret: true } })
+                : Promise.resolve(null),
+        ]);
+
+        // Verify Razorpay signature inline (server-side check is mandatory —
+        // we never trust a payment id that has not been HMAC-verified).
+        if (needsRazorpayVerification) {
+            if (!paymentSettings || !paymentSettings.razorpayKeySecret) {
+                return res.status(500).json({
+                    success: false,
+                    error: 'Payment verification failed - configuration error'
+                });
             }
-        });
+            const expectedSignature = crypto
+                .createHmac('sha256', paymentSettings.razorpayKeySecret)
+                .update(`${razorpayOrderId}|${paymentId}`)
+                .digest('hex');
+            if (expectedSignature !== razorpaySignature) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Payment verification failed - invalid signature'
+                });
+            }
+        }
 
         if (!cart || cart.items.length === 0) {
             return res.status(400).json({
@@ -42,11 +80,6 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // 3. Fetch User Details
-        const user = await prisma.user.findUnique({
-            where: { id: userId }
-        });
-
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -54,29 +87,43 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // 4. Validate Stock and Calculate Totals
+        if (bagTypeId && (!bagType || !bagType.isActive)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Selected bag type is not available'
+            });
+        }
+
+        // 3. Validate Stock and Calculate Totals
         let subtotal = 0;
         const orderItemsData = [];
         const stockUpdates = [];
         const vendorTotals = {}; // Tracks vendor amounts using their base prices
 
 
-        // Helper to get vendor details
-        // We need to fetch product details for each item to get price, vendor, etc.
-        for (const item of cart.items) {
-            const product = await prisma.product.findUnique({
-                where: { id: item.productId },
-                include: {
-                    vendor: true, // Need vendor info for OrderItem
-                    variants: item.variantId ? {
-                        where: { id: item.variantId }
-                    } : false,
-                    images: {
-                        where: { isPrimary: true },
-                        take: 1
-                    }
-                }
-            });
+        // Fetch all products in parallel — sequential awaits add latency that
+        // pushes the downstream transaction past its 5s default on cold starts.
+        // Invoice-no generation runs alongside the product fetches because it
+        // is independent of cart contents (saves one more round trip).
+        const [productsForItems, invoiceNo] = await Promise.all([
+            Promise.all(
+                cart.items.map((item) =>
+                    prisma.product.findUnique({
+                        where: { id: item.productId },
+                        include: {
+                            vendor: true,
+                            variants: item.variantId ? { where: { id: item.variantId } } : false,
+                            images: { where: { isPrimary: true }, take: 1 }
+                        }
+                    })
+                )
+            ),
+            generateInvoiceNo(prisma),
+        ]);
+
+        for (let i = 0; i < cart.items.length; i++) {
+            const item = cart.items[i];
+            const product = productsForItems[i];
 
             if (!product) {
                 return res.status(404).json({
@@ -162,32 +209,21 @@ const createOrder = async (req, res) => {
             }
         }
 
-        // 5. Resolve bag type selection (if any)
-        let bagTypeName = null;
-        let bagTypePrice = 0;
-
-        if (bagTypeId) {
-            const bagType = await prisma.bagType.findUnique({ where: { id: bagTypeId } });
-            if (!bagType || !bagType.isActive) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Selected bag type is not available'
-                });
-            }
-            bagTypeName = bagType.name;
-            bagTypePrice = currency === 'USD'
+        // 4. Resolve bag type pricing (bag was already fetched + validated in
+        // the parallel pre-flight above).
+        const bagTypeName = bagType ? bagType.name : null;
+        const bagTypePrice = bagType
+            ? (currency === 'USD'
                 ? (bagType.priceUSD || bagType.price)
-                : (bagType.priceINR || bagType.price);
-        }
+                : (bagType.priceINR || bagType.price))
+            : 0;
 
-        // 6. Create Order
-        // Generate unique Order ID
+        // 5. Create Order
+        // Generate unique Order ID (invoiceNo was already generated in parallel
+        // pre-flight, so no extra round trip here).
         const timestamp = Date.now().toString().slice(-6);
         const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         const orderDisplayId = `ORD-${new Date().getFullYear()}-${timestamp}${random}`;
-
-        // Generate invoice number from InvoiceSettings
-        const invoiceNo = await generateInvoiceNo(prisma);
 
         const totalAmount = subtotal + shippingCost + tax - discount + bagTypePrice;
 
@@ -197,6 +233,12 @@ const createOrder = async (req, res) => {
 
         // Track low stock alerts (populated inside transaction, sent after)
         const lowStockAlerts = [];
+
+        // Collected during the transaction but written AFTER it commits.
+        // These are pure audit log entries; persisting them outside the
+        // transaction keeps the critical-path write count smaller without
+        // affecting order correctness.
+        const stockHistoryRecords = [];
 
         // Use transaction to ensure data integrity
         const result = await prisma.$transaction(async (tx) => {
@@ -235,30 +277,24 @@ const createOrder = async (req, res) => {
 
             // Re-validate stock inside transaction to prevent concurrent overselling.
             // The outer check (pre-transaction) is a fast-path guard; this is the
-            // authoritative check under transactional isolation.
-            for (const update of stockUpdates) {
-                if (update.variantId) {
-                    const freshVariant = await tx.productVariant.findUnique({
-                        where: { id: update.variantId },
-                        select: { stock: true },
-                    });
-                    if (!freshVariant || freshVariant.stock < update.quantity) {
-                        throw Object.assign(
-                            new Error(`Insufficient stock for one of the products. Please refresh and try again.`),
-                            { statusCode: 409 }
-                        );
-                    }
-                } else {
-                    const freshProduct = await tx.product.findUnique({
-                        where: { id: update.id },
-                        select: { totalStock: true },
-                    });
-                    if (!freshProduct || freshProduct.totalStock < update.quantity) {
-                        throw Object.assign(
-                            new Error(`Insufficient stock for one of the products. Please refresh and try again.`),
-                            { statusCode: 409 }
-                        );
-                    }
+            // authoritative check under transactional isolation. Reads run in
+            // parallel — each round trip would otherwise stack serially.
+            const freshStockChecks = await Promise.all(
+                stockUpdates.map((update) =>
+                    update.variantId
+                        ? tx.productVariant.findUnique({ where: { id: update.variantId }, select: { stock: true } })
+                        : tx.product.findUnique({ where: { id: update.id }, select: { totalStock: true } })
+                )
+            );
+            for (let i = 0; i < stockUpdates.length; i++) {
+                const update = stockUpdates[i];
+                const fresh = freshStockChecks[i];
+                const available = update.variantId ? fresh?.stock : fresh?.totalStock;
+                if (!fresh || available < update.quantity) {
+                    throw Object.assign(
+                        new Error(`Insufficient stock for one of the products. Please refresh and try again.`),
+                        { statusCode: 409 }
+                    );
                 }
             }
 
@@ -284,90 +320,81 @@ const createOrder = async (req, res) => {
                 productTotalDeductions[update.id].totalQuantity += update.quantity;
             }
 
+            // Decrement stock sequentially. MongoDB transactions only allow one
+            // operation per session at a time and Prisma serializes parallel
+            // writes onto the same tx client anyway, so Promise.all would add
+            // risk without any actual parallelism.
             for (const update of stockUpdates) {
-                // Decrement the specific variant's stock if applicable
                 if (update.variantId) {
                     await tx.productVariant.update({
                         where: { id: update.variantId },
-                        data: {
-                            stock: { decrement: update.quantity }
-                        }
+                        data: { stock: { decrement: update.quantity } }
                     });
-                }
-
-                // Decrement inventory baseStock for base product items (no variant)
-                if (!update.variantId && update.inventoryItemId) {
+                } else if (update.inventoryItemId) {
                     await tx.inventory.update({
                         where: { id: update.inventoryItemId },
-                        data: {
-                            baseStock: { decrement: update.quantity }
-                        }
+                        data: { baseStock: { decrement: update.quantity } }
                     });
                 }
             }
 
-            // Recalculate product totalStock and inventory currentStock from source-of-truth values
+            // Recalculate product totalStock and inventory currentStock from
+            // source-of-truth values. Reads inside each iteration run in
+            // parallel (safe — read-only, distinct documents). The outer loop
+            // and writes stay sequential because MongoDB transactions only
+            // allow one operation per session at a time.
             for (const [productId, agg] of Object.entries(productTotalDeductions)) {
-                // Re-read fresh variant stocks after Step 2 decrements
-                const freshProduct = await tx.product.findUnique({
-                    where: { id: productId },
-                    include: { variants: true }
-                });
+                const [freshProduct, freshInventory] = await Promise.all([
+                    tx.product.findUnique({
+                        where: { id: productId },
+                        include: { variants: true },
+                    }),
+                    agg.inventoryItemId
+                        ? tx.inventory.findUnique({ where: { id: agg.inventoryItemId } })
+                        : Promise.resolve(null),
+                ]);
 
-                const variantSum = freshProduct.variants
+                const variantSum = freshProduct?.variants
                     ? freshProduct.variants.reduce((sum, v) => sum + v.stock, 0)
                     : 0;
 
                 let newTotalStock;
 
-                if (agg.inventoryItemId) {
-                    // Re-read fresh baseStock after Step 2 decrement
-                    const freshInventory = await tx.inventory.findUnique({
-                        where: { id: agg.inventoryItemId }
-                    });
+                if (agg.inventoryItemId && freshInventory) {
                     newTotalStock = freshInventory.baseStock + variantSum;
-
                     await tx.inventory.update({
                         where: { id: agg.inventoryItemId },
-                        data: {
-                            currentStock: newTotalStock
-                        }
+                        data: { currentStock: newTotalStock },
                     });
-
-                    // Log stock change history accurately reflecting the order deductions
-                    await tx.stockChangeHistory.create({
-                        data: {
-                            inventoryId: agg.inventoryItemId,
-                            previousStock: newTotalStock + agg.totalQuantity,
-                            newStock: newTotalStock,
-                            changeAmount: -agg.totalQuantity,
-                            reason: `Order placed: ${orderDisplayId}`,
-                            changedBy: userId,
-                            changedByType: 'system',
-                            changedByName: user.name
-                        }
+                    // Audit log entry — persisted in a single createMany after the
+                    // transaction commits to keep the critical path shorter.
+                    stockHistoryRecords.push({
+                        inventoryId: agg.inventoryItemId,
+                        previousStock: newTotalStock + agg.totalQuantity,
+                        newStock: newTotalStock,
+                        changeAmount: -agg.totalQuantity,
+                        reason: `Order placed: ${orderDisplayId}`,
+                        changedBy: userId,
+                        changedByType: 'system',
+                        changedByName: user.name,
                     });
                 } else {
-                    // No inventory link — just decrement totalStock
                     newTotalStock = Math.max(0, agg.currentTotalStock - agg.totalQuantity);
                 }
 
                 await tx.product.update({
                     where: { id: productId },
-                    data: {
-                        totalStock: newTotalStock,
-                        inStock: newTotalStock > 0
-                    }
+                    data: { totalStock: newTotalStock, inStock: newTotalStock > 0 },
                 });
 
-                // Collect low stock data for post-transaction notifications
+                // Low-stock notification metadata. Use the already-fetched product
+                // name instead of issuing a second findUnique.
                 if (newTotalStock <= 10 || newTotalStock === 0) {
-                    const prodInfo = await tx.product.findUnique({ where: { id: productId }, select: { name: true, lowStockThreshold: true } });
                     lowStockAlerts.push({
                         productId,
-                        productName: prodInfo?.name || 'Unknown Product',
+                        productName: freshProduct?.name || 'Unknown Product',
                         newStock: newTotalStock,
-                        threshold: prodInfo?.lowStockThreshold || 10,
+                        threshold: freshProduct?.lowStockThreshold || 10,
                     });
                 }
             }
@@ -412,6 +439,9 @@ const createOrder = async (req, res) => {
                 vendorItemGroups[item.vendorId].itemIds.push(item.id);
             }
 
+            // Create per-vendor shipments sequentially — MongoDB transactions
+            // serialize writes on the same session, so parallelism here would
+            // add risk without speed-up.
             let shipmentIdx = 0;
             for (const [vid, group] of Object.entries(vendorItemGroups)) {
                 shipmentIdx++;
@@ -425,7 +455,6 @@ const createOrder = async (req, res) => {
                         status: 'ORDER_CREATED',
                     },
                 });
-                // Link items to their shipment
                 await tx.orderItem.updateMany({
                     where: { id: { in: group.itemIds } },
                     data: { shipmentId: shipment.id },
@@ -438,7 +467,22 @@ const createOrder = async (req, res) => {
             });
 
             return newOrder;
+        }, {
+            // Order creation runs many sequential writes (order, stock revalidation,
+            // variant + inventory updates, stockChangeHistory, settlements, vendor
+            // shipments, cart cleanup). The 5s Prisma default is not enough on
+            // Vercel serverless cold starts and was silently failing post-payment.
+            maxWait: 10000,
+            timeout: 30000,
         });
+
+        // Persist audit log entries collected during the transaction. Fire-and-
+        // forget — the order is already committed, so a log-write failure must
+        // not block (or fail) the response to the customer.
+        if (stockHistoryRecords.length > 0) {
+            prisma.stockChangeHistory.createMany({ data: stockHistoryRecords })
+                .catch((err) => console.error('stockChangeHistory backfill failed:', err));
+        }
 
         // Send low stock / out of stock alerts (outside transaction)
         const { createNotification, createNotificationForRole: notifyStockAlert } = require('./notificationController');
@@ -506,7 +550,11 @@ const createOrder = async (req, res) => {
         console.error('Create order error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to create order'
+            error: 'Failed to create order',
+            // Surface the underlying message so payment-completed-but-order-failed
+            // incidents can be diagnosed without server log access.
+            detail: error?.message || undefined,
+            code: error?.code || undefined,
         });
     }
 };

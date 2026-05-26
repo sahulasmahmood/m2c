@@ -90,6 +90,11 @@ export interface CreateOrderParams {
   };
   paymentMethod: string;
   paymentId?: string;
+  // Razorpay signature payload — when present, the server verifies the
+  // HMAC signature inline during order creation (lets the client skip
+  // the separate /payments/razorpay/verify round trip).
+  razorpayOrderId?: string;
+  razorpaySignature?: string;
   shippingCost?: number;
   tax?: number;
   discount?: number;
@@ -104,7 +109,8 @@ class OrderService {
       const response = await axios.post('/orders', params);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to create order');
+      const apiError = error?.response?.data;
+      throw new Error(apiError?.detail || apiError?.error || 'Failed to create order');
     }
   }
 

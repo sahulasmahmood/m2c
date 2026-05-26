@@ -5,6 +5,7 @@ import Image from "next/image"
 import { CheckCircle, Package, Truck, Mail, Download, ArrowRight, Clock, AlertCircle, CreditCard, MapPin, Phone, Loader2, ShoppingBag } from "lucide-react"
 import { useState, useEffect } from "react"
 import orderService, { Order } from "@/services/orderService"
+import { popRecentOrder } from "@/lib/recentOrder"
 import { useSearchParams } from "next/navigation"
 import { getCountryName, getCountryFlag, getStateName, formatPhoneForDisplay } from "@/components/WebSite/CheckOut/CheckoutProcess/constants"
 
@@ -22,9 +23,18 @@ export default function OrderConfirmation({ initialOrder }: OrderConfirmationPro
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!order && orderId) {
-      fetchOrder(orderId)
+    if (order || !orderId) return
+    // The checkout page stashes the just-created order in sessionStorage so we
+    // can render immediately instead of refetching. Only the original tab that
+    // placed the order sees this; refreshes / shared links fall through to the
+    // network fetch.
+    const cached = popRecentOrder(orderId)
+    if (cached) {
+      setOrder(cached)
+      setLoading(false)
+      return
     }
+    fetchOrder(orderId)
   }, [orderId])
 
   const fetchOrder = async (id: string) => {
@@ -45,9 +55,25 @@ export default function OrderConfirmation({ initialOrder }: OrderConfirmationPro
   }
 
   if (loading) {
+    /* Skeleton mirrors the confirmation card (success icon + heading + totals). */
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-800" />
+      <div className="min-h-screen bg-gray-50 py-12 px-4">
+        <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm p-8 space-y-6">
+          <div className="w-16 h-16 bg-gray-200 rounded-full animate-pulse mx-auto" />
+          <div className="space-y-3 text-center">
+            <div className="h-7 w-64 bg-gray-200 rounded animate-pulse mx-auto" />
+            <div className="h-4 w-80 max-w-full bg-gray-100 rounded animate-pulse mx-auto" />
+          </div>
+          <div className="border-t border-gray-100 pt-6 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex justify-between">
+                <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
+                <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="h-11 w-full bg-gray-200 rounded-lg animate-pulse" />
+        </div>
       </div>
     )
   }

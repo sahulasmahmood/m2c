@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Star, Search, Eye, AlertCircle, RefreshCw, Package, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, Search, Eye, AlertCircle, RefreshCw, Package, ChevronLeft, ChevronRight, MessageSquare, CheckCircle, XCircle, Percent } from "lucide-react";
 import { Card, CardContent } from "../../UI/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../UI/Table";
 import Dropdown from "../../UI/Dropdown";
@@ -48,7 +48,7 @@ export default function VendorProductReviews() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedReview, setSelectedReview] = useState<VendorProductReview | null>(null);
-  const [stats, setStats] = useState({ total: 0, approved: 0, rejected: 0 });
+  const [stats, setStats] = useState({ total: 0, approved: 0, rejected: 0, averageRating: 0 });
   const [currentPage, setCurrentPage] = useState(1);
 
   const fetchReviews = useCallback(async () => {
@@ -159,26 +159,64 @@ export default function VendorProductReviews() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm text-gray-600">Total Reviews</div>
-            <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-gray-600">Approved</div>
-            <div className="text-2xl font-bold text-green-600">
-              {stats.approved}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-gray-600">Total Reviews</div>
+                <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+              </div>
+              <MessageSquare className="h-8 w-8 text-blue-500 opacity-50" />
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm text-gray-600">Rejected</div>
-            <div className="text-2xl font-bold text-red-600">
-              {stats.rejected}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-gray-600">Approved</div>
+                <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-gray-600">Rejected</div>
+                <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+              </div>
+              <XCircle className="h-8 w-8 text-red-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-gray-600">Approval Rate</div>
+                <div className="text-2xl font-bold text-emerald-600">
+                  {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
+                </div>
+              </div>
+              <Percent className="h-8 w-8 text-emerald-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-gray-600">Avg. Rating</div>
+                <div className="text-2xl font-bold text-yellow-600 flex items-center gap-1">
+                  {stats.averageRating ? stats.averageRating.toFixed(1) : '0.0'}
+                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                </div>
+              </div>
+              <Star className="h-8 w-8 text-yellow-400 opacity-50" />
             </div>
           </CardContent>
         </Card>

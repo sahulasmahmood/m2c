@@ -77,13 +77,50 @@ export default function SubCategories({ categorySlug }: { categorySlug: string }
   }, [categorySlug]);
 
   if (loading) {
+    // Skeleton that mirrors the loaded page's structure (banner + 4-card
+    // subcategory grid) so the layout doesn't jump when the fetch resolves.
     return (
       <div className="min-h-screen bg-white">
-        <div className="relative h-52 md:h-60 lg:h-64 overflow-hidden bg-gray-200">
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <div className="text-center text-white px-4">
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold">Loading...</h1>
+        {/*
+          Banner skeleton — light neutral surface (gray-100) following the
+          industry-standard pattern used by LinkedIn, Facebook, Pinterest,
+          etc. for image-region placeholders. We deliberately do NOT try to
+          mimic the dark overlay of the loaded banner: matching that
+          produced a very dark "void" while loading that looked broken
+          against the surrounding white page, and the transition to the
+          actual image was no smoother than from a light placeholder.
+        */}
+        <div className="relative h-52 md:h-60 lg:h-64 overflow-hidden bg-gray-100">
+          <div className="absolute inset-0 flex items-center justify-center animate-pulse">
+            <div className="text-center px-4 space-y-3 w-full max-w-2xl">
+              <div className="h-10 md:h-12 lg:h-14 w-48 md:w-64 bg-gray-300 rounded-md mx-auto" />
+              <div className="h-4 md:h-5 w-full max-w-md bg-gray-200 rounded mx-auto" />
+              <div className="h-4 md:h-5 w-3/4 max-w-md bg-gray-200 rounded mx-auto" />
+              <div className="h-8 w-44 bg-gray-300 rounded-full mx-auto mt-2" />
             </div>
+          </div>
+        </div>
+
+        {/* Body skeleton — matches the "View All" button + subcategory grid. */}
+        <div className="max-w-7xl 2xl:max-w-420 mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="mb-8 flex justify-center">
+            <div className="h-12 w-56 bg-gray-200 rounded-lg animate-pulse" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
+              >
+                <div className="h-56 bg-gray-200 animate-pulse" />
+                <div className="p-6 space-y-3">
+                  <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 w-full bg-gray-100 rounded animate-pulse" />
+                  <div className="h-4 w-3/4 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-5 w-28 bg-gray-200 rounded animate-pulse mt-4" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -122,6 +159,7 @@ export default function SubCategories({ categorySlug }: { categorySlug: string }
             src={category.image}
             alt={`${category.name} Banner`}
             fill
+            sizes="100vw"
             className="object-cover"
             priority
           />
@@ -173,6 +211,7 @@ export default function SubCategories({ categorySlug }: { categorySlug: string }
                       src={subcategory.image}
                       alt={subcategory.name}
                       fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
                       className="object-cover group-hover:scale-110 transition-transform duration-700"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;

@@ -234,9 +234,37 @@ export default function OrderList() {
   )
 
   if (loading) {
+    /* Skeleton mirrors the order list page (header + tab strip + 3 order rows). */
     return (
-      <div className="min-h-screen bg-slate-50 py-8 flex justify-center items-start">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mt-20"></div>
+      <div className="min-h-screen bg-slate-50 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-6 space-y-3">
+            <div className="h-8 w-40 bg-gray-200 rounded animate-pulse" />
+            <div className="h-4 w-64 bg-gray-100 rounded animate-pulse" />
+          </div>
+          <div className="flex gap-2 mb-6">
+            <div className="h-10 w-24 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="h-10 w-24 bg-gray-100 rounded-lg animate-pulse" />
+          </div>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+                <div className="flex justify-between">
+                  <div className="h-5 w-36 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-6 w-20 bg-gray-200 rounded-full animate-pulse" />
+                </div>
+                <div className="flex gap-3 items-center">
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-2/3 bg-gray-200 rounded animate-pulse" />
+                    <div className="h-3 w-1/3 bg-gray-100 rounded animate-pulse" />
+                  </div>
+                  <div className="h-5 w-20 bg-gray-200 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
@@ -358,6 +386,7 @@ export default function OrderList() {
                                     src={item.image}
                                     alt={item.name}
                                     fill
+                                    sizes="64px"
                                     className="object-cover"
                                   />
                                 ) : (
@@ -523,6 +552,7 @@ export default function OrderList() {
                                     src={item.image}
                                     alt={item.name}
                                     fill
+                                    sizes="64px"
                                     className="object-cover"
                                   />
                                 ) : (
@@ -662,7 +692,7 @@ export default function OrderList() {
                       <div className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer group">
                         <div className="relative w-12 h-12 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
                           {item.images?.[0] ? (
-                            <Image src={item.images[0].url || item.images[0]} alt={item.name} fill className="object-cover" />
+                            <Image src={item.images[0].url || item.images[0]} alt={item.name} fill sizes="48px" className="object-cover" />
                           ) : (
                             <Package className="w-6 h-6 text-slate-400 m-auto" />
                           )}
@@ -703,7 +733,7 @@ export default function OrderList() {
                       <div className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer group">
                         <div className="relative w-12 h-12 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
                           {item.images?.[0] ? (
-                            <Image src={item.images[0].url || item.images[0]} alt={item.name} fill className="object-cover" />
+                            <Image src={item.images[0].url || item.images[0]} alt={item.name} fill sizes="48px" className="object-cover" />
                           ) : (
                             <Package className="w-6 h-6 text-slate-400 m-auto" />
                           )}

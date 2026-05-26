@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
+import CompanyLogo from '@/components/Shared/CompanyLogo'
 import { Button } from '@/components/UI/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/Card'
 import { 
@@ -15,7 +15,6 @@ import {
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils'
 import Link from 'next/link'
 import axios from '@/lib/axios'
-import { companyInfoService } from '@/services/companyInfoService'
 
 interface ForgotPasswordData {
   email: string
@@ -25,17 +24,10 @@ export default function VendorForgotPassword() {
   const [isLoading, setIsLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [emailError, setEmailError] = useState("")
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null)
   const [formData, setFormData] = useState<ForgotPasswordData>({
     email: ''
   })
   const emailInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    companyInfoService.getPublicCompanyInfo().then(info => {
-      if (info.companyLogo) setCompanyLogo(info.companyLogo)
-    }).catch(() => {})
-  }, [])
 
   useEffect(() => {
     if (emailInputRef.current) {
@@ -126,11 +118,12 @@ export default function VendorForgotPassword() {
               {/* Logo Section */}
               <div className="mb-8">
                 <div className="inline-flex items-center justify-center w-44 h-36 mb-6">
-                  {companyLogo ? (
-                    <img src={companyLogo} alt="Company Logo" className="object-contain" style={{ width: 190, height: 150 }} />
-                  ) : (
-                    <Image src="/assets/logo/m2c-logo.png" alt="Company Logo" width={190} height={150} className="object-contain" />
-                  )}
+                  <CompanyLogo
+                    className="w-[190px] h-[150px] object-contain"
+                    skeletonClassName="h-[150px] aspect-square bg-white/10"
+                    fallbackWidth={190}
+                    fallbackHeight={150}
+                  />
                 </div>
                 <h1 className="text-4xl font-bold mb-3">
                   Vendor Portal
@@ -220,11 +213,12 @@ export default function VendorForgotPassword() {
             {/* Logo Section */}
             <div className="mb-8">
               <div className="inline-flex items-center justify-center w-44 h-36 mb-6">
-                {companyLogo ? (
-                  <img src={companyLogo} alt="Company Logo" className="object-contain" style={{ width: 190, height: 150 }} />
-                ) : (
-                  <Image src="/assets/logo/m2c-logo.png" alt="Company Logo" width={190} height={150} className="object-contain" />
-                )}
+                <CompanyLogo
+                  className="w-[190px] h-[150px] object-contain"
+                  skeletonClassName="h-[150px] aspect-square bg-white/10"
+                  fallbackWidth={190}
+                  fallbackHeight={150}
+                />
               </div>
               <h1 className="text-4xl font-bold mb-3">
                 Vendor Portal

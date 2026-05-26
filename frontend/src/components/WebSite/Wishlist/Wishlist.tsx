@@ -114,11 +114,24 @@ const Wishlist = () => {
   };
 
   if (isLoading) {
+    /* Skeleton mirrors the loaded wishlist (header + 1/2/3/4-col card grid). */
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading wishlist...</p>
+        <div className="mb-8 space-y-3">
+          <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+          <div className="h-4 w-64 bg-gray-100 rounded animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div className="h-64 bg-gray-200 animate-pulse" />
+              <div className="p-4 space-y-3">
+                <div className="h-5 w-3/4 bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 w-1/2 bg-gray-100 rounded animate-pulse" />
+                <div className="h-9 w-full bg-gray-200 rounded animate-pulse mt-3" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -207,6 +220,7 @@ const Wishlist = () => {
                       src={item.product.image || '/placeholder.png'}
                       alt={item.product.name}
                       fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
                       className="object-cover"
                     />
                   </Link>

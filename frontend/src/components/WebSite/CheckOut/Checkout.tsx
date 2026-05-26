@@ -21,7 +21,8 @@ import PaymentForm from "./CheckoutProcess/PaymentForm"
 import ReviewOrder from "./CheckoutProcess/ReviewOrder"
 import AddressSelector from "./CheckoutProcess/AddressSelector"
 import cartService, { CartItem } from "@/services/cartService"
-import orderService from "@/services/orderService"
+import orderService, { CreateOrderParams } from "@/services/orderService"
+import { stashRecentOrder } from "@/lib/recentOrder"
 import paymentService from "@/services/paymentService"
 import { userProfileService } from "@/services/userProfileService"
 import { userAuthService } from "@/services/userAuthService"
@@ -578,19 +579,15 @@ export default function Checkout() {
         },
         handler: async function (response: any) {
           try {
-            // Verify payment
-            const verifyResponse = await paymentService.verifyRazorpayPayment(
-              response.razorpay_order_id,
+            // Signature verification now happens inline inside createOrder
+            // (one round trip instead of two — saves a Vercel cold-start
+            // hop after the Razorpay handler fires).
+            await createOrderAfterPayment(
+              shippingAddress,
               response.razorpay_payment_id,
-              response.razorpay_signature
+              response.razorpay_order_id,
+              response.razorpay_signature,
             )
-
-            if (verifyResponse.success) {
-              // Create order after successful payment
-              await createOrderAfterPayment(shippingAddress, response.razorpay_payment_id)
-            } else {
-              throw new Error('Payment verification failed')
-            }
           } catch (error: any) {
             setError(error.message || 'Payment verification failed')
             setPlacingOrder(false)
@@ -618,12 +615,19 @@ export default function Checkout() {
     setPlacingOrder(false)
   }
 
-  const createOrderAfterPayment = async (shippingAddress: any, paymentId: string) => {
+  const createOrderAfterPayment = async (
+    shippingAddress: CreateOrderParams['shippingAddress'],
+    paymentId: string,
+    razorpayOrderId?: string,
+    razorpaySignature?: string,
+  ) => {
     try {
       const response = await orderService.createOrder({
         shippingAddress,
         paymentMethod: formData.paymentMethod,
         paymentId,
+        razorpayOrderId,
+        razorpaySignature,
         shippingCost: orderSummary.shipping,
         tax: orderSummary.tax,
         discount: orderSummary.discount,
@@ -633,6 +637,9 @@ export default function Checkout() {
       })
 
       if (response.success && response.data) {
+        // Hand the order off via sessionStorage so the confirmation page can
+        // render immediately without re-fetching what we already have.
+        stashRecentOrder(response.data)
         localStorage.removeItem('appliedCoupon')
         localStorage.removeItem('selectedBagType')
         router.push(`/order-confirmation?id=${response.data.id}`)
@@ -768,9 +775,47 @@ export default function Checkout() {
   )
 
   if (loading) {
+    /* Skeleton mirrors the checkout layout (form on left, order summary on right). */
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-800" />
+      <div className="min-h-screen bg-slate-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 p-6 space-y-3">
+                <div className="h-5 w-40 bg-gray-200 rounded animate-pulse" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  {Array.from({ length: 4 }).map((_, j) => (
+                    <div key={j} className="space-y-2">
+                      <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
+                      <div className="h-10 w-full bg-gray-200 rounded animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 h-fit">
+            <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex gap-3 items-center">
+                <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-3 w-1/2 bg-gray-100 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+            <div className="border-t border-gray-100 pt-4 space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex justify-between">
+                  <div className="h-4 w-20 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+            <div className="h-11 w-full bg-gray-200 rounded-lg animate-pulse" />
+          </div>
+        </div>
       </div>
     )
   }

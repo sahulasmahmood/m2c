@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
+import CompanyLogo from '@/components/Shared/CompanyLogo'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/UI/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/Card'
 import axiosInstance from '@/lib/axios'
+import { dispatchAuthChange } from '@/lib/authEvents'
 import {
   Eye,
   EyeOff,
@@ -17,7 +18,6 @@ import {
   Users
 } from 'lucide-react'
 import { showSuccessToast, showErrorToast } from '@/lib/toast-utils'
-import { companyInfoService } from '@/services/companyInfoService'
 
 interface LoginFormData {
   email: string
@@ -55,7 +55,6 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [emailError, setEmailError] = useState("")
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null)
   const [googleAccountEmail, setGoogleAccountEmail] = useState<string | null>(null)
   const [accessDeniedError, setAccessDeniedError] = useState(false)
 
@@ -68,12 +67,6 @@ export default function AdminLogin() {
     password: '',
     rememberMe: false
   })
-
-  useEffect(() => {
-    companyInfoService.getPublicCompanyInfo().then(info => {
-      if (info.companyLogo) setCompanyLogo(info.companyLogo)
-    }).catch(() => {})
-  }, [])
 
   // Redirect if already logged in as admin
   useEffect(() => {
@@ -175,6 +168,7 @@ export default function AdminLogin() {
       // (httpOnly cookie also set by backend for 7-day persistence)
       localStorage.setItem('adminToken', loginResponse.token)
       localStorage.setItem('adminUser', JSON.stringify(loginResponse.user))
+      dispatchAuthChange()
       console.log('Stored in localStorage (permanent for admin sessions)')
 
 
@@ -225,11 +219,12 @@ export default function AdminLogin() {
             {/* Logo Section */}
             <div className="mb-8">
               <div className="inline-flex items-center justify-center w-44 h-36 mb-6">
-                {companyLogo ? (
-                  <img src={companyLogo} alt="Company Logo" className="object-contain" style={{ width: 190, height: 150 }} />
-                ) : (
-                  <Image src="/assets/logo/m2c-logo.png" alt="Company Logo" width={190} height={150} className="object-contain" />
-                )}
+                <CompanyLogo
+                  className="w-[190px] h-[150px] object-contain"
+                  skeletonClassName="h-[150px] aspect-square bg-white/10"
+                  fallbackWidth={190}
+                  fallbackHeight={150}
+                />
               </div>
               <h1 className="text-4xl font-bold mb-3">
                 Administrative Hub

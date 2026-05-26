@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -22,9 +21,9 @@ import { cartService } from "@/services/cartService";
 import { wishlistService } from "@/services/wishlistService";
 import { userAuthService } from "@/services/userAuthService";
 import { categoryService } from "@/services/categoryService";
-import { couponService } from "@/services/couponService";
-import { companyInfoService } from "@/services/companyInfoService";
 import NotificationDropdown from "@/components/Shared/NotificationDropdown";
+import CompanyLogo from "@/components/Shared/CompanyLogo";
+import { subscribeToAuthChange, dispatchAuthChange } from "@/lib/authEvents";
 
 const Header = () => {
   const pathname = usePathname();
@@ -41,10 +40,8 @@ const Header = () => {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
-  const [promotionalOffers, setPromotionalOffers] = useState<string[]>([]);
   const [popularSearches, setPopularSearches] = useState<string[]>([
     "Towels",
     "Bath Linen",
@@ -86,13 +83,6 @@ const Header = () => {
     return () => window.removeEventListener('open-search-modal', openModal);
   }, []);
 
-  // Fetch company logo
-  useEffect(() => {
-    companyInfoService.getPublicCompanyInfo().then(info => {
-      if (info.companyLogo) setCompanyLogo(info.companyLogo);
-    }).catch(() => {});
-  }, []);
-
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -125,14 +115,13 @@ const Header = () => {
     setIsMenuOpen(false);
   }, [pathname]);
 
-  // Check if admin or user is logged in
+  // Check if admin or user is logged in — event-driven, no polling.
+  // Same-tab login/logout dispatches a custom event; other tabs fire the
+  // native `storage` event. Both are handled by subscribeToAuthChange.
   useEffect(() => {
     const checkAuth = () => {
-      // Check admin auth
-      const adminLoggedIn = isAuthenticated()
-      setIsAdminLoggedIn(adminLoggedIn)
+      setIsAdminLoggedIn(isAuthenticated())
 
-      // Check user auth
       const userToken = localStorage.getItem('userToken') || sessionStorage.getItem('userToken')
       const userData = localStorage.getItem('userData') || sessionStorage.getItem('userData')
 
@@ -141,33 +130,17 @@ const Header = () => {
         try {
           const user = JSON.parse(userData)
           setUserName(user.name || '')
-        } catch (error) {
-          console.error('Error parsing user data:', error)
+        } catch {
           setIsUserLoggedIn(false)
+          setUserName('')
         }
       } else {
         setIsUserLoggedIn(false)
         setUserName('')
       }
     }
-
-    // Check immediately and also on storage changes
     checkAuth()
-
-    // Listen for storage changes (in case user logs in/out in another tab)
-    const handleStorageChange = () => {
-      checkAuth()
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-
-    // Also check periodically in case of same-tab changes
-    const interval = setInterval(checkAuth, 1000)
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      clearInterval(interval)
-    }
+    return subscribeToAuthChange(checkAuth)
   }, [])
 
   // Load cart and wishlist counts
@@ -175,23 +148,17 @@ const Header = () => {
     const loadCounts = async () => {
       try {
         if (userAuthService.isAuthenticated()) {
-          // Load from backend for authenticated users
-          try {
-            const cartResponse = await cartService.getCart();
-            if (cartResponse.success && cartResponse.data) {
-              setCartCount(cartResponse.data.itemCount || 0);
-            }
-          } catch (error) {
-            console.error('Error loading cart count:', error);
+          // Cart + wishlist are independent — fetch in parallel so the header
+          // badges resolve in one round trip instead of two.
+          const [cartResult, wishlistResult] = await Promise.allSettled([
+            cartService.getCart(),
+            wishlistService.getWishlist(),
+          ]);
+          if (cartResult.status === 'fulfilled' && cartResult.value.success && cartResult.value.data) {
+            setCartCount(cartResult.value.data.itemCount || 0);
           }
-
-          try {
-            const wishlistResponse = await wishlistService.getWishlist();
-            if (wishlistResponse.success && wishlistResponse.data) {
-              setWishlistCount(wishlistResponse.data.count || 0);
-            }
-          } catch (error) {
-            console.error('Error loading wishlist count:', error);
+          if (wishlistResult.status === 'fulfilled' && wishlistResult.value.success && wishlistResult.value.data) {
+            setWishlistCount(wishlistResult.value.data.count || 0);
           }
         } else {
           // Guest users — show local cart count
@@ -259,27 +226,6 @@ const Header = () => {
     fetchPopularSearches();
   }, [])
 
-  // Load Promotional Offers (data ready for future UI)
-  useEffect(() => {
-    const loadPromotionalOffers = async () => {
-      try {
-        const response = await couponService.getPromotionalCoupons();
-        if (response.success && response.data.length > 0) {
-          const validOffers = response.data.filter((offer: string) => offer?.trim().length > 0);
-          if (validOffers.length > 0) { setPromotionalOffers(validOffers); return; }
-        }
-      } catch { /* silent */ }
-      setPromotionalOffers([
-        'Free shipping on orders above $99',
-        'Premium Cotton Towels - Buy 2 Get 1 Free',
-        'Special discount on Table Linen - Up to 40% off',
-      ]);
-    };
-    loadPromotionalOffers();
-    const interval = setInterval(loadPromotionalOffers, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   const isActiveLink = (href: string) => {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
@@ -318,6 +264,7 @@ const Header = () => {
       sessionStorage.removeItem('userToken')
       localStorage.removeItem('userData')
       sessionStorage.removeItem('userData')
+      dispatchAuthChange()
       setIsUserLoggedIn(false)
       setUserName('')
 
@@ -355,23 +302,12 @@ const Header = () => {
             {/* Section 1: Logo (30% on desktop, 50% on mobile/tablet) */}
             <div className="w-[50%] md:w-[30%] flex justify-start shrink-0">
               <Link href="/" className="flex items-center">
-                {companyLogo ? (
-                  <img
-                    src={companyLogo}
-                    alt="Company Logo"
-                    className="h-8 sm:h-10 md:h-14 lg:h-20 xl:h-24 w-auto object-contain"
-                  />
-                ) : (
-                  <Image
-                    src="/assets/logo/m2c-logo.png"
-                    alt="Company Logo"
-                    width={200}
-                    height={100}
-                    sizes="(max-width: 640px) 32px, (max-width: 768px) 40px, (max-width: 1024px) 56px, (max-width: 1280px) 80px, 120px"
-                    className="h-8 sm:h-10 md:h-14 lg:h-20 xl:h-24 w-auto object-contain"
-                    priority
-                  />
-                )}
+                <CompanyLogo
+                  className="h-8 sm:h-10 md:h-14 lg:h-20 xl:h-24 w-auto object-contain"
+                  skeletonClassName="h-8 sm:h-10 md:h-14 lg:h-20 xl:h-24 aspect-square bg-gray-100"
+                  fallbackSizes="(max-width: 640px) 32px, (max-width: 768px) 40px, (max-width: 1024px) 56px, (max-width: 1280px) 80px, 120px"
+                  priority
+                />
               </Link>
             </div>
 
