@@ -272,12 +272,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
                   </span>
                 ) : null}
               </div>
-              {/* Inline discount badge — hidden on mobile (top-left image badge already conveys this) */}
-              {product.discount ? (
-                <span className="hidden sm:inline-block text-xs bg-[#1A2830] text-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md font-semibold">
-                  {product.discount}% OFF
-                </span>
-              ) : null}
             </div>
 
             {/* Quantity Selector */}
