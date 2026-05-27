@@ -498,13 +498,25 @@ export default function ContactTradeInfo({ onNext, onPrev, onUpdateData, data }:
         allTouched[key] = true;
       });
       setTouched(allTouched);
-      
+
+      // Auto-open the section containing the first error so the user can
+      // actually SEE the failing fields. Without this, errors on a closed
+      // section land inside a max-h-0 body — the user only sees an empty
+      // red bar with a "Fix required" badge and no way to fix anything.
+      // FIELD_SECTION_MAP doesn't enumerate every optional field, so we
+      // also fall back to the key's prefix (mainContact.* / altContact_*).
+      const firstErrorKey = Object.keys(newErrors)[0];
+      const targetSection: SectionKey | undefined =
+        FIELD_SECTION_MAP[firstErrorKey] ||
+        (firstErrorKey.startsWith('mainContact.') ? 'mainContact' : undefined) ||
+        (firstErrorKey.startsWith('altContact_') ? 'alternates' : undefined);
+      if (targetSection) setActiveSection(targetSection);
+
       setTimeout(() => {
-        const firstErrorKey = Object.keys(newErrors)[0];
         const element = document.querySelector(`[name="${firstErrorKey}"]`) || document.getElementById(firstErrorKey);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          
+
           let focusTarget = element as HTMLElement;
           if (focusTarget.tagName === 'DIV') {
             const interactiveChild = focusTarget.querySelector('button, input, select, textarea, [tabindex="0"]') as HTMLElement;
@@ -514,7 +526,7 @@ export default function ContactTradeInfo({ onNext, onPrev, onUpdateData, data }:
           }
           focusTarget.focus({ preventScroll: true });
         }
-      }, 50);
+      }, 350); // wait for accordion expand transition (300ms) before scrolling
       return;
     }
 
