@@ -13,6 +13,24 @@ const {
   generateSecurePassword
 } = require('../utils/email/vendorEmailSender');
 
+// FormData serializes undefined/null as "" (empty string), which JSON.parse
+// rejects with "Unexpected end of JSON input". This helper accepts whatever
+// shape the field arrives in (already-parsed object, JSON-encoded string,
+// or empty) and returns either the parsed value or null — so downstream
+// `|| []` / `|| null` guards take over for missing fields. Removing a
+// section from the form (Banking Details, etc.) shouldn't crash the
+// register/update handlers just because the FormData still ships the key.
+const safeJsonParse = (v) => {
+  if (typeof v !== 'string') return v;
+  const t = v.trim();
+  if (!t) return null;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
+};
+
 // Finalize any pending (SUBMITTED / UNDER_ADMIN_REVIEW) inspections when admin
 // makes a direct vendor status decision (approve / reject / suspend). Without
 // this, inspections get stuck in SUBMITTED forever if admin bypasses the
@@ -365,18 +383,19 @@ const registerVendor = async (req, res) => {
       });
     }
 
-    // Parse JSON fields
-    const parsedVendorType = typeof vendorType === 'string' ? JSON.parse(vendorType) : vendorType;
-    const parsedMarketType = typeof marketType === 'string' ? JSON.parse(marketType) : marketType;
-    const parsedSelectedCategories = typeof selectedCategories === 'string' ? JSON.parse(selectedCategories) : selectedCategories;
-    const parsedEnabledFacilities = typeof enabledFacilities === 'string' ? JSON.parse(enabledFacilities) : enabledFacilities;
-    const parsedFacilityDetails = typeof facilityDetails === 'string' ? JSON.parse(facilityDetails) : facilityDetails;
-    const parsedSelectedCertifications = typeof selectedCertifications === 'string' ? JSON.parse(selectedCertifications) : selectedCertifications;
-    const parsedCertificationExpiryDates = typeof certificationExpiryDates === 'string' ? JSON.parse(certificationExpiryDates) : certificationExpiryDates;
-    const parsedOtherCertifications = typeof otherCertifications === 'string' ? JSON.parse(otherCertifications) : otherCertifications;
-    const parsedShippingMethods = typeof shippingMethods === 'string' ? JSON.parse(shippingMethods) : shippingMethods;
-    const rawParsedMainContact = typeof mainContact === 'string' ? JSON.parse(mainContact) : mainContact;
-    const rawParsedAlternateContacts = typeof alternateContacts === 'string' ? JSON.parse(alternateContacts) : alternateContacts;
+    // Parse JSON fields (safeJsonParse handles empty-string payloads from
+    // FormData without throwing — see the helper near the top of the file)
+    const parsedVendorType = safeJsonParse(vendorType);
+    const parsedMarketType = safeJsonParse(marketType);
+    const parsedSelectedCategories = safeJsonParse(selectedCategories);
+    const parsedEnabledFacilities = safeJsonParse(enabledFacilities);
+    const parsedFacilityDetails = safeJsonParse(facilityDetails);
+    const parsedSelectedCertifications = safeJsonParse(selectedCertifications);
+    const parsedCertificationExpiryDates = safeJsonParse(certificationExpiryDates);
+    const parsedOtherCertifications = safeJsonParse(otherCertifications);
+    const parsedShippingMethods = safeJsonParse(shippingMethods);
+    const rawParsedMainContact = safeJsonParse(mainContact);
+    const rawParsedAlternateContacts = safeJsonParse(alternateContacts);
     // ── Contact photo upload (Step 7) ─────────────────────────────────────
     // The form stores the main contact's photo as a base64 data URI inside
     // `mainContact.photo` (FileReader.readAsDataURL). Without this resolve,
@@ -392,11 +411,11 @@ const registerVendor = async (req, res) => {
       folder: 'vendor-contact-photos',
       resource_type: 'image',
     });
-    const parsedImportCountries = typeof importCountries === 'string' ? JSON.parse(importCountries) : importCountries;
-    const parsedExportCountries = typeof exportCountries === 'string' ? JSON.parse(exportCountries) : exportCountries;
-    const parsedBankingDetails = typeof bankingDetails === 'string' ? JSON.parse(bankingDetails) : bankingDetails;
-    const parsedCategoryProducts = typeof categoryProducts === 'string' ? JSON.parse(categoryProducts) : categoryProducts;
-    const parsedAdditionalCategories = typeof additionalCategories === 'string' ? JSON.parse(additionalCategories) : additionalCategories;
+    const parsedImportCountries = safeJsonParse(importCountries);
+    const parsedExportCountries = safeJsonParse(exportCountries);
+    const parsedBankingDetails = safeJsonParse(bankingDetails);
+    const parsedCategoryProducts = safeJsonParse(categoryProducts);
+    const parsedAdditionalCategories = safeJsonParse(additionalCategories);
 
     // ── Step 4 product photo upload ────────────────────────────────────────
     // Photos arrive as base64 data URIs nested deep inside categoryProducts
@@ -489,7 +508,7 @@ const registerVendor = async (req, res) => {
       // the business address. Re-add only when a real owner-address input
       // ships on Step 3.
       ownerPhoto: ownerPhotoUrl,
-      additionalOwners: additionalOwners ? (typeof additionalOwners === 'string' ? JSON.parse(additionalOwners) : additionalOwners) : null,
+      additionalOwners: safeJsonParse(additionalOwners),
       businessStartDate: businessStartDateValid ? parsedBusinessStartDate : null,
       employeeCount: employeeCount || null,
 
@@ -1307,49 +1326,20 @@ const updateVendorById = async (req, res) => {
       }
     }
 
-    // Parse JSON fields if they're strings
-    const parsedSelectedCertifications = typeof updateData.selectedCertifications === 'string'
-      ? JSON.parse(updateData.selectedCertifications)
-      : updateData.selectedCertifications;
-
-    const parsedCertificationExpiryDates = typeof updateData.certificationExpiryDates === 'string'
-      ? JSON.parse(updateData.certificationExpiryDates)
-      : updateData.certificationExpiryDates;
-
-    const parsedSelectedCategories = typeof updateData.selectedCategories === 'string'
-      ? JSON.parse(updateData.selectedCategories)
-      : updateData.selectedCategories;
-
-    const parsedMarketType = typeof updateData.marketType === 'string'
-      ? JSON.parse(updateData.marketType)
-      : updateData.marketType;
-
-    const parsedVendorType = typeof updateData.vendorType === 'string'
-      ? JSON.parse(updateData.vendorType)
-      : updateData.vendorType;
-
-    const parsedShippingMethods = typeof updateData.shippingMethods === 'string'
-      ? JSON.parse(updateData.shippingMethods)
-      : updateData.shippingMethods;
-
-    const parsedExportCountries = typeof updateData.exportCountries === 'string'
-      ? JSON.parse(updateData.exportCountries)
-      : updateData.exportCountries;
-    const parsedImportCountries = typeof updateData.importCountries === 'string'
-      ? JSON.parse(updateData.importCountries)
-      : updateData.importCountries;
-    const parsedOtherCertifications = typeof updateData.otherCertifications === 'string'
-      ? JSON.parse(updateData.otherCertifications)
-      : updateData.otherCertifications;
-    const parsedCategoryProducts = typeof updateData.categoryProducts === 'string'
-      ? JSON.parse(updateData.categoryProducts)
-      : updateData.categoryProducts;
-    const parsedAdditionalCategories = typeof updateData.additionalCategories === 'string'
-      ? JSON.parse(updateData.additionalCategories)
-      : updateData.additionalCategories;
-    const parsedBankingDetails = typeof updateData.bankingDetails === 'string'
-      ? JSON.parse(updateData.bankingDetails)
-      : updateData.bankingDetails;
+    // Parse JSON fields if they're strings (safeJsonParse handles empty-
+    // string payloads from FormData without throwing).
+    const parsedSelectedCertifications = safeJsonParse(updateData.selectedCertifications);
+    const parsedCertificationExpiryDates = safeJsonParse(updateData.certificationExpiryDates);
+    const parsedSelectedCategories = safeJsonParse(updateData.selectedCategories);
+    const parsedMarketType = safeJsonParse(updateData.marketType);
+    const parsedVendorType = safeJsonParse(updateData.vendorType);
+    const parsedShippingMethods = safeJsonParse(updateData.shippingMethods);
+    const parsedExportCountries = safeJsonParse(updateData.exportCountries);
+    const parsedImportCountries = safeJsonParse(updateData.importCountries);
+    const parsedOtherCertifications = safeJsonParse(updateData.otherCertifications);
+    const parsedCategoryProducts = safeJsonParse(updateData.categoryProducts);
+    const parsedAdditionalCategories = safeJsonParse(updateData.additionalCategories);
+    const parsedBankingDetails = safeJsonParse(updateData.bankingDetails);
 
     // Resolve any base64 product photos to Cloudinary URLs before persist —
     // same pipeline as the registration flow uses for Step 4 photos.
@@ -1368,12 +1358,8 @@ const updateVendorById = async (req, res) => {
     // the entire data URI gets persisted into the JSON column and reloaded
     // on every profile view — both bloats the DB and breaks the photo
     // preview in admin UIs that expect a real URL.
-    const rawParsedMainContact = updateData.mainContact
-      ? (typeof updateData.mainContact === 'string' ? JSON.parse(updateData.mainContact) : updateData.mainContact)
-      : null;
-    const rawParsedAlternateContacts = updateData.alternateContacts
-      ? (typeof updateData.alternateContacts === 'string' ? JSON.parse(updateData.alternateContacts) : updateData.alternateContacts)
-      : [];
+    const rawParsedMainContact = safeJsonParse(updateData.mainContact);
+    const rawParsedAlternateContacts = safeJsonParse(updateData.alternateContacts) || [];
     const resolvedMainContact = await resolveBase64InValue(rawParsedMainContact, {
       folder: 'vendor-contact-photos',
       resource_type: 'image',
@@ -1407,12 +1393,8 @@ const updateVendorById = async (req, res) => {
     // Production capacity summary derived from enabled facilities — same
     // helper logic as registerVendor (find *Capacity keys per facility).
     const buildProductionCapacityForUpdate = () => {
-      const enabledRaw = typeof updateData.enabledFacilities === 'string'
-        ? JSON.parse(updateData.enabledFacilities)
-        : updateData.enabledFacilities;
-      const detailsRaw = typeof updateData.facilityDetails === 'string'
-        ? JSON.parse(updateData.facilityDetails)
-        : updateData.facilityDetails;
+      const enabledRaw = safeJsonParse(updateData.enabledFacilities);
+      const detailsRaw = safeJsonParse(updateData.facilityDetails);
       if (!detailsRaw || typeof detailsRaw !== 'object') return null;
       const enabled = enabledRaw || {};
       const parts = [];
@@ -1479,7 +1461,7 @@ const updateVendorById = async (req, res) => {
       ownerPhone2: updateData.ownerPhone2 || null,
       ownerLandline: updateData.ownerLandline || null,
       ...(updateData.additionalOwners !== undefined && {
-        additionalOwners: typeof updateData.additionalOwners === 'string' ? JSON.parse(updateData.additionalOwners) : updateData.additionalOwners
+        additionalOwners: safeJsonParse(updateData.additionalOwners)
       }),
       businessStartDate: businessStartDateValid ? parsedBusinessStartDate : null,
       establishedYear: derivedEstablishedYear,
@@ -1490,10 +1472,10 @@ const updateVendorById = async (req, res) => {
 
       // Warehouse Details
       ...(updateData.enabledFacilities !== undefined && {
-        enabledFacilities: typeof updateData.enabledFacilities === 'string' ? JSON.parse(updateData.enabledFacilities) : updateData.enabledFacilities
+        enabledFacilities: safeJsonParse(updateData.enabledFacilities)
       }),
       ...(updateData.facilityDetails !== undefined && {
-        facilityDetails: typeof updateData.facilityDetails === 'string' ? JSON.parse(updateData.facilityDetails) : updateData.facilityDetails
+        facilityDetails: safeJsonParse(updateData.facilityDetails)
       }),
       ownershipType: updateData.ownershipType || null,
       warehouseAddress: updateData.warehouseAddress,
