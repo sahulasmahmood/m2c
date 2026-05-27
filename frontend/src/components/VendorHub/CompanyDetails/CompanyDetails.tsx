@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/UI/Button";
 import { Building2, Globe, Mail, Phone, MapPin, Image, Home, Building, User, Users, Scale, HelpCircle, Loader2, Briefcase, ArrowRight } from "lucide-react";
-import { ToggleButton, PhoneInput, parsePhone, CountrySelect, validatePhoneE164, PHONE_COUNTRY_CODES, AddressAutocomplete } from "@/components/VendorHub/FormUI";
+import { ToggleButton, PhoneInput, parsePhone, CountrySelect, validatePhoneE164, PHONE_COUNTRY_CODES, AddressAutocomplete, AccordionSection } from "@/components/VendorHub/FormUI";
 import { IconFile, IconFileText } from "@tabler/icons-react";
 import { handleUpload, showSuccessToast, showErrorToast } from "@/lib/toast-utils";
 import { lookupZipCode } from "@/lib/zipLookup";
@@ -1030,122 +1030,21 @@ export default function CompanyDetails({
     return 'empty';
   };
 
-  // ── Accordion Section Component ────────────────────────────────────
-  const AccordionSection = ({
+  // ── Accordion section props helper ─────────────────────────────────
+  // Mirrors the pattern used by OwnerProfile / ContactTradeInfo: the
+  // shared AccordionSection is imported from FormUI (module scope, so
+  // its identity is stable across renders — defining it locally inside
+  // CompanyDetails would unmount/remount every input on each keystroke
+  // and lose focus). This helper just bundles the dynamic props.
+  const sectionProps = (id: SectionKey) => ({
     id,
-    icon,
-    title,
-    subtitle,
-    children,
-  }: {
-    id: SectionKey;
-    icon: React.ReactNode;
-    title: string;
-    subtitle: string;
-    children: React.ReactNode;
-  }) => {
-    const isOpen = activeSection === id;
-    const status = getSectionStatus(id);
-    const sectionErrors = Object.keys(errors).filter(
-      k => FIELD_SECTION_MAP[k] === id && errors[k]
-    );
-    const hasErrors = sectionErrors.length > 0;
-
-    return (
-      <div
-        className={`rounded-xl border transition-all duration-300 ${!isOpen ? 'overflow-hidden' : ''} ${
-          isOpen
-            ? 'border-brand-300 shadow-md shadow-brand-500/8'
-            : hasErrors
-            ? 'border-red-300 bg-red-50/30'
-            : 'border-slate-200 hover:border-slate-300'
-        }`}
-      >
-        {/* Section Header — click to toggle */}
-        <button
-          type="button"
-          onClick={() => setActiveSection(isOpen ? id : id)}
-          className={`w-full rounded-t-xl flex items-center gap-4 px-5 py-4 text-left transition-colors duration-200 ${
-            isOpen ? 'bg-gradient-to-r from-brand-50/80 to-white' : 'bg-white hover:bg-slate-50/60'
-          }`}
-          aria-expanded={isOpen}
-          aria-controls={`section-${id}`}
-        >
-          {/* Icon bubble */}
-          <div
-            className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg transition-colors duration-200 ${
-              isOpen
-                ? 'bg-brand-500 text-white'
-                : hasErrors
-                ? 'bg-red-100 text-red-600'
-                : status === 'complete'
-                ? 'bg-emerald-100 text-emerald-600'
-                : 'bg-slate-100 text-slate-500'
-            }`}
-          >
-            {icon}
-          </div>
-
-          {/* Title + subtitle */}
-          <div className="flex-1 min-w-0">
-            <p className={`font-semibold text-sm leading-tight ${
-              isOpen ? 'text-brand-700' : 'text-slate-800'
-            }`}>{title}</p>
-            <p className="text-xs text-slate-500 mt-0.5 truncate">{subtitle}</p>
-          </div>
-
-          {/* Status badge */}
-          <div className="flex-shrink-0 flex items-center gap-2">
-            {hasErrors && !isOpen && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-semibold">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                Fix required
-              </span>
-            )}
-            {!hasErrors && status === 'complete' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                Done
-              </span>
-            )}
-            {!hasErrors && status === 'partial' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
-                In progress
-              </span>
-            )}
-            {/* Chevron */}
-            <svg
-              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                isOpen ? 'rotate-180' : ''
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </button>
-
-        {/* Section Content */}
-        <div
-          id={`section-${id}`}
-          className={`transition-all duration-300 ${
-            isOpen ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
-          }`}
-          aria-hidden={!isOpen}
-        >
-          <div className="px-5 pb-6 pt-2 space-y-5 border-t border-slate-100">
-            {children}
-          </div>
-        </div>
-      </div>
-    );
-  };
+    isOpen: activeSection === id,
+    status: getSectionStatus(id),
+    hasErrors: Object.keys(errors).some(
+      (k) => FIELD_SECTION_MAP[k] === id && Boolean(errors[k]),
+    ),
+    onActivate: () => setActiveSection(id),
+  });
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6 sm:py-6 font-sans animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1178,7 +1077,7 @@ export default function CompanyDetails({
             Fields: Business Type, Company Name, GST, ID Number, PAN, Password
             ═══════════════════════════════════════════════════════════════ */}
         <AccordionSection
-          id="profile"
+          {...sectionProps('profile')}
           icon={<Briefcase className="w-4.5 h-4.5" aria-hidden="true" />}
           title="Business Profile & Security"
           subtitle="Business type, company identity, regulatory IDs, and account password"
@@ -1439,7 +1338,7 @@ export default function CompanyDetails({
             Fields: Email 1/2, Phone 1/2, Landline, Website
             ═══════════════════════════════════════════════════════════════ */}
         <AccordionSection
-          id="contact"
+          {...sectionProps('contact')}
           icon={<Mail className="w-4.5 h-4.5" aria-hidden="true" />}
           title="Contact & Communication"
           subtitle="Business emails, phone numbers, landline, and website"
@@ -1589,7 +1488,7 @@ export default function CompanyDetails({
                     Factory Ownership, Same-as-Warehouse checkbox
             ═══════════════════════════════════════════════════════════════ */}
         <AccordionSection
-          id="address"
+          {...sectionProps('address')}
           icon={<MapPin className="w-4.5 h-4.5" aria-hidden="true" />}
           title="Legal Address & Factory Site"
           subtitle="Registered address, location details, and facility ownership"
@@ -1890,7 +1789,7 @@ export default function CompanyDetails({
             Fields: Logo, GST Certificate, PAN Card, Type-Specific Cert
             ═══════════════════════════════════════════════════════════════ */}
         <AccordionSection
-          id="documents"
+          {...sectionProps('documents')}
           icon={<IconFileText className="w-4.5 h-4.5" aria-hidden="true" />}
           title="Required Document Uploads"
           subtitle="Company logo, GST certificate, PAN card, and business registration certificate"
