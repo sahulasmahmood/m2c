@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Breadcrumb from '../Navigation/Breadcrumb';
 import { productService, Product, ProductVariant } from '@/services/productService';
 import { cartService } from '@/services/cartService';
@@ -26,7 +26,6 @@ const ProductDetail = ({ productSlug }: ProductDetailProps) => {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showAllDetails, setShowAllDetails] = useState(false);
   const [isImageHovered, setIsImageHovered] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [imageRef, setImageRef] = useState<HTMLImageElement | null>(null);
@@ -36,6 +35,24 @@ const ProductDetail = ({ productSlug }: ProductDetailProps) => {
   const [reviews, setReviews] = useState<{ id: string; rating: number; comment?: string; createdAt: string; user?: { name: string } }[]>([]);
   const [showReviews, setShowReviews] = useState(false);
   const [loadingReviews, setLoadingReviews] = useState(false);
+  // "About this item" description — clamp long free-text and reveal via Read more.
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [descClamped, setDescClamped] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
+
+  // Show the "Read more" toggle only when the description actually overflows
+  // its clamped height. Re-measures on description change and viewport resize
+  // (line count varies with width). Skips while expanded so "Read less" stays.
+  useEffect(() => {
+    const measure = () => {
+      const el = descRef.current;
+      if (!el || descExpanded) return;
+      setDescClamped(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [product?.description, descExpanded]);
 
   const fetchReviews = async () => {
     if (reviews.length > 0) { setShowReviews(true); return; }
@@ -996,25 +1013,33 @@ const ProductDetail = ({ productSlug }: ProductDetailProps) => {
                   </div>
                 )}
 
-                {/* Show additional details only when expanded */}
-                {showAllDetails && (
-                  <>
-                    {product.hasVariants && (
-                      <div className="flex justify-between py-3 border-b border-gray-100">
-                        <span className="font-semibold text-gray-700">Available Variants</span>
-                        <span className="text-gray-600">{visibleVariants.length}</span>
-                      </div>
-                    )}
-                  </>
+                {product.hasVariants && (
+                  <div className="flex justify-between py-3 border-b border-gray-100">
+                    <span className="font-semibold text-gray-700">Available Variants</span>
+                    <span className="text-gray-600">{visibleVariants.length}</span>
+                  </div>
                 )}
               </div>
 
               <div>
                 {/* About this item */}
                 <h4 className="text-xl font-bold text-gray-900 mb-4">About this item</h4>
-                <div className="prose prose-sm text-gray-600">
-                  <p>{product.description}</p>
+                <div className="prose prose-sm text-gray-600 max-w-none">
+                  <p
+                    ref={descRef}
+                    className={descExpanded ? '' : 'line-clamp-4'}
+                  >
+                    {product.description}
+                  </p>
                 </div>
+                {descClamped && (
+                  <button
+                    onClick={() => setDescExpanded(!descExpanded)}
+                    className="mt-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    {descExpanded ? 'Read less' : 'Read more'}
+                  </button>
+                )}
 
                 {/* Tags */}
                 {product.tags && product.tags.length > 0 && (
@@ -1050,17 +1075,6 @@ const ProductDetail = ({ productSlug }: ProductDetailProps) => {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* See Less/More Toggle */}
-            <div className="mt-6">
-              <button
-                onClick={() => setShowAllDetails(!showAllDetails)}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
-              >
-                <span className="mr-1">{showAllDetails ? '▲' : '▼'}</span>
-                {showAllDetails ? 'See less' : 'See more'}
-              </button>
             </div>
           </div >
 
