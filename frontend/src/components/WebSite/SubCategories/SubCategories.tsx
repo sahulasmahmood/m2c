@@ -188,16 +188,18 @@ export default function SubCategories({ categorySlug }: { categorySlug: string }
 
       {/* Main Content */}
       <div className="max-w-7xl 2xl:max-w-420 mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
-        {/* View All Products Button */}
-        <div className="mb-6 sm:mb-8 flex justify-center">
-          <Link
-            href={`/products?category=${category.slug}`}
-            className="inline-flex items-center px-4 sm:px-6 py-2.5 sm:py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 duration-300 text-sm sm:text-base"
-          >
-            <Grid3X3 className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
-            View All {category.name} Products
-          </Link>
-        </div>
+        {/* View All Products Button — only show when subcategories exist; empty state has its own CTA below */}
+        {subcategories.length > 0 && (
+          <div className="mb-6 sm:mb-8 flex justify-center">
+            <Link
+              href={`/products?category=${category.slug}`}
+              className="inline-flex items-center px-4 sm:px-6 py-2.5 sm:py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 duration-300 text-sm sm:text-base"
+            >
+              <Grid3X3 className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
+              View All {category.name} Products
+            </Link>
+          </div>
+        )}
 
         {/* Subcategories Grid */}
         {subcategories.length > 0 ? (
