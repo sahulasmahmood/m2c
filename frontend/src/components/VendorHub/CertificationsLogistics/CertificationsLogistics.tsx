@@ -26,7 +26,7 @@ import {
   Factory,
   Plus,
   Trash2,
-  Sparkles,
+  Sprout,
 } from 'lucide-react';
 import { handleUpload } from '@/lib/toast-utils';
 import { AccordionSection } from '@/components/VendorHub/FormUI';
@@ -160,7 +160,7 @@ const CERTIFICATIONS: CertificationConfig[] = [
     name: 'BCI',
     abbreviation: 'BCI',
     description: 'Better Cotton Initiative — sustainable cotton.',
-    icon: Sparkles,
+    icon: Sprout,
     iconBg: 'bg-amber-50',
     iconText: 'text-amber-600',
     iconRing: 'ring-amber-200/60',
@@ -661,6 +661,9 @@ export default function CertificationsLogistics({ onNext, onPrev, onUpdateData, 
           </p>
         </div>
       </div>
+
+      {/* ── Sections ───────────────────────────────────────────────────── */}
+      <div className="space-y-3">
 
       {/* Certifications */}
       <AccordionSection
@@ -1308,6 +1311,7 @@ export default function CertificationsLogistics({ onNext, onPrev, onUpdateData, 
           </div>
         </div>
       </AccordionSection>
+      </div>
 
       {/* Navigation */}
       <div className="flex items-center justify-between pt-4 gap-3">

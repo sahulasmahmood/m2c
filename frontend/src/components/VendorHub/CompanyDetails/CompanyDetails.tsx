@@ -55,11 +55,6 @@ interface FormData {
   /** Type-specific business certificate (IEC / CIN / Deed / LLPIN). */
   typeCertDocument: string | null;
   typeCertFile: File | null;
-  /** Login password for the vendor account. Required for registration.
-   *  Min 8 chars. Backend hashes with bcrypt before persisting. Admin
-   *  approval generates a new temporary password (overrides this) and
-   *  emails it to the vendor — until then, this is the working password. */
-  password: string;
   /** Per-business-type bucket of regulatory-ID values. The active
    *  type's value lives in `companyIdNumber`; this map remembers what
    *  the vendor previously typed for each OTHER type so toggling chips
@@ -109,7 +104,6 @@ type CompanyTypeId = 'proprietorship' | 'pvt-ltd' | 'partnership-firm' | 'llp';
 interface CompanyTypeFieldMeta {
   idLabel: string;
   idPlaceholder: string;
-  idHint: string;
   /** validator returns an error string, or '' if valid */
   validate: (v: string) => string;
   maxLength?: number;
@@ -123,7 +117,6 @@ const COMPANY_TYPE_META: Record<CompanyTypeId, CompanyTypeFieldMeta> = {
   'proprietorship': {
     idLabel: 'IEC Code',
     idPlaceholder: 'AAAAA1234A',
-    idHint: '10-character Import Export Code',
     maxLength: 10,
     uppercase: true,
     certLabel: 'IEC Certificate',
@@ -137,7 +130,6 @@ const COMPANY_TYPE_META: Record<CompanyTypeId, CompanyTypeFieldMeta> = {
   'pvt-ltd': {
     idLabel: 'CIN Number',
     idPlaceholder: 'U12345MH2020PTC123456',
-    idHint: '21-character Corporate Identification Number',
     maxLength: 21,
     uppercase: true,
     certLabel: 'CIN Certificate',
@@ -151,7 +143,6 @@ const COMPANY_TYPE_META: Record<CompanyTypeId, CompanyTypeFieldMeta> = {
   'partnership-firm': {
     idLabel: 'Partnership Deed Details',
     idPlaceholder: 'Deed registration number or details',
-    idHint: 'Registration number or short description of the partnership deed',
     maxLength: 120,
     certLabel: 'Partnership Deed Certificate',
     validate: (v) =>
@@ -164,7 +155,6 @@ const COMPANY_TYPE_META: Record<CompanyTypeId, CompanyTypeFieldMeta> = {
   'llp': {
     idLabel: 'LLPIN Number',
     idPlaceholder: 'AAA-1234',
-    idHint: '7-character LLP Identification Number',
     maxLength: 8,
     uppercase: true,
     certLabel: 'LLPIN Certificate',
@@ -256,7 +246,6 @@ export default function CompanyDetails({
         ? { [data.businessType]: { file: data.typeCertFile || null, document: data.typeCertDocument || null } }
         : {}
     ),
-    password: data.password || "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -275,7 +264,6 @@ export default function CompanyDetails({
     gstNumber: 'profile',
     companyIdNumber: 'profile',
     panNumber: 'profile',
-    password: 'profile',
     email: 'contact',
     email2: 'contact',
     phone: 'contact',
@@ -402,7 +390,6 @@ export default function CompanyDetails({
           ? { [data.businessType]: { file: data.typeCertFile || null, document: data.typeCertDocument || null } }
           : {}
       ),
-      password: data.password || "",
     });
   }
 
@@ -872,23 +859,6 @@ export default function CompanyDetails({
       newErrors.typeCertDocument = `${typeMeta.certLabel} upload is required`;
     }
 
-    // ── Login password (Step 8 fix C1) ────────────────────────────────
-    // Required min-8-char password. Backend bcrypts it before storing.
-    // Admin approval generates a new temporary password and emails the
-    // vendor — until then, this is the working credential.
-    //
-    // In edit mode (existing vendor — detected via `data.status`), an empty
-    // password is valid and means "keep the current password". The backend's
-    // updateVendorById doesn't include `password` in its persistence object
-    // when the value is empty, so the bcrypt hash stays untouched. Only
-    // enforce length when the admin DID type something.
-    const isExistingVendor = Boolean(data?.status);
-    if (!isExistingVendor && !currentFormData.password) {
-      newErrors.password = 'Password is required';
-    } else if (currentFormData.password && currentFormData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    }
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       // Mark all fields as touched to show errors
@@ -907,7 +877,6 @@ export default function CompanyDetails({
         'gstNumber',
         'companyIdNumber',
         'panNumber',
-        'password',
         'email',
         'email2',
         'phone',
@@ -984,7 +953,6 @@ export default function CompanyDetails({
 
   // ── Section Completion Status Helpers ────────────────────────────
   // Returns 'complete' | 'partial' | 'empty' for each section.
-  const isExistingVendor = Boolean(data?.status);
   const typeMeta = COMPANY_TYPE_META[formData.businessType as CompanyTypeId];
 
   const getSectionStatus = (section: SectionKey): 'complete' | 'partial' | 'empty' => {
@@ -994,7 +962,6 @@ export default function CompanyDetails({
         formData.companyName,
         formData.gstNumber,
         ...(typeMeta ? [formData.companyIdNumber, formData.panNumber] : []),
-        ...(isExistingVendor ? [] : [formData.password]),
       ];
       const optional = [formData.website];
       const filled = required.filter(Boolean).length;
@@ -1011,9 +978,12 @@ export default function CompanyDetails({
     }
     if (section === 'address') {
       const required = [formData.address, formData.city, formData.state, formData.zipCode, formData.country, formData.factoryOwnershipType];
-      const filled = required.filter(Boolean).length;
-      if (filled === required.length) return 'complete';
-      if (filled > 0) return 'partial';
+      // `country` defaults to "India", so a filled country alone doesn't mean
+      // the user has started this section — exclude it from the "in progress"
+      // trigger so an untouched address reads as empty, not "In progress".
+      const userEntered = [formData.address, formData.city, formData.state, formData.zipCode, formData.factoryOwnershipType];
+      if (required.every(Boolean)) return 'complete';
+      if (userEntered.some(Boolean)) return 'partial';
       return 'empty';
     }
     if (section === 'documents') {
@@ -1047,40 +1017,35 @@ export default function CompanyDetails({
   });
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6 sm:py-6 font-sans animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-6 space-y-5 font-sans animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-      {/* ── Page Header ───────────────────────────────────────────────── */}
-      <div className="flex items-start gap-4 pb-5 border-b border-slate-100 mb-5">
-        <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-brand-500 text-white shrink-0 shadow-sm">
+      {/* Header */}
+      <div className="flex items-center gap-3 pb-2">
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-brand-50 text-brand-600 shrink-0">
           <Building className="w-5 h-5" aria-hidden="true" />
         </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-bold text-slate-900 leading-tight">
+        <div className="min-w-0">
+          <h2 className="text-headline-md text-gray-900 leading-tight" style={{ textWrap: "balance" as any }}>
             Company Details
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Complete all 4 sections below to save and continue your registration.
+          <p className="text-sm text-gray-600 mt-0.5">
+            Complete all sections below to save and continue your registration.
           </p>
-        </div>
-        {/* Overall completion badge */}
-        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-600 shrink-0">
-          <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-          Step 1 of 8
         </div>
       </div>
 
-      {/* ── Accordion Sections ─────────────────────────────────────────── */}
+      {/* ── Sections ───────────────────────────────────────────────────── */}
       <div className="space-y-3">
 
         {/* ═══════════════════════════════════════════════════════════════
-            SECTION 1 — Business Profile & Security
-            Fields: Business Type, Company Name, GST, ID Number, PAN, Password
+            SECTION 1 — Business Profile
+            Fields: Business Type, Company Name, GST, ID Number, PAN
             ═══════════════════════════════════════════════════════════════ */}
         <AccordionSection
           {...sectionProps('profile')}
           icon={<Briefcase className="w-4.5 h-4.5" aria-hidden="true" />}
-          title="Business Profile & Security"
-          subtitle="Business type, company identity, regulatory IDs, and account password"
+          title="Business Profile"
+          subtitle="Business type, company identity, and regulatory IDs"
         >
           {/* Business Type */}
           <div>
@@ -1213,7 +1178,6 @@ export default function CompanyDetails({
             if (!meta) return null;
             const idErr = !!(errors.companyIdNumber && touched.companyIdNumber);
             const panErr = !!(errors.panNumber && touched.panNumber);
-            const idDescId = `companyIdNumber-${idErr ? 'error' : 'hint'}`;
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg bg-brand-50/40 border border-brand-100">
                 {/* Regulatory ID (IEC / CIN / Deed / LLPIN) */}
@@ -1234,7 +1198,7 @@ export default function CompanyDetails({
                     maxLength={meta.maxLength}
                     spellCheck={false}
                     autoComplete="off"
-                    aria-describedby={idDescId}
+                    aria-describedby={idErr ? 'companyIdNumber-error' : undefined}
                     aria-invalid={idErr}
                     className={`w-full text-sm font-medium px-4 py-2.5 border rounded-lg transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:border-brand-500 ${
                       idErr ? 'border-red-500 bg-red-50' : 'border-slate-300 hover:border-slate-400'
@@ -1242,10 +1206,8 @@ export default function CompanyDetails({
                     placeholder={meta.idPlaceholder}
                     style={meta.uppercase ? { fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em' } : undefined}
                   />
-                  {idErr ? (
-                    <p id={idDescId} className="text-red-500 text-xs mt-1" role="alert">{errors.companyIdNumber}</p>
-                  ) : (
-                    <p id={idDescId} className="text-slate-500 text-xs mt-1">{meta.idHint}</p>
+                  {idErr && (
+                    <p id="companyIdNumber-error" className="text-red-500 text-xs mt-1" role="alert">{errors.companyIdNumber}</p>
                   )}
                 </div>
 
@@ -1264,7 +1226,7 @@ export default function CompanyDetails({
                     maxLength={10}
                     spellCheck={false}
                     autoComplete="off"
-                    aria-describedby={`panNumber-${panErr ? 'error' : 'hint'}`}
+                    aria-describedby={panErr ? 'panNumber-error' : undefined}
                     aria-invalid={panErr}
                     className={`w-full text-sm font-medium px-4 py-2.5 border rounded-lg transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:border-brand-500 ${
                       panErr ? 'border-red-500 bg-red-50' : 'border-slate-300 hover:border-slate-400'
@@ -1272,62 +1234,10 @@ export default function CompanyDetails({
                     placeholder="AAAAA0000A"
                     style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em' }}
                   />
-                  {panErr ? (
+                  {panErr && (
                     <p id="panNumber-error" className="text-red-500 text-xs mt-1" role="alert">{errors.panNumber}</p>
-                  ) : (
-                    <p id="panNumber-hint" className="text-slate-500 text-xs mt-1">10-character Permanent Account Number</p>
                   )}
                 </div>
-              </div>
-            );
-          })()}
-
-          {/* Account Security — Password */}
-          {(() => {
-            const isExistingVendorLocal = Boolean(data?.status);
-            return (
-              <div className="pt-3 border-t border-slate-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <label htmlFor="password" className="text-sm font-semibold text-slate-700">
-                    Account Password{' '}
-                    {isExistingVendorLocal ? (
-                      <span className="text-slate-400 text-xs font-normal">(leave blank to keep current)</span>
-                    ) : (
-                      <span className="text-brand-500" aria-hidden="true">*</span>
-                    )}
-                  </label>
-                </div>
-                <p className="text-xs text-slate-500 mb-2">
-                  {isExistingVendorLocal
-                    ? 'A password is already set. Leave blank to keep the current one, or type a new one to replace it.'
-                    : "Set a login password. You'll receive a new temporary password after approval."}
-                </p>
-                <input
-                  id="password"
-                  type="password"
-                  name="password"
-                  autoComplete="new-password"
-                  value={formData.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
-                  onBlur={() => handleBlur('password')}
-                  placeholder={isExistingVendorLocal ? 'Type a new password to replace the current one' : 'At least 8 characters'}
-                  className={`w-full max-w-sm h-10 rounded-lg border px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${
-                    errors.password && touched.password
-                      ? 'border-red-400 bg-red-50/40 focus-visible:border-red-500'
-                      : 'border-slate-300 bg-white hover:border-slate-400 focus-visible:border-brand-500'
-                  }`}
-                  aria-invalid={!!(errors.password && touched.password)}
-                  aria-describedby={errors.password && touched.password ? 'password-error' : 'password-help'}
-                />
-                {isExistingVendorLocal && !formData.password && (
-                  <p id="password-help" className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
-                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" aria-hidden="true" />
-                    Password is set. Submitting without changing this field keeps the existing password.
-                  </p>
-                )}
-                {errors.password && touched.password && (
-                  <p id="password-error" className="text-red-500 text-xs mt-1.5" role="alert">{errors.password}</p>
-                )}
               </div>
             );
           })()}
@@ -1568,9 +1478,6 @@ export default function CompanyDetails({
                 showSuccessToast('Address auto-filled', s.displayName);
               }}
             />
-            <p className="text-xs text-slate-400 mt-1">
-              Type 3+ characters to see suggestions — fills Line 1, City, State, ZIP, and Country at once.
-            </p>
           </div>
 
           {/* Address Line 1 */}
@@ -1711,7 +1618,6 @@ export default function CompanyDetails({
                     errors.zipCode && touched.zipCode ? 'border-red-500 bg-red-50' : 'border-slate-300 hover:border-slate-400'
                   }`}
                   placeholder="ZIP code"
-                  aria-describedby="zipCode-hint"
                 />
                 {zipLoading && (
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-500" aria-live="polite" aria-label="Looking up postal code">
@@ -1719,7 +1625,6 @@ export default function CompanyDetails({
                   </span>
                 )}
               </div>
-              <p id="zipCode-hint" className="text-xs text-slate-400 mt-1">Auto-fills City and State on blur.</p>
               {errors.zipCode && touched.zipCode && (
                 <p className="text-red-500 text-xs mt-1" role="alert">{errors.zipCode}</p>
               )}
@@ -2034,7 +1939,7 @@ export default function CompanyDetails({
       </div>{/* end accordion sections */}
 
       {/* ── Footer Navigation ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between pt-5 mt-5 border-t border-slate-100">
+      <div className="flex items-center justify-between pt-4 gap-3">
         <p className="text-xs text-slate-400 hidden sm:block">
           All sections must be completed before proceeding.
         </p>

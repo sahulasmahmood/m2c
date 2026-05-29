@@ -27,9 +27,9 @@ interface WarehouseDetailsProps {
 }
 
 const ownershipTypes = [
-  { id: "owned", label: "Owned", description: "You own the facility" },
-  { id: "rented", label: "Rented", description: "Monthly rental agreement" },
-  { id: "lease", label: "Lease", description: "Long-term lease agreement" },
+  { id: "owned", label: "Owned" },
+  { id: "rented", label: "Rented" },
+  { id: "lease", label: "Lease" },
 ];
 
 // ── Factory image slots (Change 11) ────────────────────────────────────
@@ -235,20 +235,32 @@ export default function WarehouseDetails({
         'Scroll down to the highlighted field and fix it to continue.',
       );
 
-      // Wait one tick so React paints the error styling before we measure
-      // the scroll target.
-      requestAnimationFrame(() => {
+      // Auto-open the section containing the first error. Without this, an
+      // error on a closed section lands inside a max-h-0 body — the user
+      // only sees an empty red bar with no fields to fix. (Same fix as
+      // ContactTradeInfo.) Factory-image slot keys aren't in
+      // FIELD_SECTION_MAP, so fall back to 'photos' for them.
+      const fieldOrder = [
+        'ownershipType',
+        'warehouseAddress',
+        'warehouseCity',
+        'warehouseState',
+        'warehouseZip',
+        'warehouseCountry',
+        ...FACTORY_IMAGE_SLOTS.map((s) => `factoryImage:${s.id}`),
+        'mapLink',
+      ];
+      const firstErrorKey = fieldOrder.find((f) => newErrors[f]) ?? Object.keys(newErrors)[0];
+      const targetSection: SectionKey | undefined =
+        FIELD_SECTION_MAP[firstErrorKey] ||
+        (firstErrorKey.startsWith('factoryImage:') ? 'photos' : undefined);
+      if (targetSection) setActiveSection(targetSection);
+
+      // Wait for the accordion expand transition (300ms) so the target is
+      // visible before we measure and scroll to it.
+      setTimeout(() => {
         scrollToFirstError(newErrors, {
-          fieldOrder: [
-            'ownershipType',
-            'warehouseAddress',
-            'warehouseCity',
-            'warehouseState',
-            'warehouseZip',
-            'warehouseCountry',
-            ...FACTORY_IMAGE_SLOTS.map((s) => `factoryImage:${s.id}`),
-            'mapLink',
-          ],
+          fieldOrder,
           selectorMap: {
             ownershipType: '[data-field="ownershipType"]',
             warehouseCountry: '[data-field="warehouseCountry"]',
@@ -257,7 +269,7 @@ export default function WarehouseDetails({
             // attribute the helper's default selector falls through to.
           },
         });
-      });
+      }, 350);
       return;
     }
 
@@ -343,9 +355,11 @@ export default function WarehouseDetails({
         return formData.warehouseAddress && formData.warehouseCity ? 'complete' : 'partial';
       }
       const required = [formData.warehouseAddress, formData.warehouseCity, formData.warehouseState, formData.warehouseZip, formData.warehouseCountry];
-      const filled = required.filter(Boolean).length;
-      if (filled === required.length) return 'complete';
-      if (filled > 0) return 'partial';
+      // `warehouseCountry` defaults to "India", so exclude it from the
+      // "in progress" trigger — an untouched address reads as empty.
+      const userEntered = [formData.warehouseAddress, formData.warehouseCity, formData.warehouseState, formData.warehouseZip];
+      if (required.every(Boolean)) return 'complete';
+      if (userEntered.some(Boolean)) return 'partial';
       return 'empty';
     }
     if (section === 'photos') {
@@ -392,24 +406,20 @@ export default function WarehouseDetails({
   });
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6 sm:py-6 font-sans animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-6 space-y-5 font-sans animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-      {/* ── Page Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-start gap-4 pb-5 border-b border-slate-100 mb-5">
-        <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-brand-500 text-white shrink-0 shadow-sm">
+      {/* Header */}
+      <div className="flex items-center gap-3 pb-2">
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-brand-50 text-brand-600 shrink-0">
           <Warehouse className="w-5 h-5" aria-hidden="true" />
         </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-bold text-slate-900 leading-tight">
+        <div className="min-w-0">
+          <h2 className="text-headline-md text-gray-900 leading-tight" style={{ textWrap: "balance" as any }}>
             Warehouse Details
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-gray-600 mt-0.5">
             Provide details of your warehouse facility, photos, and location.
           </p>
-        </div>
-        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-600 shrink-0">
-          <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-          Step 2 of 8
         </div>
       </div>
 
@@ -418,7 +428,7 @@ export default function WarehouseDetails({
         <div
           role="status"
           aria-live="polite"
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-brand-300/40 bg-brand-50/60 px-5 py-4 mb-4"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-brand-300/40 bg-brand-50/60 px-5 py-4"
         >
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center shrink-0">
@@ -482,7 +492,6 @@ export default function WarehouseDetails({
                   onClick={() => handleInputChange('ownershipType', type.id)}
                 >
                   <span className="font-semibold">{type.label}</span>
-                  <span className="hidden sm:inline text-xs opacity-70 ml-1">— {type.description}</span>
                 </ToggleButton>
               ))}
             </div>
@@ -888,7 +897,7 @@ export default function WarehouseDetails({
       </div>{/* end accordion sections */}
 
       {/* ── Footer Navigation ──────────────────────────────────────────── */}
-      <div className="flex items-center justify-between pt-5 mt-5 border-t border-slate-100 gap-3">
+      <div className="flex items-center justify-between pt-4 gap-3">
         <Button
           onClick={onPrev}
           className="inline-flex items-center gap-2 h-11 px-5 text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 rounded-lg"
