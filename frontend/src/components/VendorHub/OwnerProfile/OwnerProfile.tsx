@@ -803,8 +803,8 @@ export default function OwnerProfile({ onNext, onPrev, onUpdateData, data }: Own
 
       {/* Additional Contacts (Directors / Partners / Owners) — only
          rendered when the upstream company type allows multiple contacts.
-         Proprietorship has a single owner, so the section is hidden. */}
-      {ownerStructure.allowMultiple ? (
+         Proprietorship has a single owner, so the section is simply hidden. */}
+      {ownerStructure.allowMultiple && (
       <AccordionSection
         {...sectionProps('team')}
         icon={<Users className="w-4.5 h-4.5" aria-hidden="true" />}
@@ -1001,20 +1001,6 @@ export default function OwnerProfile({ onNext, onPrev, onUpdateData, data }: Own
             </button>
           )}
       </AccordionSection>
-      ) : (
-        // Proprietorship — single owner only. Show an info note instead of
-        // the Add-owner section so the user understands why it's hidden.
-        <div className="rounded-xl border border-slate-200 p-5 bg-white">
-          <div className="flex items-start gap-3">
-            <Users className="w-5 h-5 mt-0.5 text-gray-400 shrink-0" aria-hidden="true" />
-            <p className="text-sm text-gray-600">
-              {ownerStructure.description}{' '}
-              <span className="text-gray-500">
-                Switch the business type on the previous step to add directors or partners.
-              </span>
-            </p>
-          </div>
-        </div>
       )}
 
       <AccordionSection
@@ -1120,13 +1106,13 @@ export default function OwnerProfile({ onNext, onPrev, onUpdateData, data }: Own
           className="inline-flex items-center gap-2 h-11 px-5 text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30"
         >
           <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-          Back to Warehouse Details
+          Back
         </Button>
         <Button
           onClick={handleNext}
           className="inline-flex items-center gap-2 h-11 px-6 text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 transition-colors shadow-sm shadow-brand-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
         >
-          Save &amp; Continue to Vendor Type
+          Save &amp; Continue
           <ArrowRight className="w-4 h-4" aria-hidden="true" />
         </Button>
       </div>

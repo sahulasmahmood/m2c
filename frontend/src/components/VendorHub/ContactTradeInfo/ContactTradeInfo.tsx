@@ -575,7 +575,7 @@ export default function ContactTradeInfo({ onNext, onPrev, onUpdateData, data }:
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
       {/* Main Contact */}
       <AccordionSection
         {...sectionProps('mainContact')}
